@@ -35,8 +35,15 @@ before(async()=>{
    insert into public.sales(id,brand_id,outlet_id,device_id,cashier_user_id,subtotal_idr,total_idr,status,created_at)
    values('${id(index+10)}','${out===foreignOutlet?otherBrand:brand}','${out}','${id(index)}','${user}',6000,6000,'COMPLETED',now());
    insert into public.sale_items(id,sale_id,product_id,product_name_snapshot,unit_base_price_idr,quantity,line_total_idr)
-   values('${id(index+20)}','${id(index+10)}','${id(32)}','Snapshot',6000,1,6000);`);
+   values('${id(index+20)}','${id(index+10)}','${id(32)}','Snapshot',6000,1,6000);
+   insert into public.payments(id,sale_id,method,amount_idr,tendered_idr,change_idr,verification_status)
+   values('${id(index+30)}','${id(index+10)}','CASH',6000,6000,0,'CASH_RECEIVED');
+   insert into public.sale_item_modifiers(id,sale_item_id,option_id,group_name_snapshot,option_name_snapshot,price_delta_idr)
+   values('${id(index+40)}','${id(index+20)}','${id(100)}','Size','Regular',0);
+   insert into public.sync_changes(brand_id,outlet_id,entity_type,entity_id,action,cashier_user_id,payload)
+   values('${out===foreignOutlet?otherBrand:brand}','${out}','SALE','${id(index+10)}','UPSERT','${user}','{}');`);
  }
+ await db.exec(`insert into public.sync_changes(brand_id,entity_type,entity_id,action,payload) values('${brand}','CATALOG','${id(32)}','UPSERT','{}')`);
 });
 after(async()=>{await db.close();});
 
@@ -158,4 +165,31 @@ test('invitation rate limit is enforced transactionally by SQL',async()=>{
   catch(error) { assert.equal(error.code,'PT429');limited=true;break; }
  }
  assert.ok(limited);
+});
+
+test('nested payment and modifier RLS follows the authorized parent sale',async()=>{
+ assert.equal((await scalar(cashier,'select count(*)::int as n from public.payments')).n,1);
+ assert.equal((await scalar(cashier,'select count(*)::int as n from public.sale_item_modifiers')).n,1);
+ assert.equal((await scalar(manager,'select count(*)::int as n from public.payments')).n,2);
+ assert.equal((await scalar(owner,'select count(*)::int as n from public.sale_item_modifiers')).n,3);
+});
+test('change feed cannot leak a peer or another outlet sale',async()=>{
+ assert.equal((await scalar(cashier,'select count(*)::int as n from public.sync_changes')).n,2);
+ assert.equal((await scalar(manager,'select count(*)::int as n from public.sync_changes')).n,3);
+ assert.equal((await scalar(owner,'select count(*)::int as n from public.sync_changes')).n,4);
+ await assert.rejects(as(cashier,'create table public.injected_scope(id int)'),/permission denied/);
+});
+
+test('cashier device approval cannot silently become manager approval after promotion',async()=>{
+ await admin(`update public.outlet_members set role='MANAGER' where user_id='${cashier}' and outlet_id='${outlet}'`);
+ try {
+  const enrolled=(await scalar(cashier,`select public.enroll_device('${id(91)}','${outlet}') as result`)).result;
+  await assert.rejects(as(cashier,`select public.issue_offline_lease('${id(91)}','${enrolled.device_secret}')`),/approval required/);
+  await assert.rejects(as(manager,`select public.approve_device('${id(91)}')`),/Forbidden/);
+  const requests=(await as(owner,`select * from public.list_device_requests('${outlet}')`))[0].rows;
+  assert.ok(requests.some(r=>r.device_id===id(91)&&r.role==='MANAGER'));
+  await as(owner,`select public.approve_device('${id(91)}')`);
+  const lease=(await scalar(cashier,`select public.issue_offline_lease('${id(91)}','${enrolled.device_secret}') as result`)).result;
+  assert.equal(lease.role,'MANAGER');
+ } finally { await admin(`update public.outlet_members set role='CASHIER' where user_id='${cashier}' and outlet_id='${outlet}'`); }
 });

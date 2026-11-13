@@ -43,3 +43,32 @@ Load the demo menu through Settings, then test in airplane mode:
 Local Robolectric tests execute transaction rollback/retry, concurrent submissions,
 immutable snapshots, constraints and DB reopen. They do not replace real device
 process-death, rendering, disk-full or OEM lifecycle validation.
+
+## M3 Auth/server acceptance
+
+Local automated coverage executes PostgreSQL/RLS through PGlite plus mocked Edge
+HTTP and Android auth state-machine tests. Hosted Auth/JWT plumbing, email delivery,
+Deno deployment and native Keystore/credential prompts remain separate acceptance.
+Use `supabase/README.md` on a fresh development project to perform:
+
+- Disable signup in Auth itself, not just UI. Confirm unauthenticated table/RPC
+  access is denied and no privileged key can be compiled into the Android app.
+- Provision the initial owner using trusted Auth admin tools and the bootstrap
+  example. Activate invited manager/cashier accounts with one-time TokenHash,
+  interrupt password setup and resume, then verify online sign-in/outlet selection.
+- Reject direct cashier price/membership/sale writes, peer/other-outlet sales and
+  nested payment/modifier rows. Test manager other-outlet denial, owner other-brand
+  denial and scoped change-feed reads. Disable profile/membership/brand and verify
+  denial without waiting for JWT expiry.
+- Approve manager devices as owner and cashier devices as assigned manager/owner.
+  Pending/revoked/new UUIDs cannot obtain leases without approval. Promote a cashier
+  to manager: old cashier device approval must not carry over to the new role.
+- Verify one-calendar-month lease, exact expiry, disabled offline policy, secure
+  device prompt cancellation/success, reboot/clock rollback/context mismatch,
+  AES-GCM corruption, process restart, changed project and offline logout.
+- Reconnect from a valid unlocked offline state: renew only after server approval,
+  keep the old deadline if service remains unavailable, and invalidate authority on
+  confirmed server denial. Inspect role-appropriate compact/expanded navigation.
+
+No real account, SMTP email, hosted schema application or native device test has
+been executed during this iteration. Do not upload M2 demo operations as real sales.

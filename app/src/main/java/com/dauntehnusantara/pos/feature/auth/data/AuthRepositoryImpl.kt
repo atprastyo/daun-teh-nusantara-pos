@@ -39,7 +39,7 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
             }
             error is AuthHttpFailure && error.status == 423 -> {
                 cache = cache.copy(lease = null); runCatching { save() }
-                mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, offline = false, canOffline = false, pendingDeviceId = cache.device?.id, message = AuthMessage.DEVICE_PENDING)
+                mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, membership = null, deviceRequests = emptyList(), offline = false, canOffline = false, pendingDeviceId = cache.device?.id, message = AuthMessage.DEVICE_PENDING)
             }
             error is AuthHttpFailure && error.status in listOf(400, 401, 403) -> {
                 runCatching { clear() }
@@ -50,13 +50,13 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
                 mutable.value = if (wasOffline && valid) AuthState(AuthStage.READY, true, membership = cache.membership,
                     email = cache.session?.email.orEmpty(), offline = true, leaseExpiresAtMs = cache.lease?.expiresAtMs,
                     canOffline = true, message = AuthMessage.UNAVAILABLE)
-                else mutable.value.copy(stage = AuthStage.LOCKED, offline = false, busy = false, canOffline = valid, message = AuthMessage.UNAVAILABLE)
+                else mutable.value.copy(stage = AuthStage.LOCKED, membership = null, deviceRequests = emptyList(), offline = false, busy = false, canOffline = valid, message = AuthMessage.UNAVAILABLE)
             }
             error is AuthInputFailure -> mutable.value = mutable.value.copy(busy = false, message = AuthMessage.INVALID_INPUT)
             else -> {
                 // Malformed/corrupt authorization data is not an offline fallback signal.
                 cache = cache.copy(lease = null); runCatching { save() }
-                mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, offline = false, busy = false, canOffline = false, message = AuthMessage.DENIED)
+                mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, membership = null, deviceRequests = emptyList(), offline = false, busy = false, canOffline = false, message = AuthMessage.DENIED)
             }
         }
     }
@@ -150,14 +150,14 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     override suspend fun unlockOffline() = mutex.withLock {
         if (!offlineValid()) {
             cache = cache.copy(lease = null); runCatching { save() }
-            mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, offline = false, canOffline = false, message = AuthMessage.OFFLINE_EXPIRED)
+            mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, membership = null, deviceRequests = emptyList(), offline = false, canOffline = false, message = AuthMessage.OFFLINE_EXPIRED)
         } else mutable.value = AuthState(AuthStage.READY, true, membership = cache.membership, email = cache.session?.email.orEmpty(),
             offline = true, leaseExpiresAtMs = cache.lease?.expiresAtMs, canOffline = true)
     }
     override suspend fun enforceLease() = mutex.withLock {
-        if (mutable.value.offline && !offlineValid()) {
+        if ((mutable.value.offline || mutable.value.stage == AuthStage.LOCKED && mutable.value.canOffline) && !offlineValid()) {
             cache = cache.copy(lease = null); runCatching { save() }
-            mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, offline = false, canOffline = false, message = AuthMessage.OFFLINE_EXPIRED)
+            mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, membership = null, deviceRequests = emptyList(), offline = false, canOffline = false, message = AuthMessage.OFFLINE_EXPIRED)
         }
     }
     override suspend fun loadDeviceRequests() = action {

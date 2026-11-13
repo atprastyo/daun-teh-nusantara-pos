@@ -43,7 +43,7 @@ class AuthApi @Inject constructor(private val http: AuthTransport, private val c
     }
     suspend fun deviceRequests(session: TokenSession, outlet: String): List<DeviceRequest> {
         val rows = JSONArray(http.request("/rest/v1/rpc/list_device_requests", JSONObject().put("p_outlet_id", outlet).toString(), session.accessToken))
-        return (0 until rows.length()).map { rows.getJSONObject(it).let { row -> DeviceRequest(row.getString("device_id"), row.getString("user_id"), row.getString("full_name"), row.getString("email")) } }
+        return (0 until rows.length()).map { rows.getJSONObject(it).let { row -> DeviceRequest(row.getString("device_id"), row.getString("user_id"), row.getString("full_name"), row.getString("email"), Role.valueOf(row.getString("role"))) } }
     }
     suspend fun approveDevice(session: TokenSession, id: String) {
         http.request("/rest/v1/rpc/approve_device", JSONObject().put("p_device_id", id).toString(), session.accessToken)

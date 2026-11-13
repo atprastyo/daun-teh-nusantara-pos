@@ -34,7 +34,7 @@ create table public.devices (
  id uuid primary key, outlet_id uuid not null references public.outlets(id), enrolled_by uuid not null references public.user_profiles(id),
  secret_hash text not null check(secret_hash ~ '^[0-9a-f]{64}$'), enrolled_at timestamptz not null default now(),
  last_seen_at timestamptz not null default now(), revoked_at timestamptz, approved_at timestamptz,
- approved_by uuid references public.user_profiles(id), unique(id,outlet_id)
+ approved_by uuid references public.user_profiles(id), approved_role text check(approved_role in ('OWNER','MANAGER','CASHIER')), unique(id,outlet_id)
 );
 create table public.staff_invitations (
  id uuid primary key default gen_random_uuid(), email text not null check(email=lower(btrim(email)) and length(email)<=254 and email like '%@%'),
@@ -208,10 +208,11 @@ create function public.enroll_device(p_device_id uuid,p_outlet_id uuid) returns 
  select * into v_device from public.devices where id=p_device_id for update;
  if found and (v_device.enrolled_by!=v_user or v_device.outlet_id!=p_outlet_id or v_device.revoked_at is not null) then raise exception 'Device denied' using errcode='42501'; end if;
  v_secret:=replace(gen_random_uuid()::text,'-','')||replace(gen_random_uuid()::text,'-','');
- insert into public.devices(id,outlet_id,enrolled_by,secret_hash,approved_at,approved_by)
+ insert into public.devices(id,outlet_id,enrolled_by,secret_hash,approved_at,approved_by,approved_role)
  values(p_device_id,p_outlet_id,v_user,encode(sha256(convert_to(v_secret,'UTF8')),'hex'),
  case when private.outlet_role(p_outlet_id)='OWNER' then now() end,
- case when private.outlet_role(p_outlet_id)='OWNER' then v_user end)
+ case when private.outlet_role(p_outlet_id)='OWNER' then v_user end,
+ case when private.outlet_role(p_outlet_id)='OWNER' then 'OWNER' end)
  on conflict(id) do update set secret_hash=excluded.secret_hash,last_seen_at=now();
  select brand_id into v_brand from public.outlets where id=p_outlet_id;
  insert into public.audit_logs(actor_user_id,brand_id,outlet_id,action,target_id) values(v_user,v_brand,p_outlet_id,'DEVICE_ENROLL',p_device_id);
@@ -223,9 +224,9 @@ create function public.issue_offline_lease(p_device_id uuid,p_device_secret text
  begin
  select * into v_device from public.devices where id=p_device_id and enrolled_by=auth.uid() and revoked_at is null for update;
  if not found or v_device.secret_hash!=encode(sha256(convert_to(coalesce(p_device_secret,''),'UTF8')),'hex') then raise exception 'Device denied' using errcode='42501'; end if;
- if v_device.approved_at is null then raise sqlstate 'PT423' using message='Device approval required'; end if;
  v_role:=private.outlet_role(v_device.outlet_id);
  if v_role is null then raise exception 'Forbidden' using errcode='42501'; end if;
+ if v_device.approved_at is null or v_device.approved_role is distinct from v_role then raise sqlstate 'PT423' using message='Device approval required'; end if;
  select b.* into v_brand from public.brands b join public.outlets o on o.brand_id=b.id where o.id=v_device.outlet_id;
  v_expiry:=case when v_brand.offline_access_enabled then v_now+interval '1 month' else v_now end;
  update public.devices set last_seen_at=v_now where id=v_device.id;
@@ -234,13 +235,13 @@ create function public.issue_offline_lease(p_device_id uuid,p_device_secret text
  end;
 $$;
 
-create function public.list_device_requests(p_outlet_id uuid) returns table(device_id uuid,user_id uuid,full_name text,email text,enrolled_at timestamptz)
+create function public.list_device_requests(p_outlet_id uuid) returns table(device_id uuid,user_id uuid,full_name text,email text,enrolled_at timestamptz,role text)
  language plpgsql security definer set search_path='' as $$
  begin
  if private.outlet_role(p_outlet_id) not in ('OWNER','MANAGER') or private.outlet_role(p_outlet_id) is null then raise exception 'Forbidden' using errcode='42501'; end if;
- return query select d.id,d.enrolled_by,p.full_name,u.email::text,d.enrolled_at from public.devices d
+ return query select d.id,d.enrolled_by,p.full_name,u.email::text,d.enrolled_at,private.outlet_role(d.outlet_id,d.enrolled_by) from public.devices d
  join public.user_profiles p on p.id=d.enrolled_by join auth.users u on u.id=d.enrolled_by
- where d.outlet_id=p_outlet_id and d.approved_at is null and d.revoked_at is null and
+ where d.outlet_id=p_outlet_id and (d.approved_at is null or d.approved_role is distinct from private.outlet_role(d.outlet_id,d.enrolled_by)) and d.revoked_at is null and
  (private.outlet_role(p_outlet_id)='OWNER' or private.outlet_role(p_outlet_id,d.enrolled_by)='CASHIER') and private.outlet_role(p_outlet_id,d.enrolled_by) is not null;
  end;
 $$;
@@ -251,7 +252,7 @@ create function public.approve_device(p_device_id uuid) returns void language pl
  if not found then raise exception 'Device denied' using errcode='42501'; end if;
  v_actor:=private.outlet_role(v_device.outlet_id); v_target:=private.outlet_role(v_device.outlet_id,v_device.enrolled_by);
  if v_actor is null or v_target is null or not (v_actor='OWNER' or v_actor='MANAGER' and v_target='CASHIER') then raise exception 'Forbidden' using errcode='42501'; end if;
- update public.devices set approved_at=now(),approved_by=auth.uid() where id=p_device_id;
+ update public.devices set approved_at=now(),approved_by=auth.uid(),approved_role=v_target where id=p_device_id;
  select brand_id into v_brand from public.outlets where id=v_device.outlet_id;
  insert into public.audit_logs(actor_user_id,brand_id,outlet_id,action,target_id) values(auth.uid(),v_brand,v_device.outlet_id,'DEVICE_APPROVE',p_device_id);
  end;
@@ -307,7 +308,7 @@ grant select on public.brand_members to authenticated;
 create policy read_scoped on public.outlet_members for select to authenticated using (private.outlet_role(outlet_id) in ('OWNER','MANAGER') or (user_id=auth.uid() and private.outlet_role(outlet_id) is not null));
 grant select on public.outlet_members to authenticated;
 create policy read_scoped on public.devices for select to authenticated using (private.outlet_role(outlet_id) is not null and (enrolled_by=auth.uid() or private.outlet_role(outlet_id) in ('OWNER','MANAGER')));
-grant select(id,outlet_id,enrolled_by,enrolled_at,last_seen_at,revoked_at,approved_at,approved_by) on public.devices to authenticated;
+grant select(id,outlet_id,enrolled_by,enrolled_at,last_seen_at,revoked_at,approved_at,approved_by,approved_role) on public.devices to authenticated;
 create policy read_scoped on public.staff_invitations for select to authenticated using (private.outlet_role(outlet_id) in ('OWNER','MANAGER'));
 grant select on public.staff_invitations to authenticated;
 create policy read_scoped on public.audit_logs for select to authenticated using (private.owner(brand_id));

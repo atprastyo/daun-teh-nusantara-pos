@@ -64,7 +64,9 @@ Android Keystore or actual device prompts. Run the live checks below separately.
    Build-time checks reject secret/service-role keys; runtime checks also reject
    privileged keys and non-HTTPS URLs. The adapter uses the documented Auth REST
    endpoints and the RPCs defined in this schema; there is no Supabase SDK/Ktor
-   version dependency to guess. No keys are required to build the unconfigured app.
+   version dependency to guess. No keys are required to build the unconfigured app. The Android adapter rejects
+   plain HTTP; local CLI HTTP endpoints need an explicit HTTPS proxy or a hosted
+   development HTTPS endpoint, not a debug cleartext exception.
 
 ## Sign-in, roles and device enrollment
 
@@ -80,7 +82,9 @@ client device UUID and returns a server-generated device secret; only its SHA-25
 hash is stored server-side and no client can SELECT that hash. Owners may approve
 their own enrollment. Manager devices require owner approval. Cashier devices
 require owner or assigned-outlet manager approval. In Staf, authorized reviewers
-load pending device requests, verify the user/device UUID and approve. A pending
+load pending device requests, verify the user/device UUID and requested role, and approve.
+Approvals bind the current role; a role change requires renewed approval, so a
+cashier device cannot inherit manager access under an old cashier approval. A pending
 cashier/manager stays locked and retries online after approval. Generating another
 UUID after revocation creates another pending device, not approved offline access.
 

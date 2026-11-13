@@ -38,7 +38,8 @@ resume from its encrypted pending session without reusing the consumed invite co
 Owners can self-enroll; managers require owner device approval; cashiers require
 owner or assigned-outlet manager approval. Device secrets are server-generated and
 only SHA-256 hashes are stored server-side. New device IDs cannot bypass approval
-for cashier/manager users. This is logical enrollment, not hardware attestation or
+for cashier/manager users. Approval binds the user’s current role: promotion from
+cashier to manager requires fresh owner device approval. This is logical enrollment, not hardware attestation or
 rooted-device resistance. Logout invalidates the local encrypted authority/key.
 
 Online membership/profile/brand checks are authoritative on each RPC/RLS read.

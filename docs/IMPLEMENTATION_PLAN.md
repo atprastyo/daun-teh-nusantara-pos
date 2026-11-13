@@ -14,7 +14,7 @@ Development policy: maintain only the current initial Room schema during this de
 Phone/tablet adaptive POS, cart, modifier selection, cash/manual QRIS, local atomic sale+outbox, receipts, tests. Acceptance: offline sale survives restart.
 
 ## M3 Supabase foundation & security
-SQL migrations for brands/outlets/members/catalog/sales/sync/audit, RLS policies and tests, invite/login, role-specific navigation. Acceptance: unauthorized cross-outlet access denied server-side.
+Initial development SQL schema for brands/outlets/members/catalog/sales/sync/audit (no development migrations), RLS policies and tests, invite/login, role-specific navigation and approved-device offline leases. Acceptance: unauthorized cross-outlet access denied server-side.
 
 ## M4 Push sync
 Secure transactional `submit_sale`, operation dedupe, WorkManager retry/status. Acceptance: retry/ack-loss tests prove no duplicates.

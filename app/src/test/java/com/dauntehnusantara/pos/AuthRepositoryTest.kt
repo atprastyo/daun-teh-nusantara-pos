@@ -36,12 +36,13 @@ class AuthRepositoryTest {
     }
     private class FakeHttp(private val base:Long) : AuthTransport {
         var unavailable=false; var denied=false; var noAccess=false; var pending=false
-        var passwordFailure=false; var role=Role.CASHIER; var issuedDevice=""; var invitationStatus=200
+        var passwordFailure=false; var protocolFailure=false; var role=Role.CASHIER; var issuedDevice=""; var invitationStatus=200
         val calls=mutableListOf<String>(); var activations=0; var refreshes=0
         override suspend fun request(path:String,body:String?,token:String?,method:String):String {
             calls+=path
             if(unavailable)throw IOException("simulated connection failure")
             if(denied)throw AuthHttpFailure(403)
+            if(protocolFailure)throw IllegalStateException("simulated invalid authorization response")
             return when {
                 path.startsWith("/auth/v1/token") || path=="/auth/v1/verify" -> {
                     if(path.contains("refresh_token"))refreshes++
@@ -90,7 +91,7 @@ class AuthRepositoryTest {
         assertTrue(restored.state.value.canOffline);restored.unlockOffline();assertTrue(restored.state.value.offline)
         assertEquals(leaseCalls,http.calls.count{it.endsWith("issue_offline_lease")})
         clock.value=clock.value.copy(elapsedMs=clock.value.elapsedMs+30L*24*60*60*1000)
-        restored.enforceLease();assertEquals(AuthStage.LOCKED,restored.state.value.stage);assertFalse(restored.state.value.canOffline)
+        restored.enforceLease();assertEquals(AuthStage.LOCKED,restored.state.value.stage);assertFalse(restored.state.value.canOffline);assertNull(restored.state.value.membership)
     }
     @Test fun rebootAndClockRollbackCannotResetLease():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
@@ -148,6 +149,13 @@ class AuthRepositoryTest {
         assertEquals(deadline,repo.state.value.leaseExpiresAtMs)
         http.unavailable=false;http.denied=true;repo.refresh()
         assertFalse(repo.state.value.offline);assertFalse(repo.state.value.canOffline);assertNull(store.value)
+    }
+    @Test fun malformedAuthorizationResponseCannotPreserveOfflineAuthority():Unit=runBlocking {
+        val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
+        signedIn(repo);http.unavailable=true;repo.refresh();repo.unlockOffline()
+        http.unavailable=false;http.protocolFailure=true;repo.refresh()
+        assertEquals(AuthStage.LOCKED,repo.state.value.stage);assertFalse(repo.state.value.canOffline)
+        assertNull(repo.state.value.membership)
     }
     @Test fun backendConfigRejectsSecretKeysAndInsecureUrls() {
         fun jwt(role:String)="a."+Base64.getUrlEncoder().withoutPadding().encodeToString("{\"role\":\"$role\"}".toByteArray())+".b"

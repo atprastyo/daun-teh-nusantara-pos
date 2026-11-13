@@ -1,7 +1,6 @@
 package com.dauntehnusantara.pos.core.network
 
 import java.io.ByteArrayOutputStream
-import java.io.IOException
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 import javax.inject.Inject
@@ -38,7 +37,7 @@ class JsonHttpClient @Inject constructor(private val config: BackendConfig) : Au
                 val buffer = ByteArray(4096)
                 while (true) {
                     val size = input.read(buffer); if (size < 0) break
-                    if (output.size() + size > 262144) throw IOException("Response too large")
+                    if (output.size() + size > 262144) throw IllegalStateException("Invalid oversized authorization response")
                     output.write(buffer, 0, size)
                 }
             }

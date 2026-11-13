@@ -3,7 +3,7 @@
 - [x] M0 Toolchain & skeleton
 - [x] M1 Local schema & catalog
 - [x] M2 POS & checkout offline
-- [ ] M3 Supabase foundation & security
+- [x] M3 Supabase foundation & security (local implementation; live acceptance pending)
 - [ ] M4 Push sync
 - [ ] M5 Pull sync & multi-device
 - [ ] M6 Reports, staff, recovery
@@ -322,3 +322,110 @@ policies and tests, invitation/login, memberships, role/outlet-specific navigati
 secure device context and bounded offline authorization. Define the production
 price/offline/QRIS/enrollment decisions before enabling real cashier use. Do not
 implement M4 push transport in the same milestone.
+
+## M3 — Supabase foundation & security — 2026-11-13
+
+Implemented locally; hosted Auth/SMTP/REST and native-device acceptance remain
+pending configuration and hardware. No migration or deployment was performed.
+
+### Files changed
+
+- `supabase/schema.sql`: fresh initial PostgreSQL schema with 19 exposed RLS tables,
+  private scoped helpers, explicit grants/default-privilege hardening, immutable
+  server sales, invitation/acceptance, role-bound device approval/enrollment and
+  one-UTC-calendar-month lease RPCs. No authenticated direct table writes.
+- `supabase/functions/invite-staff/{handler,index}.ts`: verified caller and scoped
+  SQL intent before server-only Auth Admin invite; bounded input, timeout/error/
+  rate/conflict handling, no token/email/provider-error logging.
+- `supabase/{config.toml,bootstrap-owner.sql.example,templates/invite.html,README.md}`:
+  development Auth settings, trusted bootstrap, one-time TokenHash activation and
+  setup/live-acceptance instructions. No actual credentials or real IDs provided.
+- `supabase/{package.json,package-lock.json,tests/*.test.mjs}`: pinned test-only
+  PGlite 0.5.16 PostgreSQL/RLS and mocked Edge HTTP tests using installed Node 22.17.1.
+- `feature/auth/domain/Auth.kt`: typed roles/context, lease/clock rules, repository
+  and use cases, role-navigation and invitation capabilities. Maximum offline period
+  chosen by user: one calendar month, capped at 31 days without client extension.
+- `feature/auth/data/{AuthApi,AuthCache,AuthRepositoryImpl}.kt`: Auth REST/RPC adapter,
+  project-bound encrypted-cache contents, token rotation, resumable password setup,
+  first-online outlet enrollment, approval, offline/denial/reconnection state machine.
+- `feature/auth/presentation/{AuthViewModel,AuthScreen}.kt`: login/activation, outlet
+  selection, device approval/UUID matching, role-specific phone/rail portal, OS
+  device-credential offline unlock, error/retry, periodic/reconnection validation
+  and explicit debug-only entry to the isolated M2 demo.
+- `core/common/{AccessClock,NetworkAvailability}.kt`, `core/network/{BackendConfig,
+  JsonHttpClient,AndroidNetworkAvailability}.kt`, `core/security/KeystoreSecretStore.kt`:
+  monotonic/boot/secure-lock observations, validated connectivity, HTTPS-only public
+  config, no redirects/caching, bounded sensitive responses and atomic Keystore
+  AES-GCM no-backup storage. Malformed authorization is not an offline fallback.
+- `MainActivity.kt`, `core/di/StorageModule.kt`, manifest, strings, `app/build.gradle.kts`,
+  `local.properties.example`, `.gitignore`: integration and public-only configuration
+  with a build guard against secret/service-role keys. Android library versions and
+  initial Room v1/12-table schema unchanged. No app data reset.
+- JVM `OfflineLeaseTest.kt`, `AuthRepositoryTest.kt`; native `AuthScreenTest.kt`:
+  clock/device/role bounds, cache/refresh/activation/approval/denial/reconnection and
+  role UI tests. Existing M0–M2 coverage retained.
+- README, implementation plan, product requirements, Auth/security, data model,
+  test plan, decisions D026–D034 and this report updated.
+
+### Commands actually executed and outcomes
+
+- Read required docs, bootstrap/iteration policy, existing source and toolchain.
+  Used the installed codebase-memory skill: refreshed the current project index,
+  queried integration symbols and checked relevant path coverage; source was read.
+- `npm view @electric-sql/pglite version`: verified 0.5.16, then
+  `npm install --prefix supabase --ignore-scripts`: installed/locked the test-only
+  dependency. No runtime Android dependency added.
+- `npm test --prefix supabase`: final **28 passed, zero failed/skipped**. Actual
+  PostgreSQL role/RLS execution covers own/nested sales, outlet/brand separation,
+  unauthorized writes/creation, disabled profiles/memberships/brands/devices,
+  invitation permissions/verified email/expiry/rate limits, device proof/approval,
+  role-change reapproval, calendar-month bounds and scoped change-feed reads.
+  Edge tests use mocked HTTP; no emails were sent. Node logs its expected
+  experimental TypeScript-stripping notice.
+- Gradle uses Android Studio JBR 21 via
+  `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
+  `./gradlew :app:compileDebugKotlin --no-daemon --console=plain`: passed after fixing
+  the initial Properties import (Gradle's java extension shadows a package name).
+- `./gradlew build :app:assembleDebugAndroidTest --no-daemon --console=plain`:
+  integrated M3 passed, then a clean run caught a stale AccessClock DI import after
+  moving the abstraction into core. Corrected it; subsequent full builds passed.
+  Final `./gradlew build :app:assembleDebugAndroidTest --no-daemon --console=plain`:
+  **BUILD SUCCESSFUL in 2m 3s**, 161 actionable tasks (35 executed, 126 up-to-date).
+  Debug: **55 passed**, no failures/errors/skips. Release: **46 passed**, no
+  failures/errors, **9 expected demo-only skips**. Lint: **zero errors, 18 existing
+  version notices**. Both app variants and all native-test sources/APK compile;
+  native tests were not run. The preceding role-response integration build also
+  passed in 2m 16s.
+- Reports: `app/build/reports/tests/testDebugUnitTest/index.html`,
+  `app/build/reports/tests/testReleaseUnitTest/index.html`,
+  `app/build/reports/lint-results-debug.html`.
+  Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
+  Verified Room remains schema v1 with the same 12 tables; no Room migration added.
+- Negative configuration check:
+  `./gradlew help -PSUPABASE_PUBLIC_KEY=sb_secret_test_fixture --no-daemon --console=plain`:
+  **correctly rejected before tasks/packaging** with the redacted public-key-only
+  guard message. This is an expected failure test, not an unresolved build error.
+- No Supabase CLI, Docker, Deno runtime or connected Android device/emulator is
+  available. Supabase Auth REST contracts were checked against official sources;
+  live GoTrue/PostgREST/SMTP, Deno hosting/config startup, hardware Keystore,
+  credential prompt and real lifecycle/network acceptance were not executed.
+  The existing incomplete NDK installation remains a release-hardening limitation.
+
+### Decisions, practical limits and next milestone
+
+- User selected up to one calendar month offline; disconnected revocation can be
+  delayed to the next successful server check or expiry. Reboot/rollback/missing
+  boot data or insecure OS lock requires online validation. No offline renewal.
+- Private cache authority is not hardware attestation/root resistance. Generic Data
+  API RLS is live user/outlet based; M4 must validate current approved device proof
+  before accepting sales. Auth logout alone does not invalidate every issued JWT.
+- Catalog/sales remain read-only through the authenticated backend API. Real checkout
+  and synced catalog are not enabled merely by login; M2 DEMO_SALE rows stay isolated
+  and must never be uploaded. No real credentials/accounts/roster are invented.
+- Follow `supabase/README.md` to configure/review a fresh development project and
+  run the listed live checks. No production schema application, deployment, account
+  provisioning or email sending was authorized or performed.
+- **Exact next milestone: M4 — idempotent push synchronization**, after live M3 setup
+  validation and production price/device/QRIS decisions. Implement vetted atomic
+  submit_sale, stable operation/hash dedupe, current membership/device checks,
+  WorkManager retries/status and ack-loss/duplicate tests. Do not combine M5 pull.

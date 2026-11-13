@@ -183,7 +183,7 @@ private fun InviteForm(state: AuthState, model: AuthViewModel) {
     if (state.offline) Text(stringResource(R.string.auth_invite_online))
     OutlinedButton(onClick = model::devices, enabled = !state.offline && !state.busy) { Text(stringResource(R.string.auth_load_devices)) }
     state.deviceRequests.forEach { request ->
-        Text("${request.fullName} · ${request.email}")
+        Text("${request.fullName} · ${request.email} · ${request.role.name}")
         Text(request.deviceId)
         Button(onClick = { model.approve(request.deviceId) }, enabled = !state.offline && !state.busy) { Text(stringResource(R.string.auth_approve_device)) }
     }

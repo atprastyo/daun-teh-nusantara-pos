@@ -23,7 +23,7 @@ object OfflineLeaseRules {
 }
 enum class AuthStage { LOADING, LOGIN, ACTIVATE, OUTLETS, READY, LOCKED }
 enum class AuthMessage { RATE_LIMIT, INVITE_CONFLICT, DEVICE_PENDING, CONFIGURATION, INVALID_INPUT, SIGN_IN_FAILED, UNAVAILABLE, NO_ACCESS, DENIED, OFFLINE_EXPIRED, INVITE_SENT, INVITE_UNCERTAIN }
-data class DeviceRequest(val deviceId: String, val userId: String, val fullName: String, val email: String)
+data class DeviceRequest(val deviceId: String, val userId: String, val fullName: String, val email: String, val role: Role)
 data class AuthState(val stage: AuthStage = AuthStage.LOADING, val configured: Boolean = false,
     val choices: List<Membership> = emptyList(), val membership: Membership? = null, val email: String = "",
     val offline: Boolean = false, val leaseExpiresAtMs: Long? = null, val canOffline: Boolean = false,

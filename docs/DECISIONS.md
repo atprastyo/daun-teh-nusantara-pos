@@ -218,7 +218,9 @@ Official references: [Room migrations](https://developer.android.com/training/da
   consumed one-time code. Hardware-backed behavior still requires device validation.
 - D032: Owners may self-enroll. Manager devices need owner approval; cashier devices
   need an owner/assigned-outlet manager. Secret proof plus approval is required for
-  leases. New cashier device UUIDs stay pending after revocation until approved.
+  leases. New cashier device UUIDs stay pending after revocation until approved. Approvals
+  bind the granted role; a promotion from cashier to manager requires fresh owner
+  approval rather than inheriting a manager-approved cashier device grant.
   Device revocation does not itself revoke arbitrary existing Auth JWTs; use live
   profile/membership denial and require device proof in M4 operations. Keep the
   compatible OS credential intent path for API 26 support; native prompt acceptance
