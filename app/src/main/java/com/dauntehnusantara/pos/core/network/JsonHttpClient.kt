@@ -37,7 +37,7 @@ class JsonHttpClient @Inject constructor(private val config: BackendConfig) : Au
                 val buffer = ByteArray(4096)
                 while (true) {
                     val size = input.read(buffer); if (size < 0) break
-                    if (output.size() + size > 262144) throw IllegalStateException("Invalid oversized authorization response")
+                    if (output.size() + size > 1048576) throw IllegalStateException("Invalid oversized authorization response")
                     output.write(buffer, 0, size)
                 }
             }

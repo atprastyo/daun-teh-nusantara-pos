@@ -32,4 +32,5 @@ data class PaymentEntity(@PrimaryKey val id: String, val saleId: String, val met
     entity = SaleEntity::class, parentColumns = ["id"], childColumns = ["aggregateId"], onDelete = ForeignKey.RESTRICT)])
 data class OutboxEntity(@PrimaryKey val id: String, val aggregateId: String,
     val operationType: String, val payloadJson: String, val state: String,
-    val attempts: Int, val createdAtUtcMs: Long)
+    val attempts: Int, val createdAtUtcMs: Long, val nextAttemptAtMs: Long = 0,
+    val lastErrorCode: String? = null, val acknowledgedAtMs: Long? = null)

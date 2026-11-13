@@ -20,3 +20,19 @@ Loading, empty, validation error, offline, pending sync count, sync failure, ser
 
 ## Checkout details
 Modifier constraints, size/sugar/ice/topping, quantity, integer IDR totals, cash change, manual QRIS verification confirmation, duplicate-submit prevention, confirmation and receipt details.
+
+
+## M6 management and recovery
+
+Reports state accepted-server basis, Jakarta period and snapshot timestamp/cache
+status; loading, empty, validation, retry and offline states do not imply zero revenue.
+Owner chooses brand/all or one outlet; manager stays the current assigned outlet.
+Compact layouts stack metrics; expanded layouts show them side by side. CSV uses a
+system document picker and the snapshot selected before opening it.
+
+Staff mutations are online-only, reasoned, confirmed and versioned. Explain device
+revocation, fresh approval after restoration and delayed disconnected revocation.
+Show readable access audit labels rather than raw internal action codes. Account
+creation remains manual. Settings recovery export is scoped/private, excludes
+credentials and never claims a complete server backup. A restored-feed conflict tells
+users to export retained data and contact the owner without clearing application data.

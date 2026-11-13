@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.collect
 import com.dauntehnusantara.pos.core.common.NetworkAvailability
 
 @HiltViewModel
-class AuthViewModel @Inject constructor(private val repository: AuthUseCases, network: NetworkAvailability) : ViewModel() {
+class AuthViewModel @Inject constructor(private val repository: AuthUseCases, network: NetworkAvailability, private val syncScheduler: com.dauntehnusantara.pos.feature.sync.domain.SyncScheduler) : ViewModel() {
     val state = repository.state
     private var action: Job? = null
     private var networkOnline = false
@@ -20,6 +20,7 @@ class AuthViewModel @Inject constructor(private val repository: AuthUseCases, ne
         viewModelScope.launch {
             network.validated.catch { emit(false) }.collect { online ->
                 networkOnline = online
+                if (online) syncScheduler.enqueue()
                 val current = state.value
                 if (online && !current.busy && (current.stage == AuthStage.LOCKED || current.stage == AuthStage.READY && current.offline)) repository.refresh()
             }
@@ -37,7 +38,6 @@ class AuthViewModel @Inject constructor(private val repository: AuthUseCases, ne
         action = viewModelScope.launch { block() }
     }
     fun signIn(email: String, password: String) = launch { repository.signIn(email, password) }
-    fun activate(code: String, password: String) = launch { repository.activate(code, password) }
     fun select(outlet: String) = launch { repository.selectOutlet(outlet) }
     fun refresh() = launch { repository.refresh() }
     fun switchOutlet() = launch { repository.chooseOutlets() }
@@ -45,8 +45,8 @@ class AuthViewModel @Inject constructor(private val repository: AuthUseCases, ne
     fun signOut() = launch { repository.signOut() }
     fun devices() = launch { repository.loadDeviceRequests() }
     fun approve(id: String) = launch { repository.approveDevice(id) }
-    fun invite(email: String, role: Role) = launch { repository.invite(email, role) }
     fun foreground() {
+        syncScheduler.enqueue()
         if (state.value.stage == AuthStage.READY && (!state.value.offline || networkOnline)) refresh()
     }
 }

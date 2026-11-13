@@ -1,143 +1,138 @@
-# M3 Supabase foundation
+# Supabase development setup
 
-This is an initial development schema and native Android auth integration. Nothing
-has been deployed or applied to a hosted project by Codex. There is no migration
-history during the current development phase, per project direction. `schema.sql`
-expects a fresh project and does not drop existing objects or data.
+This repository contains the current initial development schema and Android Auth,
+push and pull integration. No hosted schema, accounts or deployments are applied by
+these files. There is no development migration history; `schema.sql` expects a fresh
+project and must not be run blindly over an existing/production database.
 
-## Local executable security checks
+## Staff accounts: manual provisioning
 
-Requires Node 22.17+ (the installed 22.17.1 supports TypeScript stripping):
+The private brand uses administrator-created accounts. Follow
+[the provisioning guide](../docs/MANUAL_STAFF_PROVISIONING.md):
+
+1. In a fresh development project, review/apply `schema.sql` as a trusted SQL operator.
+2. Disable public signup/anonymous login in Auth; retain password policy, email
+   confirmation and rate limits. Confirm manually created accounts through trusted
+   admin controls. `config.toml` supplies local CLI settings, not hosted settings.
+3. Manually create the owner in Supabase Auth and configure/run the private copy of
+   `bootstrap-owner.sql.example` with the actual brand/outlet roster.
+4. Manually create Manager/Cashier accounts in Supabase Auth. Configure/run private
+   copies of `provision-staff.sql.example` for their profile and each assigned outlet.
+   It refuses implicit reactivation/role changes and records an audit entry.
+5. Configure only `SUPABASE_URL` (HTTPS) and `SUPABASE_PUBLIC_KEY` (public anon or
+   publishable key) in ignored `local.properties`, following the example; rebuild.
+6. Staff sign in normally, select an outlet and obtain device approval. Owners may
+   self-approve; managers need owner approval; cashiers need owner/assigned manager.
+
+Auth users without active application profile/membership receive no POS access.
+Passwords belong only to Supabase Auth. Never insert passwords/auth identities through
+application SQL or put admin/service keys in Android. There is no invite/activation
+UI, invitation table/RPC, email template, Edge function or SMTP setup requirement for
+staff onboarding. Password recovery remains an admin/Auth operation, not a new app UI.
+
+The removed invitation deployment is not automatically retired from any existing
+hosted project. Review that cleanup separately. No live objects/data were dropped.
+
+## Security and offline behavior
+
+Expose only intended public schemas to the Data API; never expose `private`. All
+public application tables use RLS and explicit grants. Android reads live role/outlet
+context; user metadata cannot grant roles. Direct client membership/catalog/sale
+writes are denied, even to signed-in owners. Trusted provisioning SQL is not a public
+RPC. Catalog browsing is read-only until a vetted mobile mutation flow is added.
+
+Device secrets are server generated and stored only as hashes server-side. Current
+role-bound approval and secret proof are required for leases, submit and pull.
+Re-enrollment rotates proof and requires fresh non-owner approval; revoked devices
+remain denied. Generic Data API RLS checks current user/outlet access; it is not
+hardware attestation or a device-bound JWT. Disable profile/membership and revoke
+devices for server denial; token logout alone does not revoke every issued JWT.
+
+Offline access lasts up to one UTC calendar month (maximum 31 days), never renewed
+offline. Secure OS lock, device-credential prompt, original boot count, monotonic/wall
+anchors and matching user/outlet/device/role are required. Reboot, rollback, expiry,
+corrupt context or insecure lock require online validation. Confirmed denial clears
+local authority; a temporary outage preserves only the old valid deadline. Remote
+revocation cannot be instantaneous while disconnected.
+
+Tokens/device credentials/lease are Keystore AES-GCM encrypted in atomic no-backup
+storage; passwords are not persisted. Completed old sessions remain valid; retired
+partial activation caches fail closed to ordinary sign-in. Logout clears local secrets
+while retained sale/outbox data stays intact for authorized recovery.
+
+## Push, pull and catalog events
+
+`submit_sale(p_payload text,p_device_secret text)` validates current authorization,
+strict catalog prices/modifiers/payments and idempotent operation identity. Equal
+retry/ack loss creates one graph/feed event; rejected rows stay for review, unchanged.
+
+`pull_changes(uuid,text,bigint,text,integer)` returns bounded scoped pages. Catalog
+triggers publish full rows and soft tombstones, and server updates increment versions.
+Install the schema before importing catalog records. Feed readers/writers share lock
+58301924001 to preserve committed cursor boundaries. Do not prune/reseed the feed
+without reviewed rebootstrap. No Realtime setup is required.
+
+See [sync protocol](../docs/SYNC_PROTOCOL.md), [M4 checks](../docs/M4_TEST_PLAN.md) and
+[M5 checks](../docs/M5_TEST_PLAN.md). Demo operations never upload. Real cashier needs
+a completed first catalog catch-up and approved scope; M6 management/recovery is described below.
+
+## Checks
+
+With Node 22.17+:
 
 ```sh
 npm ci --prefix supabase --ignore-scripts
 npm test --prefix supabase
 ```
 
-The pinned test-only `@electric-sql/pglite` 0.5.16 runs PostgreSQL in WASM. Tests
-create an isolated Auth/users/JWT-context fixture, then execute the actual schema,
-RLS and RPCs as `authenticated`/`anon`, with explicit role switches. Edge handler
-tests use mocked HTTP. They send no emails and touch no hosted database. This does
-not exercise Supabase GoTrue, PostgREST JWT verification, SMTP, Deno hosting, TLS,
-Android Keystore or actual device prompts. Run the live checks below separately.
+Pinned test-only PGlite 0.5.16 runs the actual SQL/provisioning/RLS/push/pull in isolated
+PostgreSQL WASM with test Auth/JWT fixtures. No Docker, credentials, real accounts or
+email delivery is needed. This does not verify hosted GoTrue/PostgREST/JWT/Dashboard,
+real concurrent hosted connections, Android Keystore or device prompts. Local CLI/
+Docker services are not installed here. Android rejects plain HTTP; local CLI services
+need an explicit HTTPS proxy or hosted development HTTPS endpoint.
 
-## Configure a development project
+Before production, execute the guide and M3–M5 live checks with actual test staff and
+two devices: manual assignment, wrong/no outlet access, cashier own vs manager outlet
+history, device approval/revocation, offline expiry/reboot, token refresh, ack loss,
+page interruption and concurrent cursor boundaries. No production deployment is implied.
 
-1. Use a fresh development Supabase project. Apply `schema.sql` with a trusted SQL
-   operator. It creates identity/outlet, catalog, sale/payment, sync-operation,
-   scoped change-feed, audit and invitation/device tables. Never apply this initial
-   schema blindly to an existing/production database. No production deployment is
-   authorized by these instructions.
-2. In hosted Auth settings, disable public email signups and anonymous sign-in,
-   require email confirmation and set the password minimum to at least 12. Retain
-   provider rate limits. `config.toml` supplies the signup/confirmation settings for
-   local CLI services; it does not change a hosted project's dashboard settings.
-   The CLI and Docker are not installed in the current environment, so local service
-   startup/config parsing has not been verified here.
-3. Keep only intended schemas exposed to the Data API; `private` must not be an
-   exposed schema. Private helpers have a fixed empty search path. All exposed
-   tables have RLS and explicit grants; no authenticated direct table writes are
-   enabled, including catalog/sales/memberships. Owner/manager catalog mutation
-   must use a vetted optimistic RPC later, rather than enable last-write-wins REST
-   updates. M4 owns sale submission and dedupe; M5 owns feed generation/pull.
-4. Provision the first owner with trusted Supabase Auth admin tools. Copy the
-   verified Auth UUID into a configured copy of `bootstrap-owner.sql.example` and
-   supply the real outlet roster/name. No real accounts, UUIDs or credentials are
-   invented in this repository. OWNER membership is not granted through staff
-   invitation endpoints.
-5. Configure SMTP and replace the Auth invite email template with
-   `templates/invite.html`. It displays the supported `TokenHash` variable. The
-   native app accepts this one-time hash directly; it does not consume URL fragments
-   or log deep-link tokens. The recipient verifies the invitation, sets a password,
-   then accepts only pending invitations matching their confirmed Auth email.
-6. Deploy `functions/invite-staff` only to the intended development project after
-   review. It uses the server-provided `SUPABASE_URL`, `SUPABASE_ANON_KEY` and
-   `SUPABASE_SERVICE_ROLE_KEY`; none belong in Android/local.properties. The handler
-   verifies the caller through Auth, creates an authorized SQL invitation intent
-   with the caller JWT, and only then invokes Auth Admin invite. An uncertain email
-   delivery leaves a scoped, expiring pending intent. Verified existing users can
-   accept such intents on login; the app never claims membership was granted just
-   because email delivery was requested. Inviter permissions are rechecked at
-   acceptance. SQL limits invitation attempts to five per actor per ten minutes.
-7. Configure **only** the HTTPS project URL and public anon/publishable key in
-   ignored `local.properties`, using `local.properties.example`. Rebuild Android.
-   Build-time checks reject secret/service-role keys; runtime checks also reject
-   privileged keys and non-HTTPS URLs. The adapter uses the documented Auth REST
-   endpoints and the RPCs defined in this schema; there is no Supabase SDK/Ktor
-   version dependency to guess. No keys are required to build the unconfigured app. The Android adapter rejects
-   plain HTTP; local CLI HTTP endpoints need an explicit HTTPS proxy or a hosted
-   development HTTPS endpoint, not a debug cleartext exception.
 
-## Sign-in, roles and device enrollment
+## M6 reports, staff and recovery
 
-The app starts at login/configuration, with an explicitly separate debug-only M2
-local demo button. Real role/outlet screens use `get_access_context`, not JWT user
-metadata or user-entered roles. Cashiers see Kasir/Riwayat/Pengaturan. Owners and
-managers enter Ringkasan and see Katalog/Laporan/Staf/Pengaturan. These real-data
-screens remain placeholders until the corresponding production data flow is ready;
-they do not expose the local demo catalog or submit demo sales.
+`get_sales_report` and staff/access RPCs require current approved-device proof and
+live owner/manager authority. Reports use historical accepted sale/payment/item
+snapshots, Jakarta date boundaries and exact decimal strings. Owners may query their
+brand/all outlets; managers the current assigned outlet only. Staff access controls
+are versioned and audited, never create Auth accounts or change global profile/roles.
+Disabling access revokes outlet devices; owner-only restoration returns to pending.
 
-After online sign-in/activation, select an outlet. Enrollment creates a random
-client device UUID and returns a server-generated device secret; only its SHA-256
-hash is stored server-side and no client can SELECT that hash. Owners may approve
-their own enrollment. Manager devices require owner approval. Cashier devices
-require owner or assigned-outlet manager approval. In Staf, authorized reviewers
-load pending device requests, verify the user/device UUID and requested role, and approve.
-Approvals bind the current role; a role change requires renewed approval, so a
-cashier device cannot inherit manager access under an old cashier approval. A pending
-cashier/manager stays locked and retries online after approval. Generating another
-UUID after revocation creates another pending device, not approved offline access.
+The private sync_generation epoch must be rotated through the reviewed example
+**after an explicitly approved isolated restore and before reopening clients**.
+`pull_changes` now accepts p_epoch and returns feed_epoch. Existing cursors require
+that generation; mismatch returns HTTP 410 and preserves client work for review.
+Current initial schema only, no live upgrade/destructive migration is implied.
 
-Server RLS checks live profile, brand, membership and outlet state on every read.
-Cashiers see only their own sales, including nested item/payment rows; managers
-see assigned outlets and owners only their brand. The schema reserves immutable
-sales and scoped sync data but implements no submission transport. Device-secret
-proof is required for lease issuance; M4 must require current approved device proof
-for sale submission as well. Generic Data API RLS is user/outlet based, not hardware
-attestation or a claim that revoking a device alone revokes every existing Auth JWT.
-For immediate account denial, disable the profile/memberships as well as devices;
-Auth-only refresh-token logout does not invalidate an already-issued stateless JWT.
+See `../docs/BACKUP_RESTORE_RUNBOOK.md`, `../docs/M6_TEST_PLAN.md` and
+`rotate-feed-generation.sql.example`. Backend tests actually dump/load an isolated
+PGlite database and verify graph counts, totals, dedupe/RLS and rotation/audit. This
+is not a hosted Supabase/Auth/Storage restore or a production recovery approval.
 
-## Offline policy: one calendar month
+### M7 catalog command
 
-The user selected **up to one month offline**. `issue_offline_lease` uses one UTC
-calendar month, not a fixed thirty days (maximum 31 days). It checks the current
-user, membership, approved/non-revoked device and device secret. Owners can disable
-future offline leases through the trusted `brands.offline_access_enabled` setting.
-Existing disconnected leases cannot be remotely recalled instantly.
+`save_catalog_record(p_device_id uuid, p_device_secret text, p_epoch uuid,
+p_change jsonb)` permits approved online Owner/Manager devices to edit their shared
+brand catalog. No client table write grants are added. `p_change` contains stable
+`operation_id`, record `id`, kind (`Category`, `Product`, `Group`, `Option`),
+`expected_version` (0 for new), `name`, boolean `active`, and kind-specific
+`sort_order`, `price_idr`, `parent_id`, `min_select`, `max_select`, `group_ids`.
+Price values are whole nonnegative IDR. Option parent group is immutable.
 
-The app encrypts tokens, device credentials and lease/context together using an
-Android Keystore AES-GCM key, authenticated format, AtomicFile and no-backup storage.
-Passwords are never persisted. Cache entries are project scoped. Refresh token
-rotation is persisted immediately. Logout clears local authority/key even when
-remote logout cannot be reached. Confirmed online denial clears the cached lease.
-
-Offline entry requires a secure OS device lock and the system credential prompt.
-The lease binds user/brand/outlet/role/device and the original boot count plus
-monotonic/wall-clock anchors captured before the issuance request. Request latency
-cannot extend validity. Expiry, reboot, clock rollback, missing boot metadata,
-unsecured lock, corruption or a context mismatch fails closed and requires online
-validation. The UI checks offline expiry every second while alive and revalidates
-online context on foreground, validated-network reconnection and periodically.
-A temporary service outage preserves an already-unlocked valid lease without
-extending it; a confirmed denial invalidates it. This is logical device binding,
-not rooted-device resistance or hardware attestation. A phone reboot requires an
-online check even if the calendar month has not ended.
-
-## Live acceptance still required
-
-Use actual development users on two outlets and a second brand fixture. Confirm:
-
-- Public signup is rejected by Auth itself; no UI-only signup restriction.
-- Invite delivery/template, one-time activation, password creation and login work.
-- Cashier cannot read peers/another outlet or change prices through direct REST;
-  manager cannot escalate role or invite another outlet; owner cannot cross brands.
-- Pending devices cannot obtain leases; approvals/revocation work. Deactivating a
-  profile/membership denies current requests without waiting for JWT expiry.
-- Hardware Keystore persistence/integrity, device credential cancellation/success,
-  restart, reboot/clock rollback, exact expiry and disabled offline leases work.
-- Lost connectivity/token refresh and interrupted password setup recover safely.
-
-Do not enable real cashier writes before M4/M5 establishes validated sale submission
-and catalog synchronization. Do not upload `DEMO_SALE` operations. No production
-schema application, account provisioning or email delivery was performed here.
+The reply binds operation/record/kind/version to `through_seq` and `feed_epoch`.
+Wait for scoped pull to reach that sequence before another edit. Duplicate commands
+return the original acknowledgment; UUID reuse with different input fails 409.
+Stale versions fail 409, invalid dependencies fail 422, and stale epoch fails 410.
+Archive through `active=false`; product link removals emit tombstones. Private
+`catalog_operations` is unexposed. Required-option validation, catalog writes,
+operation dedupe, feed and `CATALOG_SAVE` audit commit atomically. No deployment or
+migration history is introduced; this remains the fresh development schema.

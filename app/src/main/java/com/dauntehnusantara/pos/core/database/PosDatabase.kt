@@ -17,10 +17,11 @@ interface MetadataDao {
 }
 
 @Database(
-    entities = [AppMetadata::class, CategoryEntity::class, ProductEntity::class, GroupEntity::class, OptionEntity::class, ProductGroupEntity::class, CheckoutSessionEntity::class, SaleEntity::class, SaleItemEntity::class, SaleModifierEntity::class, PaymentEntity::class, OutboxEntity::class],
+    entities = [SyncCursorEntity::class, RemoteSaleEntity::class, AppMetadata::class, CategoryEntity::class, ProductEntity::class, GroupEntity::class, OptionEntity::class, ProductGroupEntity::class, CheckoutSessionEntity::class, SaleEntity::class, SaleItemEntity::class, SaleModifierEntity::class, PaymentEntity::class, OutboxEntity::class],
     version = 1, exportSchema = true,
 )
 abstract class PosDatabase : RoomDatabase() {
+    abstract fun pullDao(): PullDao
     abstract fun checkoutDao(): CheckoutDao
     abstract fun catalogDao(): CatalogDao
     abstract fun metadataDao(): MetadataDao

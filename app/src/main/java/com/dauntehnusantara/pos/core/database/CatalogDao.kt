@@ -22,6 +22,8 @@ interface CatalogDao {
     @Upsert suspend fun put(value: ProductEntity)
     @Upsert suspend fun put(value: GroupEntity)
     @Upsert suspend fun put(value: OptionEntity)
+    @Upsert suspend fun put(value: ProductGroupEntity)
+    @Query("DELETE FROM product_modifier_groups WHERE product_id=:product AND group_id=:groupId") suspend fun removeAssignment(product: String, groupId: String)
     @Insert suspend fun insertAssignments(values: List<ProductGroupEntity>)
     @Query("DELETE FROM product_modifier_groups WHERE product_id = :id") suspend fun clearAssignments(id: String)
     @Query("SELECT value FROM app_metadata WHERE `key` = :key") suspend fun metadata(key: String): String?

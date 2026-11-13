@@ -46,16 +46,16 @@ process-death, rendering, disk-full or OEM lifecycle validation.
 
 ## M3 Auth/server acceptance
 
-Local automated coverage executes PostgreSQL/RLS through PGlite plus mocked Edge
-HTTP and Android auth state-machine tests. Hosted Auth/JWT plumbing, email delivery,
-Deno deployment and native Keystore/credential prompts remain separate acceptance.
+Local automated coverage executes PostgreSQL/RLS/provisioning through PGlite and Android auth state-machine tests. Hosted Auth/JWT plumbing, manual Dashboard provisioning and native Keystore/credential prompts remain separate acceptance.
 Use `supabase/README.md` on a fresh development project to perform:
 
 - Disable signup in Auth itself, not just UI. Confirm unauthenticated table/RPC
   access is denied and no privileged key can be compiled into the Android app.
 - Provision the initial owner using trusted Auth admin tools and the bootstrap
-  example. Activate invited manager/cashier accounts with one-time TokenHash,
-  interrupt password setup and resume, then verify online sign-in/outlet selection.
+  example. Manually create Manager/Cashier Auth users and run configured copies of
+  `supabase/provision-staff.sql.example`. Verify an unassigned Auth user gets no
+  access, repeated assignment is idempotent, disabled access stays disabled and
+  ordinary email/password sign-in/outlet selection works without any acceptance RPC.
 - Reject direct cashier price/membership/sale writes, peer/other-outlet sales and
   nested payment/modifier rows. Test manager other-outlet denial, owner other-brand
   denial and scoped change-feed reads. Disable profile/membership/brand and verify
@@ -72,3 +72,12 @@ Use `supabase/README.md` on a fresh development project to perform:
 
 No real account, SMTP email, hosted schema application or native device test has
 been executed during this iteration. Do not upload M2 demo operations as real sales.
+
+## M7 release hardening evidence
+
+See M7_RELEASE_CHECKLIST.md and PROGRESS.md. Local regression completed: 48 backend,
+99 debug JVM, 90 release JVM (+9 expected demo-only skips), and 21 native tests on
+Infinix X6873/API 36. Two existing checkout tests now explicitly scroll the save
+control into view before tapping, retaining their payment/duplicate-submit assertions.
+Real tablet/API 26/16 KB runtime, signed minified app, accessibility/performance,
+real Auth, hosted concurrency and hosted recovery remain release acceptance work.

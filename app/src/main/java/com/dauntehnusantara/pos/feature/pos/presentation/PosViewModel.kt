@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.*
 enum class PosError { STORAGE, INVALID, CONFLICT, OVERFLOW }
 data class PosUiState(val catalog: Catalog = Catalog(), val checkout: CheckoutState? = null,
     val loading: Boolean = true, val loadFailed: Boolean = false, val busy: Boolean = false,
-    val error: PosError? = null, val history: List<Receipt> = emptyList())
+    val error: PosError? = null, val history: List<Receipt> = emptyList(),
+    val syncRequired: Boolean = false, val pullFailed: Boolean = false, val recoveryRequired: Boolean = false)
 
 @HiltViewModel
 class PosViewModel @Inject constructor(private val observeCatalog: ObserveCatalog,

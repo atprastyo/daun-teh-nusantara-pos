@@ -37,6 +37,9 @@ object StorageModule {
     fun backendConfig() = BackendConfig(BuildConfig.SUPABASE_URL.trimEnd('/'), BuildConfig.SUPABASE_PUBLIC_KEY)
 
     @Provides @Singleton
+    fun enrollmentLookup(database: PosDatabase): DeviceEnrollmentLookup = DeviceEnrollmentLookup { user, outlet -> database.checkoutDao().retainedDevice(user, outlet) }
+
+    @Provides @Singleton
     fun clock(): Clock = Clock.systemUTC()
 
     @Provides
@@ -49,6 +52,23 @@ object StorageModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds @Singleton abstract fun catalogGateway(implementation: AuthRepositoryImpl): com.dauntehnusantara.pos.feature.catalog.domain.CatalogGateway
+
+    @Binds abstract fun recovery(implementation: com.dauntehnusantara.pos.feature.recovery.data.RoomRecoveryRepository): com.dauntehnusantara.pos.feature.recovery.domain.RecoveryRepository
+
+    @Binds @Singleton abstract fun reportingGateway(implementation: AuthRepositoryImpl): com.dauntehnusantara.pos.feature.reports.domain.ReportingGateway
+    @Binds @Singleton abstract fun staffGateway(implementation: AuthRepositoryImpl): com.dauntehnusantara.pos.feature.staff.domain.StaffGateway
+    @Binds abstract fun reports(implementation: com.dauntehnusantara.pos.feature.reports.data.RoomReportRepository): com.dauntehnusantara.pos.feature.reports.domain.ReportRepository
+
+    @Binds abstract fun authenticatedCheckout(implementation: com.dauntehnusantara.pos.feature.checkout.data.RoomAuthenticatedCheckoutFactory): com.dauntehnusantara.pos.feature.checkout.domain.AuthenticatedCheckoutFactory
+
+    @Binds @Singleton abstract fun pullGateway(implementation: AuthRepositoryImpl): com.dauntehnusantara.pos.feature.sync.domain.PullGateway
+    @Binds @Singleton abstract fun pull(implementation: com.dauntehnusantara.pos.feature.sync.data.RoomPullRepository): com.dauntehnusantara.pos.feature.sync.domain.PullRepository
+
+    @Binds @Singleton abstract fun saleGateway(implementation: AuthRepositoryImpl): com.dauntehnusantara.pos.feature.sync.domain.SaleGateway
+    @Binds @Singleton abstract fun sync(implementation: com.dauntehnusantara.pos.feature.sync.data.RoomSyncRepository): com.dauntehnusantara.pos.feature.sync.domain.SyncRepository
+    @Binds @Singleton abstract fun syncScheduler(implementation: com.dauntehnusantara.pos.feature.sync.data.WorkSyncScheduler): com.dauntehnusantara.pos.feature.sync.domain.SyncScheduler
+
     @Binds @Singleton
     abstract fun auth(implementation: AuthRepositoryImpl): AuthRepository
     @Binds @Singleton

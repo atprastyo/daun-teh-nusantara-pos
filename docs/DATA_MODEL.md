@@ -93,14 +93,14 @@ validation before enabling real sale submission. All identities are demo-scoped.
 
 `supabase/schema.sql` defines the initial development PostgreSQL schema (no migration
 history): brands/outlets, profiles and owner/outlet memberships; device approval and
-hashed secret state; expiring staff invitation intents; catalog graph; immutable
+hashed secret state; manually assigned staff profiles/memberships; catalog graph; immutable
 sales/items/modifiers/payments; unique server operation identities, scoped monotonic
 change feed and audit logs. It is not applied to a hosted database by this iteration.
 
 Every exposed table uses RLS with explicit SELECT grants, including nested sale
 scope and own-history constraints for cashiers. Authenticated direct writes are
-not enabled; invitation acceptance/device approval/enrollment/lease issuance are
-narrow server functions. No service key, password or invite token is stored in
+not enabled; device approval/enrollment/lease issuance are
+narrow server functions. No service key or password is stored in
 application tables. Devices expose only non-secret columns; only their secret hash
 is stored server-side. Offline expiry is computed as one UTC calendar month.
 
@@ -108,3 +108,61 @@ Android Room remains unchanged at initial schema v1; M3 auth state is separately
 Keystore-encrypted in no-backup storage. Demo sale IDs/outbox payloads remain isolated
 and never acquire real user membership merely because someone logs in. M4/M5 must
 validate actual sale context/device proof and introduce vetted mutation/pull APIs.
+
+## M4 outbox extension (initial Room v1)
+
+`sync_outbox` adds `nextAttemptAtMs`, `lastErrorCode`, `acknowledgedAtMs`.
+Initial real state PENDING and operation SUBMIT_SALE; allowed transitions persist
+attempts and due time, then RETRY/AUTH_REQUIRED or terminal REVIEW/SYNCED.
+Identity, payload and creation time remain immutable; deletion remains forbidden.
+Demo operation/state remain DEMO_SALE/PENDING_DEMO. No migration, version bump,
+destructive fallback or data reset is performed automatically.
+
+Server `sync_operations` stores canonical JSONB request hash and accepted sale ID.
+`submit_sale` is the only authenticated graph writer, checking current user/device/
+outlet authorization and strict catalog policy. It appends one SALE feed record
+in the same transaction. See SYNC_PROTOCOL for stable derived child IDs, feed lock
+ordering, rejection/audit and exact acknowledgement hashes.
+
+## M5 local pull state (initial Room v1, 14 tables)
+
+- `sync_cursor(scope PK,lastSeq,initialized,lastSuccessMs,errorCode)` scopes the
+  cursor to backend/brand/outlet/user/device/role. Initial catch-up becomes usable
+  only after a complete page sequence. No implicit cursor reset on server errors.
+- `remote_sales(scope,saleId PK,operationId,seq,payload)` retains immutable downloaded
+  receipts separately from locally created sale graphs/outbox. History merges UUIDs.
+- `app_metadata` retains backend binding, cross-scope catalog version/payload guards
+  and local completed checkout command dedupe. Draft sessions use the complete scope
+  key, not the shared demo outlet. Sale/outbox and consumed draft commit together.
+- Catalog and sale snapshot tables remain compatible with M4; no migration or
+  destructive fallback is added. Development installs need explicit reset/reinstall
+  for the changed initial schema; no app data was cleared by this iteration.
+
+Server catalog triggers produce full-row versioned tombstones in `sync_changes`.
+`pull_changes` is the approved-device, live-role, byte/record-bounded read API. Feed
+sequence allocation/read boundaries share the M4 advisory lock; see SYNC_PROTOCOL.
+
+
+Manual provisioning revision (2026-11-13): the current initial server schema has
+18 public application tables. Removed staff_invitations and its create/accept RPCs;
+no live DROP/migration was executed. Auth identities are created only by trusted
+Supabase admin tools; `provision-staff.sql.example` adds profile/outlet membership
+and STAFF_PROVISION audit in one trusted transaction. Login reads existing access
+without creating/reactivating profiles. Room remains v1, 14 tables, unchanged.
+
+
+## M6 reports, access versions and restore generation
+
+Initial Room stays v1 with 14 tables. `sync_cursor.serverEpoch` binds each committed
+cursor to a server feed branch; restored generation mismatch preserves data/cursor,
+records REBOOTSTRAP_REQUIRED and gates checkout. Report cache entries in app_metadata
+are scoped by project/brand/outlet/user/device/role/date range; no receipt graph is
+rewritten for reports. Recovery export preserves original real payloads and command
+metadata without exporting auth/device credentials. No migration or fallback added.
+
+The initial server schema keeps 18 public RLS tables. `outlet_members.version` and
+`devices.version` support optimistic management. Device version changes only with
+proof/approval/revocation, not ordinary last-seen updates. Private sync_generation
+contains one epoch UUID; it is not exposed or granted to clients. Report/staff/access
+RPCs use approved-device and live role checks; access mutations and audits commit
+atomically. A trusted post-restore epoch rotation records FEED_RESTORE_BOUNDARY.

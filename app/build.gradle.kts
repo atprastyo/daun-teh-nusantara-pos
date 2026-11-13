@@ -1,3 +1,4 @@
+import groovy.json.JsonSlurper
 import java.util.Properties
 import java.util.Base64
 
@@ -16,7 +17,8 @@ fun publicConfig(name: String): String {
     val value = providers.gradleProperty(name).orNull ?: localConfig.getProperty(name, "")
     if (name == "SUPABASE_PUBLIC_KEY" && value.isNotBlank()) {
         val payload = runCatching { String(Base64.getUrlDecoder().decode(value.split('.')[1]), Charsets.UTF_8) }.getOrDefault("")
-        val safe = value.startsWith("sb_publishable_") || (payload.contains("anon") && !payload.contains("service_role") && !payload.contains("supabase_admin"))
+        val role = runCatching { (JsonSlurper().parseText(payload) as? Map<*, *>)?.get("role") }.getOrNull()
+        val safe = value.startsWith("sb_publishable_") || (value.split('.').size == 3 && role == "anon")
         require(safe && !value.startsWith("sb_secret_") && value.none { it.isWhitespace() }) { "SUPABASE_PUBLIC_KEY must be a publishable/anon key; server keys are forbidden" }
     }
     return value
@@ -34,6 +36,13 @@ android {
         buildConfigField("String", "SUPABASE_URL", configLiteral(publicConfig("SUPABASE_URL")))
         buildConfigField("String", "SUPABASE_PUBLIC_KEY", configLiteral(publicConfig("SUPABASE_PUBLIC_KEY")))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {

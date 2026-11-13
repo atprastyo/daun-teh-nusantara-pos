@@ -10,7 +10,7 @@ An Android POS for Daun Teh Nusantara, built by Asterfed, for one brand with pot
 - Server permission enforcement is mandatory. Explicit brand membership for owner, outlet membership for manager/cashier.
 
 ## MVP features
-1. Email/password sign-in and invite-only account activation; role/outlet selection when needed.
+1. Email/password sign-in for manually provisioned staff accounts; role/outlet selection when needed.
 2. Manage drink catalog, categories, size/sugar/ice/topping modifier groups and option prices.
 3. Cart with quantity, line modifiers, total, cash tender/change, manually verified QRIS payment.
 4. Offline sale persistence and outbox, durable push/pull sync, sync status UI.

@@ -1,0 +1,23 @@
+-- TRUSTED OPERATOR ONLY, after an explicitly approved restore in an isolated project.
+-- Never run blindly on a live deployment. Export/reconcile retained device work first.
+-- Keep clients disconnected while restoring, rotating generation and validating access.
+begin;
+do $$
+declare
+ v_expected uuid:='<restored-feed-epoch>';
+ v_owner uuid:='<owner-auth-user-uuid>';
+ v_brand uuid:='<brand-uuid>';
+ v_reference text:='<restore-ticket-reference>';
+ v_previous uuid; v_next uuid:=gen_random_uuid();
+begin
+ if not private.owner(v_brand,v_owner) or length(btrim(v_reference)) not between 3 and 240 then
+ raise exception 'Active owner and restore reference required'; end if;
+ perform pg_advisory_xact_lock(58301924001);
+ select epoch into v_previous from private.sync_generation where singleton for update;
+ if v_previous is distinct from v_expected then raise exception 'Feed generation changed; review before retry'; end if;
+ update private.sync_generation set epoch=v_next where singleton;
+ insert into public.audit_logs(actor_user_id,brand_id,action,metadata)
+ values(v_owner,v_brand,'FEED_RESTORE_BOUNDARY',jsonb_build_object('reference',btrim(v_reference),'previous_epoch',v_previous,'new_epoch',v_next));
+end;
+$$;
+commit;

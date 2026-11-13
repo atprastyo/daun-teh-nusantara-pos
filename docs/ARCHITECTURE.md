@@ -11,7 +11,7 @@ UI -> ViewModel -> use case -> repository -> Room/remote datasource. No direct n
 Checkout -> validate cart and cash/change -> Room transaction (sale, lines, payment, outbox) -> immediate receipt view -> WorkManager push -> Supabase transactional endpoint -> ack -> mark synced -> pull changes -> apply Room transaction -> update UI via Flow.
 
 ## Cloud components
-Supabase Auth for identity; PostgreSQL for tenant/outlet data and sales; RLS for table access; SQL RPC/Edge Functions for validated atomic sale submission, invitation/admin operations, sync change feed; Realtime optional as refresh hint.
+Supabase Auth for identity; PostgreSQL for tenant/outlet data and sales; RLS for table access; SQL RPCs for validated atomic sale submission, device authorization and sync change feed; trusted administrator tools provision Auth accounts and SQL outlet assignments; Realtime optional as refresh hint.
 
 ## Operational rules
 - Network unavailable is normal; handle process death, retries, stale sessions and conflicts.

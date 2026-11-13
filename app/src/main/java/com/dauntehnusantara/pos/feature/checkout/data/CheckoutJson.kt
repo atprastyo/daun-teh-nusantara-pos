@@ -26,7 +26,7 @@ internal object CheckoutJson {
     }
     fun lines(values: List<CartLine>) = JSONArray(values.map(::line)).toString()
     fun readLines(value: String): List<CartLine> = JSONArray(value).let { array -> (0 until array.length()).map { readLine(array.getJSONObject(it)) } }
-    fun payload(receipt: Receipt): String = JSONObject().put("schema_version", 1).put("demo", true)
+    fun payload(receipt: Receipt, demo: Boolean = true): String = JSONObject().put("schema_version", 1).put("demo", demo)
         .put("operation_id", receipt.operationId).put("sale_id", receipt.id).put("brand_id", receipt.brandId)
         .put("outlet_id", receipt.outletId).put("device_id", receipt.deviceId).put("cashier_user_id", receipt.cashierId)
         .put("created_at_utc_ms", receipt.createdAtUtcMs).put("subtotal_idr", receipt.totalIdr).put("discount_idr", 0).put("total_idr", receipt.totalIdr)

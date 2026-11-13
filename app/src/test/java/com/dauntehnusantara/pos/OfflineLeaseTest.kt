@@ -39,14 +39,10 @@ class OfflineLeaseTest {
         assertTrue(valid(lease.copy(issuedAtMs=9000000,expiresAtMs=9000000+duration)))
         assertFalse(valid(now=ClockReading(5001,10000+duration,2,true)))
     }
-    @Test fun roleNavigationAndInvitationsNeverGrantOwnerThroughClientInput() {
+    @Test fun roleNavigationKeepsCashierOutOfManagementScreens() {
         assertEquals(AccessDestination.POS,RoleNavigation.destinations(Role.CASHIER).first())
         assertFalse(AccessDestination.REPORTS in RoleNavigation.destinations(Role.CASHIER))
         assertFalse(AccessDestination.STAFF in RoleNavigation.destinations(Role.CASHIER))
         assertEquals(AccessDestination.OVERVIEW,RoleNavigation.destinations(Role.OWNER).first())
-        assertTrue(RoleNavigation.mayInvite(Role.OWNER,Role.MANAGER))
-        assertTrue(RoleNavigation.mayInvite(Role.MANAGER,Role.CASHIER))
-        assertFalse(RoleNavigation.mayInvite(Role.MANAGER,Role.MANAGER))
-        assertFalse(RoleNavigation.mayInvite(Role.OWNER,Role.OWNER))
     }
 }

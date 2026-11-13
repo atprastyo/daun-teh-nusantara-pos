@@ -1,6 +1,6 @@
 # Daun Teh Nusantara POS
 
-Native Android POS foundation by Asterfed. M0 provides the adaptive application shell; M1 adds the local catalog; M2 adds debug-only offline checkout and receipts. M3 adds authentication, role/outlet access and a server security foundation. Cloud sales synchronization is not implemented yet.
+Native Android POS foundation by Asterfed. M0 provides the adaptive application shell; M1 adds the local catalog; M2 adds debug-only offline checkout and receipts. M3 adds authentication, role/outlet access and a server security foundation. M4 adds idempotent sale submission, a durable authenticated outbox and WorkManager delivery/status. M5 adds scoped catalog/sales pull, durable cursors and authenticated offline checkout/history; demo receipts never upload.
 
 ## Build and run
 
@@ -31,7 +31,7 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 The debug APK is `app/build/outputs/apk/debug/app-debug.apk`.
 Launch **Daun Teh Nusantara** from the device launcher. Without backend configuration,
 use **Buka demo lokal (debug)** for the isolated M2 demo; authenticated entry requires
-an invited account and configured development backend. The demo opens without internet after installation;
+a manually provisioned account and configured development backend. The demo opens without internet after installation;
 dependency downloads are still required for a first build.
 
 ## M0 foundation
@@ -141,7 +141,7 @@ Actual process-kill and phone/tablet visual acceptance still require a device.
 ## M3 authentication and server security
 
 See [supabase/README.md](supabase/README.md) for the fresh development schema, owner
-bootstrap example, Auth settings, invite template and function setup. No hosted
+bootstrap example, Auth settings and [manual staff provisioning](docs/MANUAL_STAFF_PROVISIONING.md). No hosted
 project, credentials, accounts, email delivery or deployment has been configured
 or executed here. Migrations remain deferred during development.
 
@@ -150,19 +150,20 @@ to ignored `local.properties`, following the example, then rebuild. Secret/servi
 keys are forbidden in the Android app. An unconfigured build stays at a clear
 configuration/login screen with the explicit debug demo entry.
 
-Invited users activate with their email TokenHash and a new password, sign in,
-select an assigned outlet and enroll the device. Owners can self-enroll; manager
+An administrator creates each Supabase Auth account and assigns its profile/outlets
+using the provisioning guide. Staff sign in with email/password, select an assigned
+outlet and enroll the device. There is no invite or activation step. Owners can self-enroll; manager
 and cashier devices require the appropriate owner/manager approval through Staf.
 Role-specific navigation is based on server membership, with RLS/RPC enforcement.
-The real portal deliberately has no production sale submission or synced catalog
-until M4/M5; it never reuses the M2 demo IDs/data as real transactions.
+M4/M5 connect real sale submission and synced catalog; the portal never reuses the
+M2 demo IDs/data as real transactions.
 
 Offline access is bounded to **one calendar month**, as requested. It requires a
 server-issued approved-device lease, secure OS device credentials, original boot
 and valid monotonic/wall-clock bounds. Reboot, rollback, expiry and confirmed online
 denial require online validation. Disconnected revocation is delayed until the next
 successful server check or expiry. Tokens/context are Keystore AES-GCM encrypted;
-passwords are not saved. Live hardware/SMTP/Auth integration checks remain pending.
+passwords are not saved. Live hardware/Auth integration checks remain pending.
 
 ```sh
 npm ci --prefix supabase --ignore-scripts
@@ -170,21 +171,22 @@ npm test --prefix supabase
 ./gradlew build :app:assembleDebugAndroidTest
 ```
 
-The backend tests run actual PostgreSQL/RLS in PGlite and mocked Edge HTTP under
+The backend tests run actual PostgreSQL/RLS/provisioning/push/pull in PGlite under
 Node 22.17+. They do not require Docker, Supabase credentials or email delivery.
-Existing Android tests include cached-auth, activation retry, token refresh,
+Existing Android tests include cached-auth, manual sign-in, retired partial-cache rejection, token refresh,
 revocation, offline clocks/device binding and role-navigation cases.
 
 ## Continue development
 
 Read `AGENTS.md` and the mandatory documents before changes. Continue one milestone
-at a time using `prompts/02_IMPLEMENT_MILESTONE.md`; next is M4 (idempotent push synchronization). Review all migrations and permission policies before deployment.
+at a time using `prompts/02_IMPLEMENT_MILESTONE.md`; next is M7 (release hardening and remaining MVP gaps). Review all migrations and permission policies before deployment.
 
 ## Documentation map
 - `docs/PRODUCT_REQUIREMENTS.md`: scope, roles, acceptance criteria
 - `docs/ARCHITECTURE.md`: Android/cloud layering
 - `docs/DATA_MODEL.md`: proposed tables, constraints
-- `docs/AUTH_SECURITY.md`: login, invites, access policy
+- `docs/AUTH_SECURITY.md`: login, manual provisioning, access policy
+- `docs/MANUAL_STAFF_PROVISIONING.md`: administrator account/outlet setup
 - `docs/SYNC_PROTOCOL.md`: offline sync contract and conflict rules
 - `docs/UI_UX.md`: phone/tablet layouts
 - `docs/IMPLEMENTATION_PLAN.md`: implementation milestones
@@ -195,3 +197,99 @@ at a time using `prompts/02_IMPLEMENT_MILESTONE.md`; next is M4 (idempotent push
 
 ## Important
 This is an implementation blueprint, not a ready-to-deploy app. Supabase URLs, keys, migrations, and API implementations must be configured and verified during development. Never commit service-role keys.
+
+## M4 push synchronization
+
+Authenticated Settings shows this account/device/outlet queue, retry and review counts.
+Changed catalog prices/versions are rejected for review without changing the local
+receipt. Retry reuses the same operation and payload; reviewed rows require explicit
+future reconciliation and are never blindly retried. `SyncRepository.record` supplies atomic authenticated receipt persistence; M5 now
+connects it to durable real checkout after initial catalog pull. Existing debug checkout continues to write `DEMO_SALE` only.
+
+Use the current **fresh development** `supabase/schema.sql`; no live schema was applied.
+See [push contract and acceptance checks](docs/M4_TEST_PLAN.md). Room stays at initial
+version 1 with an updated export. Existing incompatible development installs require
+an explicit app-data reset/reinstall; no migration or destructive fallback is added.
+Logging out clears credentials. Re-login recovers the original queued device ID;
+non-owner re-enrollment rotates its secret and needs fresh device approval. Revoked
+devices remain denied; their receipts are retained for later authorized recovery.
+
+M5 implements scoped pull below; M6 adds reports/staff/recovery below; next is M7 hardening.
+
+
+## M5 authenticated checkout and pull
+
+After online sign-in, outlet selection and device approval, a cashier's **Kasir**
+uses the server catalog after the first complete catch-up. Cash and manually checked
+QRIS sales persist with a durable draft/outbox and work offline within the M3 lease.
+**Riwayat** merges local receipts and downloaded own sales across devices. Manager/
+owner catalog browsing is read-only; shared edits require trusted server writes
+until a vetted mobile catalog editor is added. M6 reporting/staff/recovery is described below.
+
+Settings shows push/pull progress and retry errors. Catalog/receipt pages and their
+scoped cursor commit together; rejected/partial pages preserve the last good state.
+Role changes use separate cursors/history, and completed prices are immutable. No
+Realtime setup is required. Scope and live acceptance details: [M5 test plan](docs/M5_TEST_PLAN.md).
+
+Keep using a **fresh development schema**, installed before importing real catalog
+rows so triggers publish their initial records. Room stays v1 (14 tables); explicitly
+reset/reinstall incompatible development installs. No automatic data deletion,
+migration, hosted deployment or real provisioning was performed. A different backend
+URL requires reviewed data export/reset/rebootstrap rather than mixing caches.
+
+M6 now provides the scoped reports, staff access controls and recovery tools below. Live M3–M5 acceptance
+and the outstanding authorized mobile catalog editor remain production prerequisites.
+
+
+## M6 reports, staff access and recovery
+
+Owners can open reports for the brand or one outlet; managers get the selected
+assigned outlet. Date filters use Asia/Jakarta (up to 366 days). Totals include only
+accepted server sales, with daily/outlet and top-product snapshot breakdowns. Cached
+reports retain their exact fetch time when offline; pending/review local sales are
+excluded. Export the selected snapshot as CSV through the Android document picker.
+
+Staff accounts and roles remain manually provisioned. Online authorized reviewers
+can enable/disable outlet access, revoke devices and inspect approval requests.
+Changes require reasons and expected versions; stale updates conflict. Disable also
+revokes outlet devices; reenable does not restore them. Only owners can restore a
+revoked device to pending, and fresh approval is required. Owners see the selected
+outlet's latest 50 access audit entries. Cashiers cannot access these management APIs.
+
+Settings exports the account/device/outlet's retained original sale/outbox/draft
+records as checksummed recovery JSON, excluding credentials and demo data. There is
+no automatic archive import or full-server backup claim. A restored server's rotated
+feed generation blocks old cursors and new checkout while preserving local work.
+Follow the [backup/restore runbook](docs/BACKUP_RESTORE_RUNBOOK.md) and
+[M6 acceptance plan](docs/M6_TEST_PLAN.md). An actual isolated PGlite dump/load/RLS/
+dedupe/generation rehearsal is automated; hosted Supabase and device restore still
+need live acceptance and explicit operator signoff.
+
+Room remains initial v1 (14 tables) with serverEpoch added to the cursor. Explicitly
+export and review retained work before any development reset/reinstall required by
+an incompatible initial schema. No migration, app-data deletion, hosted deployment,
+account change, backup subscription or live restore was performed.
+
+**Next: M7 — release hardening.** Live Auth/device/document-provider/concurrency and
+hosted restore checks, chosen backup retention/RPO/RTO, a reviewed production recovery
+harness and the outstanding authorized mobile catalog editor remain release blockers.
+
+## M7 local release hardening
+
+The real catalog now supports online Owner/Manager creation, editing and archiving
+of categories, products, modifier groups/options and product group assignments.
+Changes affect every outlet in the brand. Server role/device/version/epoch checks,
+operation deduplication and atomic feed/audit writes protect the command; Room is
+updated by pull before another edit is enabled. Offline catalog remains readable.
+This supersedes the earlier read-only real catalog limitation. Staff account creation
+remains manual; no invitation flow was added.
+
+Release builds enable R8/resource shrinking and prohibit cleartext HTTP. JSON nesting
+and public-key validation are hardened. Run `./gradlew build
+:app:assembleDebugAndroidTest :app:bundleRelease --no-daemon --no-parallel
+--max-workers=2 --console=plain` with the documented Android Studio JBR. Artifacts
+are unsigned until signing is configured externally. See
+[release acceptance](docs/M7_RELEASE_CHECKLIST.md) and
+[security review](docs/M7_SECURITY_REVIEW.md); physical-device, hosted concurrency,
+signing and hosted recovery remain acceptance gates. No production deployment or
+destructive migration is part of this iteration.

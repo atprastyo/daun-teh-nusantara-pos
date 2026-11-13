@@ -1,0 +1,39 @@
+-- TRUSTED SQL OPERATOR ONLY. Create/confirm the account in Supabase Auth first.
+-- Fill placeholders in a private copy; no password, token or admin key belongs here.
+-- Adds one Manager/Cashier outlet membership. Run again for another assigned outlet.
+-- Idempotent for the same active assignment; never reactivates or changes an existing role.
+begin;
+do $$
+declare
+ v_user uuid:='<staff-auth-user-uuid>';
+ v_outlet uuid:='<outlet-uuid>';
+ v_actor uuid:='<owner-auth-user-uuid>';
+ v_role text:='CASHIER'; -- MANAGER or CASHIER only.
+ v_name text:='<staff-full-name>';
+ v_brand uuid; v_profile_rows integer; v_member_rows integer;
+begin
+ if v_role not in ('MANAGER','CASHIER') or length(btrim(v_name)) not between 1 and 120 then
+ raise exception 'Choose MANAGER/CASHIER and a valid staff name'; end if;
+ if not exists(select 1 from auth.users where id=v_user and email_confirmed_at is not null) then
+ raise exception 'Create and confirm the staff account in Supabase Auth first'; end if;
+ select o.brand_id into v_brand from public.outlets o join public.brands b on b.id=o.brand_id
+ where o.id=v_outlet and o.active and b.active;
+ if v_brand is null or not private.owner(v_brand,v_actor) then
+ raise exception 'Active outlet and owner of the same brand required'; end if;
+ if exists(select 1 from public.brand_members where user_id=v_user and brand_id=v_brand) then
+ raise exception 'Owner accounts use the separate owner bootstrap/review procedure'; end if;
+ insert into public.user_profiles(id,full_name) values(v_user,btrim(v_name)) on conflict(id) do nothing;
+ get diagnostics v_profile_rows = row_count;
+ if not private.active_user(v_user) then raise exception 'Inactive profile requires explicit administrator review'; end if;
+ insert into public.outlet_members(user_id,outlet_id,role,active) values(v_user,v_outlet,v_role,true)
+ on conflict(user_id,outlet_id) do nothing;
+ get diagnostics v_member_rows = row_count;
+ if not exists(select 1 from public.outlet_members where user_id=v_user and outlet_id=v_outlet and role=v_role and active) then
+ raise exception 'Existing membership requires explicit administrator review'; end if;
+ if v_profile_rows>0 or v_member_rows>0 then
+ insert into public.audit_logs(actor_user_id,brand_id,outlet_id,action,target_id,metadata)
+ values(v_actor,v_brand,v_outlet,'STAFF_PROVISION',v_user,jsonb_build_object('role',v_role,'source','MANUAL_ADMIN'));
+ end if;
+end;
+$$;
+commit;

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 let db;
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-const owner=id(1), manager=id(2), cashier=id(3), colleague=id(4), otherCashier=id(5), otherOwner=id(6), invited=id(7);
+const owner=id(1), manager=id(2), cashier=id(3), colleague=id(4), otherCashier=id(5), otherOwner=id(6), unassigned=id(7);
 const brand=id(10), otherBrand=id(11), outlet=id(20), otherOutlet=id(21), foreignOutlet=id(22);
 async function admin(sql) { await db.exec('reset role'); return db.exec(sql); }
 async function as(user, sql) {
@@ -20,7 +20,7 @@ before(async()=>{
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
  await db.exec(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));
- for(const [n,email] of [[1,'owner'],[2,'manager'],[3,'cashier'],[4,'colleague'],[5,'other'],[6,'foreign'],[7,'invited']]) {
+ for(const [n,email] of [[1,'owner'],[2,'manager'],[3,'cashier'],[4,'colleague'],[5,'other'],[6,'foreign'],[7,'unassigned']]) {
   await db.query('insert into auth.users values($1,$2,now())',[id(n),email+'@example.invalid']);
   if(n!==7) await db.query('insert into public.user_profiles(id) values($1)',[id(n)]);
  }
@@ -74,25 +74,6 @@ test('secret device material cannot be selected',async()=>{
 test('device hashes are denied even to owner',async()=>{
  await assert.rejects(as(owner,'select secret_hash from public.devices'),/permission denied/);
 });
-test('manager cannot invite manager or users into other outlets',async()=>{
- await assert.rejects(as(manager,`select public.create_staff_invitation('x@example.invalid','${outlet}','MANAGER')`),/Forbidden/);
- await assert.rejects(as(manager,`select public.create_staff_invitation('x@example.invalid','${otherOutlet}','CASHIER')`),/Forbidden/);
- await assert.rejects(as(cashier,`select public.create_staff_invitation('x@example.invalid','${outlet}','CASHIER')`),/Forbidden/);
-});
-test('verified invite acceptance grants only requested outlet and is idempotent',async()=>{
- await as(manager,`select public.create_staff_invitation('invited@example.invalid','${outlet}','CASHIER')`);
- assert.equal((await scalar(invited,'select public.accept_staff_invitations() as n')).n,1);
- assert.equal((await scalar(invited,'select public.accept_staff_invitations() as n')).n,0);
- const rows=(await as(invited,'select * from public.get_access_context()'))[0].rows;
- assert.equal(rows.length,1); assert.equal(rows[0].outlet_id,outlet); assert.equal(rows[0].role,'CASHIER');
-});
-test('revoked inviter cannot grant stale invitation',async()=>{
- await admin(`insert into auth.users values('${id(8)}','late@example.invalid',now());`);
- await as(manager,`select public.create_staff_invitation('late@example.invalid','${outlet}','CASHIER')`);
- await admin(`update public.outlet_members set active=false where user_id='${manager}';`);
- assert.equal((await scalar(id(8),'select public.accept_staff_invitations() as n')).n,0);
- await admin(`update public.outlet_members set active=true where user_id='${manager}';`);
-});
 test('online profile/membership/brand deactivation is checked on every request',async()=>{
  await admin(`update public.user_profiles set active=false where id='${cashier}';`);
  assert.equal((await scalar(cashier,'select count(*)::int as n from public.sales')).n,0);
@@ -141,31 +122,6 @@ test('revoked cashier cannot bypass approval with a new device UUID',async()=>{
  await assert.rejects(as(cashier,`select * from public.list_device_requests('${outlet}')`),/Forbidden/);
 });
 
-test('managers cannot downgrade managers and no client may invite an owner',async()=>{
- await assert.rejects(as(manager,`select public.create_staff_invitation('manager@example.invalid','${outlet}','CASHIER')`),/Forbidden target/);
- await assert.rejects(as(owner,`select public.create_staff_invitation('new@example.invalid','${outlet}','OWNER')`),/Forbidden/);
-});
-test('inactive profiles cannot reactivate through accepting invitations',async()=>{
- await as(owner,`select public.create_staff_invitation('cashier@example.invalid','${outlet}','CASHIER')`);
- await admin(`update public.user_profiles set active=false where id='${cashier}'`);
- await assert.rejects(as(cashier,'select public.accept_staff_invitations()'),/Inactive/);
- await admin(`update public.user_profiles set active=true where id='${cashier}'`);
-});
-test('only confirmed email can accept and expired invitations grant nothing',async()=>{
- await admin(`insert into auth.users values('${id(9)}','unconfirmed@example.invalid',null);
- insert into public.staff_invitations(email,outlet_id,role,invited_by,expires_at) values('unconfirmed@example.invalid','${outlet}','CASHIER','${owner}',now()-interval '1 day')`);
- await assert.rejects(as(id(9),'select public.accept_staff_invitations()'),/Verified user/);
- await admin(`update auth.users set email_confirmed_at=now() where id='${id(9)}'`);
- assert.equal((await scalar(id(9),'select public.accept_staff_invitations() as n')).n,0);
-});
-test('invitation rate limit is enforced transactionally by SQL',async()=>{
- let limited=false;
- for(let n=0;n<8;n++) {
-  try { await as(manager,`select public.create_staff_invitation('limit${n}@example.invalid','${outlet}','CASHIER')`); }
-  catch(error) { assert.equal(error.code,'PT429');limited=true;break; }
- }
- assert.ok(limited);
-});
 
 test('nested payment and modifier RLS follows the authorized parent sale',async()=>{
  assert.equal((await scalar(cashier,'select count(*)::int as n from public.payments')).n,1);
@@ -174,9 +130,9 @@ test('nested payment and modifier RLS follows the authorized parent sale',async(
  assert.equal((await scalar(owner,'select count(*)::int as n from public.sale_item_modifiers')).n,3);
 });
 test('change feed cannot leak a peer or another outlet sale',async()=>{
- assert.equal((await scalar(cashier,'select count(*)::int as n from public.sync_changes')).n,2);
- assert.equal((await scalar(manager,'select count(*)::int as n from public.sync_changes')).n,3);
- assert.equal((await scalar(owner,'select count(*)::int as n from public.sync_changes')).n,4);
+ assert.equal((await scalar(cashier,"select count(*)::int as n from public.sync_changes where entity_type='SALE'")).n,1);
+ assert.equal((await scalar(manager,"select count(*)::int as n from public.sync_changes where entity_type='SALE'")).n,2);
+ assert.equal((await scalar(owner,"select count(*)::int as n from public.sync_changes where entity_type='SALE'")).n,3);
  await assert.rejects(as(cashier,'create table public.injected_scope(id int)'),/permission denied/);
 });
 
@@ -192,4 +148,58 @@ test('cashier device approval cannot silently become manager approval after prom
   const lease=(await scalar(cashier,`select public.issue_offline_lease('${id(91)}','${enrolled.device_secret}') as result`)).result;
   assert.equal(lease.role,'MANAGER');
  } finally { await admin(`update public.outlet_members set role='CASHIER' where user_id='${cashier}' and outlet_id='${outlet}'`); }
+});
+
+async function provisioningSql(user=unassigned,out=outlet,role='CASHIER',actor=owner) {
+ const script=await readFile(new URL('../provision-staff.sql.example',import.meta.url),'utf8');
+ return script.replaceAll('<staff-auth-user-uuid>',user).replaceAll('<outlet-uuid>',out)
+ .replaceAll('<owner-auth-user-uuid>',actor).replaceAll('<staff-full-name>','Test Staff').replace("v_role text:='CASHIER'",`v_role text:='${role}'`);
+}
+async function provision(user=unassigned,out=outlet,role='CASHIER',actor=owner) {
+ try { return await admin(await provisioningSql(user,out,role,actor)); }
+ catch(error) { await db.exec('rollback');throw error; }
+}
+test('Auth account without manually assigned profile/membership receives no access',async()=>{
+ assert.deepEqual((await as(unassigned,'select * from public.get_access_context()'))[0].rows,[]);
+ assert.equal((await scalar(unassigned,'select count(*)::int n from public.sales')).n,0);
+ assert.equal((await scalar(unassigned,'select count(*)::int n from public.user_profiles')).n,0);
+});
+test('trusted manual provisioning assigns one outlet and is idempotent',async()=>{
+ await provision();await provision();
+ const rows=(await as(unassigned,'select * from public.get_access_context()'))[0].rows;
+ assert.equal(rows.length,1);assert.equal(rows[0].outlet_id,outlet);assert.equal(rows[0].role,'CASHIER');
+ assert.equal((await admin(`select count(*)::int n from public.audit_logs where target_id='${unassigned}' and action='STAFF_PROVISION'`))[0].rows[0].n,1);
+});
+test('manual manager provisioning is distinct from device approval and cannot grant OWNER',async()=>{
+ await admin(`insert into auth.users values('${id(8)}','new-manager@example.invalid',now())`);
+ await provision(id(8),outlet,'MANAGER');
+ assert.equal((await as(id(8),'select * from public.get_access_context()'))[0].rows[0].role,'MANAGER');
+ const enrolled=(await scalar(id(8),`select public.enroll_device('${id(94)}','${outlet}') result`)).result;
+ await assert.rejects(as(id(8),`select public.issue_offline_lease('${id(94)}','${enrolled.device_secret}')`),/approval required/);
+ await assert.rejects(provision(id(8),outlet,'OWNER'),/MANAGER\/CASHIER/);
+});
+test('manual provisioning cannot silently reactivate profiles/memberships or change roles',async()=>{
+ await admin(`update public.user_profiles set active=false where id='${unassigned}'`);
+ await assert.rejects(provision(),/Inactive profile/);
+ await admin(`update public.user_profiles set active=true where id='${unassigned}';update public.outlet_members set active=false where user_id='${unassigned}'`);
+ await assert.rejects(provision(),/Existing membership/);
+ await admin(`update public.outlet_members set active=true where user_id='${unassigned}'`);
+ await assert.rejects(provision(unassigned,outlet,'MANAGER'),/Existing membership/);
+ assert.equal((await as(unassigned,'select * from public.get_access_context()'))[0].rows[0].role,'CASHIER');
+});
+test('manual provisioning rejects nonexistent/unconfirmed users and foreign-brand owner attribution',async()=>{
+ await assert.rejects(provision(id(99)),/Create and confirm/);
+ await admin(`insert into auth.users values('${id(9)}','unconfirmed@example.invalid',null)`);
+ await assert.rejects(provision(id(9)),/Create and confirm/);
+ await assert.rejects(provision(unassigned,outlet,'CASHIER',otherOwner),/same brand/);
+ assert.equal((await admin(`select count(*)::int n from public.user_profiles where id='${id(9)}'`))[0].rows[0].n,0);
+});
+test('authenticated clients including owners cannot execute the trusted provisioning script',async()=>{
+ const script=await provisioningSql(id(9));
+ await assert.rejects(as(owner,script),/permission denied/);await db.exec('rollback');
+ await assert.rejects(as(manager,"insert into public.outlet_members values(gen_random_uuid(),gen_random_uuid(),'MANAGER',true)"),/permission denied/);
+});
+test('initial schema exposes no invitation table or account-creation/activation RPC',async()=>{
+ const rows=await admin("select to_regclass('public.staff_invitations') tbl,to_regprocedure('public.create_staff_invitation(text,uuid,text)') create_rpc,to_regprocedure('public.accept_staff_invitations()') accept_rpc");
+ assert.deepEqual(rows[0].rows[0],{tbl:null,create_rpc:null,accept_rpc:null});
 });

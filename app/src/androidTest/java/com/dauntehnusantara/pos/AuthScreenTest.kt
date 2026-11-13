@@ -22,7 +22,10 @@ class AuthScreenTest {
     @After fun clear() { store.clear() }
     private fun model(repository: FakeAuth): AuthViewModel = ViewModelProvider(store, object : ViewModelProvider.Factory {
         override fun <T:ViewModel> create(modelClass:Class<T>):T {
-            @Suppress("UNCHECKED_CAST") return AuthViewModel(AuthUseCases(repository), object : NetworkAvailability { override val validated = emptyFlow<Boolean>() }) as T
+            @Suppress("UNCHECKED_CAST") return AuthViewModel(AuthUseCases(repository), object : NetworkAvailability { override val validated = emptyFlow<Boolean>() }, object : com.dauntehnusantara.pos.feature.sync.domain.SyncScheduler {
+                override fun enqueue(force: Boolean) {}
+                override fun ensurePeriodic() {}
+            }) as T
         }
     })[AuthViewModel::class.java]
     private fun ready(role:Role)=AuthState(AuthStage.READY,true,membership=Membership("brand","Daun Teh","outlet","Outlet A",role))
@@ -33,15 +36,23 @@ class AuthScreenTest {
         compose.onNodeWithText("Staf").assertDoesNotExist()
         compose.onNodeWithText("Outlet A",substring=true).assertIsDisplayed()
     }
-    @Test fun ownerCanRequestInviteButNoOwnerRoleIsOffered() {
+    @Test fun ownerSeesManualProvisioningAndCanStillReviewDevices() {
         val repository=FakeAuth(ready(Role.OWNER));val model=model(repository)
         compose.setContent { DaunTehTheme { AuthRoot(model) {} } }
         compose.onNodeWithText("Staf").performClick()
-        compose.onNodeWithText("Email").performTextInput("new@example.invalid")
-        compose.onNodeWithText("MANAGER").performClick()
-        compose.onNodeWithText("Kirim undangan").performClick()
-        compose.runOnIdle { assertEquals(Role.MANAGER,repository.invited) }
-        compose.onNodeWithText("Muat permintaan perangkat").assertExists()
+        compose.onNodeWithText("Akun staf dan penugasan outlet dikelola oleh administrator.",substring=true).assertIsDisplayed()
+        compose.onNodeWithText("Kirim undangan").assertDoesNotExist()
+        compose.onNodeWithText("Email").assertDoesNotExist()
+        compose.onNodeWithText("Muat permintaan perangkat").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(repository.devicesLoaded) }
+    }
+    @Test fun loginOffersOnlyManuallyCreatedAccounts() {
+        val repository=FakeAuth(AuthState(AuthStage.LOGIN,true));val model=model(repository)
+        compose.setContent { DaunTehTheme { AuthRoot(model) {} } }
+        compose.onNodeWithText("Gunakan akun yang sudah dibuat oleh administrator.",substring=true).assertIsDisplayed()
+        compose.onNodeWithText("Email").assertExists()
+        compose.onNodeWithText("Kode aktivasi",substring=true).assertDoesNotExist()
+        compose.onNodeWithText("Punya undangan",substring=true).assertDoesNotExist()
     }
     @Test fun invalidOfflineLeaseCannotLaunchUnlock() {
         val repository=FakeAuth(AuthState(AuthStage.LOCKED,true,canOffline=false));val model=model(repository)
@@ -50,18 +61,16 @@ class AuthScreenTest {
     }
     private class FakeAuth(initial:AuthState):AuthRepository {
         override val state=MutableStateFlow(initial)
-        var invited:Role?=null
+        var devicesLoaded=false
         override suspend fun restore(){}
         override suspend fun signIn(email:String,password:String){}
-        override suspend fun activate(tokenHash:String,password:String){}
         override suspend fun selectOutlet(outletId:String){}
         override suspend fun chooseOutlets(){}
         override suspend fun refresh(){}
         override suspend fun unlockOffline(){}
         override suspend fun enforceLease(){}
-        override suspend fun loadDeviceRequests(){}
+        override suspend fun loadDeviceRequests(){devicesLoaded=true}
         override suspend fun approveDevice(id:String){}
-        override suspend fun invite(email:String,role:Role){invited=role}
         override suspend fun signOut(){}
     }
 }

@@ -43,7 +43,7 @@ fun PosRoute(viewModel: PosViewModel, expanded: Boolean) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PosScreen(state: PosUiState, actions: PosActions, expanded: Boolean = false, demoEnabled: Boolean = BuildConfig.DEBUG) {
+fun PosScreen(state: PosUiState, actions: PosActions, expanded: Boolean = false, demoEnabled: Boolean = BuildConfig.DEBUG, demo: Boolean = true) {
     var productId by rememberSaveable { mutableStateOf<String?>(null) }
     var showCart by rememberSaveable { mutableStateOf(false) }
     var checkout by rememberSaveable { mutableStateOf(false) }
@@ -62,14 +62,22 @@ fun PosScreen(state: PosUiState, actions: PosActions, expanded: Boolean = false,
         }
         return
     }
+    if (state.syncRequired) {
+        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(stringResource(if (state.recoveryRequired) R.string.recovery_required else R.string.pull_initial_required))
+            if (state.pullFailed) Text(stringResource(R.string.pull_failed))
+            Button(onClick = actions.retry) { Text(stringResource(R.string.sync_retry)) }
+        }
+        return
+    }
     val receipt = state.checkout?.receipt
     if (receipt != null) {
-        ReceiptContent(receipt, Modifier.fillMaxSize(), onNext = { checkout = false; showCart = false; actions.next() }, busy = state.busy, error = state.error)
+        ReceiptContent(receipt, Modifier.fillMaxSize(), onNext = { checkout = false; showCart = false; actions.next() }, busy = state.busy, error = state.error, demo = demo)
         return
     }
     if (checkout && draft != null && draft.lines.isNotEmpty()) {
         BackHandler { if (!state.busy) checkout = false }
-        CheckoutForm(draft, state.busy, state.error, actions.pay, { checkout = false })
+        CheckoutForm(draft, state.busy, state.error, actions.pay, { checkout = false }, demo)
         return
     }
     val cart: @Composable () -> Unit = {
@@ -82,11 +90,12 @@ fun PosScreen(state: PosUiState, actions: PosActions, expanded: Boolean = false,
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(stringResource(R.string.cashier), style = MaterialTheme.typography.headlineLarge)
-                        Text(stringResource(R.string.pos_demo))
-                        Text(stringResource(R.string.pos_pending, state.checkout?.pendingCount ?: 0))
+                        if (demo) Text(stringResource(R.string.pos_demo))
+                        Text(stringResource(if (demo) R.string.pos_pending else R.string.pos_real_pending, state.checkout?.pendingCount ?: 0))
+                        if (state.pullFailed) Text(stringResource(R.string.pull_failed))
                         PosErrorText(state.error)
                         if (state.error != null) TextButton(onClick = actions.clearError) { Text(stringResource(R.string.pos_dismiss_error)) }
-                        if (state.catalog.visibleProducts().isEmpty()) Text(stringResource(R.string.pos_empty))
+                        if (state.catalog.visibleProducts().isEmpty()) Text(stringResource(if (demo) R.string.pos_empty else R.string.pos_real_empty))
                     }
                 }
                 if (!state.loading && !state.loadFailed) items(state.catalog.visibleProducts(), key = { it.info.id }) { product ->
@@ -185,7 +194,7 @@ private fun ModifierPicker(catalog: Catalog, product: Product, busy: Boolean, on
 }
 
 @Composable
-private fun CheckoutForm(draft: Draft, busy: Boolean, error: PosError?, onPay: (PaymentInput) -> Unit, onBack: () -> Unit) {
+private fun CheckoutForm(draft: Draft, busy: Boolean, error: PosError?, onPay: (PaymentInput) -> Unit, onBack: () -> Unit, demo: Boolean = true) {
     var methodName by rememberSaveable(draft.id) { mutableStateOf(PaymentMethod.CASH.name) }
     var cashText by rememberSaveable(draft.id) { mutableStateOf("") }
     var verified by rememberSaveable(draft.id) { mutableStateOf(false) }
@@ -218,7 +227,7 @@ private fun CheckoutForm(draft: Draft, busy: Boolean, error: PosError?, onPay: (
         Button(onClick = { onPay(input) }, enabled = result != null && !busy, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (busy) R.string.pos_saving else R.string.pos_save))
         }
-        Text(stringResource(R.string.pos_demo))
+        if (demo) Text(stringResource(R.string.pos_demo))
     }
 }
 
@@ -233,12 +242,12 @@ private fun PosErrorText(error: PosError?) {
 }
 
 @Composable
-fun ReceiptContent(receipt: Receipt, modifier: Modifier = Modifier, onNext: (() -> Unit)? = null, busy: Boolean = false, error: PosError? = null) {
+fun ReceiptContent(receipt: Receipt, modifier: Modifier = Modifier, onNext: (() -> Unit)? = null, busy: Boolean = false, error: PosError? = null, demo: Boolean = true) {
     Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PosErrorText(error)
         Text(stringResource(R.string.pos_receipt), style = MaterialTheme.typography.headlineMedium)
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.pos_local_saved))
+        Text(stringResource(if (demo) R.string.pos_local_saved else R.string.pos_real_saved))
         Text(receipt.id)
         Text(formatJakarta(receipt.createdAtUtcMs))
         receipt.lines.forEach { line ->
@@ -252,7 +261,7 @@ fun ReceiptContent(receipt: Receipt, modifier: Modifier = Modifier, onNext: (() 
         receipt.payment.tenderedIdr?.let { Text(stringResource(R.string.pos_paid, formatIdr(it))) }
         receipt.payment.changeIdr?.let { Text(stringResource(R.string.pos_change, formatIdr(it))) }
         if (receipt.payment.method == PaymentMethod.QRIS_MANUAL) Text(stringResource(R.string.pos_qris_manual_receipt))
-        Text(stringResource(R.string.pos_demo))
+        if (demo) Text(stringResource(R.string.pos_demo))
         if (onNext != null) Button(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.pos_next)) }
     }
 }
@@ -261,14 +270,22 @@ fun ReceiptContent(receipt: Receipt, modifier: Modifier = Modifier, onNext: (() 
 fun LocalHistoryRoute(viewModel: PosViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     if (!BuildConfig.DEBUG) { Text(stringResource(R.string.pos_release_disabled), Modifier.padding(24.dp)); return }
+    HistoryContent(state, viewModel::retry)
+}
+@Composable
+fun HistoryContent(state: PosUiState, retry: () -> Unit, demo: Boolean = true) {
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { Text(stringResource(R.string.history), style = MaterialTheme.typography.headlineLarge) }
-        item { Text(stringResource(R.string.pos_local_history)) }
+        item { Text(stringResource(if (demo) R.string.pos_local_history else R.string.pos_synced_history)) }
         if (state.loading) item { CircularProgressIndicator() }
+        if (!demo && (state.syncRequired || state.pullFailed)) item {
+            Text(stringResource(if (state.recoveryRequired) R.string.recovery_required else if (state.syncRequired) R.string.pull_initial_required else R.string.pull_failed))
+            Button(onClick = retry) { Text(stringResource(R.string.sync_retry)) }
+        }
         if (state.loadFailed) item {
             Text(stringResource(R.string.local_error))
-            Button(onClick = viewModel::retry) { Text(stringResource(R.string.retry)) }
+            Button(onClick = retry) { Text(stringResource(R.string.retry)) }
         }
         if (!state.loading && !state.loadFailed && state.history.isEmpty()) item { Text(stringResource(R.string.pos_no_receipts)) }
         items(state.history, key = { it.id }) { receipt ->
@@ -281,7 +298,7 @@ fun LocalHistoryRoute(viewModel: PosViewModel) {
     }
     state.history.find { it.id == selected }?.let { receipt ->
         AlertDialog(onDismissRequest = { selected = null }, confirmButton = { TextButton(onClick = { selected = null }) { Text(stringResource(R.string.catalog_close)) } },
-            text = { ReceiptContent(receipt, Modifier.heightIn(max = 500.dp)) })
+            text = { ReceiptContent(receipt, Modifier.heightIn(max = 500.dp), demo = demo) })
     }
 }
 

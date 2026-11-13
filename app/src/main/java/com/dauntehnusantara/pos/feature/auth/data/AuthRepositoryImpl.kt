@@ -4,6 +4,14 @@ import com.dauntehnusantara.pos.core.network.*
 import com.dauntehnusantara.pos.core.security.SecretStore
 import com.dauntehnusantara.pos.feature.auth.domain.*
 import com.dauntehnusantara.pos.core.common.*
+import com.dauntehnusantara.pos.feature.sync.domain.*
+import org.json.JSONObject
+import com.dauntehnusantara.pos.feature.reports.domain.*
+import com.dauntehnusantara.pos.feature.reports.data.ReportJson
+import com.dauntehnusantara.pos.feature.staff.domain.*
+import com.dauntehnusantara.pos.feature.staff.data.StaffJson
+import com.dauntehnusantara.pos.feature.catalog.domain.*
+import com.dauntehnusantara.pos.feature.catalog.data.CatalogCommandJson
 import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
@@ -20,7 +28,7 @@ private class AuthInputFailure : IllegalArgumentException()
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private val config: BackendConfig,
-    private val store: SecretStore, private val clock: AccessClock) : AuthRepository {
+    private val store: SecretStore, private val clock: AccessClock, private val enrollmentLookup: DeviceEnrollmentLookup) : AuthRepository, SaleGateway, PullGateway, ReportingGateway, StaffGateway, CatalogGateway {
     private val mutable = MutableStateFlow(AuthState(configured = config.configured))
     override val state = mutable.asStateFlow()
     private val mutex = Mutex()
@@ -34,9 +42,6 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     }
     private suspend fun failure(error: Exception, wasOffline: Boolean) {
         when {
-            cache.activationPending && (error is IOException || error is AuthHttpFailure && error.status >= 500) -> {
-                mutable.value = AuthState(AuthStage.ACTIVATE, true, activationPending = true, email = cache.session?.email.orEmpty(), message = AuthMessage.UNAVAILABLE)
-            }
             error is AuthHttpFailure && error.status == 423 -> {
                 cache = cache.copy(lease = null); runCatching { save() }
                 mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, membership = null, deviceRequests = emptyList(), offline = false, canOffline = false, pendingDeviceId = cache.device?.id, message = AuthMessage.DEVICE_PENDING)
@@ -69,19 +74,20 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         catch (e: Exception) { failure(e, wasOffline) }
         finally { mutable.value = mutable.value.copy(busy = false) }
     }
+    private suspend fun refreshTokenSession(session: TokenSession): TokenSession = try { api.refresh(session) }
+    catch (e: AuthHttpFailure) { if (e.status == 400) throw AuthHttpFailure(401) else throw e }
     private suspend fun <T> authorized(block: suspend (TokenSession) -> T): T {
         var session = requireNotNull(cache.session)
         if (session.expiresAtMs <= clock.read().wallMs + 60000) {
-            session = api.refresh(session); cache = cache.copy(session = session); save()
+            session = refreshTokenSession(session); cache = cache.copy(session = session); save()
         }
         return try { block(session) } catch (e: AuthHttpFailure) {
             if (e.status != 401) throw e
-            session = api.refresh(session); cache = cache.copy(session = session); save()
+            session = refreshTokenSession(session); cache = cache.copy(session = session); save()
             block(session)
         }
     }
     private suspend fun loadChoices(keepSelection: Boolean) {
-        if (cache.activationPending) { mutable.value = AuthState(AuthStage.ACTIVATE, true, activationPending = true); return }
         val choices = authorized { api.choices(it) }
         if (choices.isEmpty()) {
             cache = cache.copy(membership = null, device = null, lease = null); save()
@@ -98,7 +104,8 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         cache = cache.copy(membership = membership, lease = previous); save()
         var device = cache.device
         if (device == null || device.userId != cache.session?.userId || device.outletId != membership.outletId) {
-            device = authorized { api.enroll(it, UUID.randomUUID().toString(), membership.outletId) }
+            val retainedId = enrollmentLookup.retainedDevice(requireNotNull(cache.session).userId, membership.outletId)
+            device = authorized { api.enroll(it, retainedId ?: UUID.randomUUID().toString(), membership.outletId) }
             cache = cache.copy(device = device); save()
         }
         val anchor = clock.read() // Anchor before network round trip: latency cannot extend the lease.
@@ -110,13 +117,11 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     }
     override suspend fun restore() = action {
         val stored = try { withContext(Dispatchers.IO) { store.read()?.let(AuthCache::decode) } }
+        catch (e: CancellationException) { throw e }
         catch (_: Exception) { clear(); null }
         if (stored != null && stored.projectUrl == config.url) cache = stored
         else { clear(); cache = AuthCache(config.url) }
         if (cache.session == null) { mutable.value = AuthState(AuthStage.LOGIN, true); return@action }
-        if (cache.activationPending) {
-            mutable.value = AuthState(AuthStage.ACTIVATE, true, activationPending = true, email = cache.session?.email.orEmpty()); return@action
-        }
         loadChoices(true)
     }
     override suspend fun signIn(email: String, password: String) = action {
@@ -126,19 +131,7 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         cache = AuthCache(config.url, session = session); save()
         loadChoices(false)
     }
-    override suspend fun activate(tokenHash: String, password: String) = action {
-        if (password.length !in 12..128) throw AuthInputFailure()
-        if (!cache.activationPending) {
-            if (!(tokenHash.length in 20..512 && tokenHash.none { it.isWhitespace() })) throw AuthInputFailure()
-            clear()
-            cache = AuthCache(config.url, session = api.activate(tokenHash), activationPending = true); save()
-        }
-        authorized { api.password(it, password) }
-        cache = cache.copy(activationPending = false); save()
-        loadChoices(false)
-    }
     override suspend fun selectOutlet(outletId: String) = action {
-        if (cache.activationPending) { mutable.value = AuthState(AuthStage.ACTIVATE, true, activationPending = true); return@action }
         // Re-query memberships; a stale UI choice cannot enroll a now-forbidden outlet.
         val choices = authorized { api.choices(it) }
         val membership = choices.find { it.outletId == outletId } ?: throw AuthHttpFailure(403)
@@ -173,20 +166,112 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         val requests = authorized { api.deviceRequests(it, membership.outletId) }
         mutable.value = mutable.value.copy(deviceRequests = requests)
     }
-    override suspend fun invite(email: String, role: Role) = action {
-        val membership = requireNotNull(mutable.value.membership)
-        if (!(!mutable.value.offline && RoleNavigation.mayInvite(membership.role, role) && '@' in email && email.length <= 254)) throw AuthInputFailure()
-        try {
-            authorized { api.invite(it, membership, email.trim(), role) }
-            mutable.value = mutable.value.copy(message = AuthMessage.INVITE_SENT)
-        } catch (e: AuthHttpFailure) {
-            when {
-                e.status == 429 -> mutable.value = mutable.value.copy(message = AuthMessage.RATE_LIMIT)
-                e.status == 409 -> mutable.value = mutable.value.copy(message = AuthMessage.INVITE_CONFLICT)
-                e.status >= 500 -> mutable.value = mutable.value.copy(message = AuthMessage.INVITE_UNCERTAIN)
-                else -> throw e
-            }
+    private suspend fun storedScope(): SaleScope? {
+        if (!config.configured) return null
+        if (cache.session == null) {
+            val stored = withContext(Dispatchers.IO) { store.read()?.let(AuthCache::decode) }
+            if (stored?.projectUrl == config.url) cache = stored
         }
+        val user = cache.session?.userId ?: return null
+        val membership = cache.membership ?: return null
+        val device = cache.device ?: return null
+        if (device.userId != user || device.outletId != membership.outletId) return null
+        return SaleScope(membership.brandId, membership.outletId, device.id, user)
+    }
+    private suspend fun storedPullScope(): PullScope? = storedScope()?.let { PullScope(it, requireNotNull(cache.membership).role.name, config.url) }
+    override suspend fun pullScope(): PullScope? = mutex.withLock { storedPullScope() }
+    override suspend fun fetch(scope: PullScope, after: Long, epoch: String?): PullPage = mutex.withLock {
+        try {
+            if (storedPullScope() != scope) throw PullFailure("SCOPE_CHANGED")
+            val page = authorized { api.pull(it, requireNotNull(cache.device), after, scope.role, epoch) }
+            com.dauntehnusantara.pos.feature.sync.data.PullJson.page(page, scope, after)
+        } catch (e: CancellationException) { throw e }
+        catch (e: AuthHttpFailure) {
+            if (e.status in listOf(401, 403, 423)) failure(e, mutable.value.offline)
+            if (e.status == 409) {
+                cache = cache.copy(lease = null); save()
+                mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, membership = null, offline = false, canOffline = false, message = AuthMessage.DENIED)
+            }
+            throw PullFailure(if (e.status in listOf(401, 403, 423)) "AUTH_REQUIRED" else if (e.status == 409) "SCOPE_CHANGED" else if(e.status == 410) "REBOOTSTRAP_REQUIRED" else "UNAVAILABLE")
+        } catch (_: IOException) { throw PullFailure("UNAVAILABLE") }
+        catch (e: PullFailure) { throw e }
+        catch (_: Exception) { throw PullFailure("INVALID_PAGE") }
+    }
+    override suspend fun backgroundScope(): SaleScope? = mutex.withLock { storedScope() }
+    override suspend fun checkoutScope(): SaleScope? = mutex.withLock {
+        if (mutable.value.stage != AuthStage.READY || mutable.value.busy || mutable.value.offline && !offlineValid()) null else storedScope()
+    }
+    override suspend fun submit(sale: PendingSale): PushResult = mutex.withLock {
+        try {
+            if (storedScope() != sale.scope) return@withLock PushResult.AuthRequired
+            val payload = JSONObject(sale.payload)
+            require(payload.getBoolean("demo") == false && payload.getInt("schema_version") == 1 &&
+                payload.getString("operation_id") == sale.operationId && payload.getString("sale_id") == sale.saleId &&
+                payload.getString("brand_id") == sale.scope.brandId && payload.getString("outlet_id") == sale.scope.outletId &&
+                payload.getString("device_id") == sale.scope.deviceId && payload.getString("cashier_user_id") == sale.scope.userId)
+            val ack = authorized { api.submit(it, requireNotNull(cache.device), sale.payload) }
+            val payloadHash = java.security.MessageDigest.getInstance("SHA-256").digest(sale.payload.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+            require(ack.getString("payload_hash") == payloadHash)
+            require(ack.getString("operation_id") == sale.operationId && ack.getString("sale_id") == sale.saleId &&
+                ack.getString("request_hash").matches(Regex("[0-9a-f]{64}")))
+            when (ack.getString("status")) {
+                "ACCEPTED" -> PushResult.Accepted
+                "REVIEW" -> {
+                    val code = ack.getString("code")
+                    require(code in listOf("CATALOG_CHANGED", "INVALID_SALE", "SALE_CONFLICT", "OPERATION_CONFLICT"))
+                    PushResult.Review(code)
+                }
+                else -> PushResult.Review("INVALID_ACK")
+            }
+        } catch (e: CancellationException) { throw e }
+        catch (_: IOException) { PushResult.Retry }
+        catch (e: AuthHttpFailure) {
+            when {
+                e.status == 429 || e.status >= 500 -> PushResult.Retry
+                e.status in listOf(401, 403, 423) -> { failure(e, mutable.value.offline); PushResult.AuthRequired }
+                else -> PushResult.Review("HTTP_REJECTED")
+            }
+        } catch (_: Exception) { PushResult.Review("INVALID_ACK_OR_PAYLOAD") }
+    }
+    private suspend fun currentManagementScope(online:Boolean):PullScope? {
+        if(mutable.value.stage!=AuthStage.READY || cache.membership?.role !in listOf(Role.OWNER,Role.MANAGER)) return null
+        if(mutable.value.offline && (online || !offlineValid())) return null
+        return storedPullScope()
+    }
+    override suspend fun reportingScope(online:Boolean):PullScope? = mutex.withLock { currentManagementScope(online) }
+    private suspend fun <T> management(scope:PullScope,block:suspend (TokenSession,EnrolledDevice)->T):T = mutex.withLock {
+        if(currentManagementScope(false)!=scope)throw ManagementFailure("AUTH_REQUIRED")
+        if(mutable.value.offline)throw ManagementFailure("OFFLINE")
+        try { authorized { block(it,requireNotNull(cache.device)) } }
+        catch(e:CancellationException){throw e}
+        catch(e:AuthHttpFailure){
+            if(e.status in listOf(401,403,423))failure(e,false)
+            throw ManagementFailure(when(e.status){409->"CONFLICT";401,403,423->"AUTH_REQUIRED";413->"TOO_LARGE";410->"REBOOTSTRAP_REQUIRED";422->"INVALID";else->"UNAVAILABLE"})
+        } catch(_:IOException){throw ManagementFailure("UNAVAILABLE")}
+        catch(e:ManagementFailure){throw e}
+        catch(_:Exception){throw ManagementFailure("INVALID_RESPONSE")}
+    }
+    override suspend fun saveCatalog(scope:PullScope,epoch:String,change:CatalogMutation):CatalogAck = management(scope) { session,device ->
+        change.validate()
+        CatalogCommandJson.ack(JsonSafety.obj(api.management(session,device,"save_catalog_record",JSONObject().put("p_epoch",epoch)
+            .put("p_change",CatalogCommandJson.write(change)))),change,epoch)
+    }
+    override suspend fun report(query:ReportQuery):SalesReport = management(query.source) { session,device ->
+        ReportJson.read(JsonSafety.obj(api.management(session,device,"get_sales_report",JSONObject().put("p_from_date",query.from.toString())
+            .put("p_to_date",query.to.toString()).put("p_outlet_id",query.outletId?:JSONObject.NULL))),query)
+    }
+    override suspend fun roster(scope:PullScope):StaffRoster = management(scope) { session,device ->
+        StaffJson.read(JsonSafety.obj(api.management(session,device,"list_staff",JSONObject())),scope)
+    }
+    override suspend fun memberAccess(scope:PullScope,id:String,active:Boolean,version:Long,reason:String) {
+        StaffRules.reason(reason)
+        management(scope) { session,device -> api.management(session,device,"set_staff_access",JSONObject().put("p_user_id",id)
+            .put("p_active",active).put("p_expected_version",version).put("p_reason",reason.trim())) }
+    }
+    override suspend fun deviceAccess(scope:PullScope,id:String,revoked:Boolean,version:Long,reason:String) {
+        StaffRules.reason(reason)
+        management(scope) { session,device -> api.management(session,device,"set_device_access",JSONObject().put("p_target_id",id)
+            .put("p_revoked",revoked).put("p_expected_version",version).put("p_reason",reason.trim())) }
     }
     override suspend fun signOut() = mutex.withLock {
         val session = cache.session

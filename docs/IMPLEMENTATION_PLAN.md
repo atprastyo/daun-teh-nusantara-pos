@@ -14,7 +14,7 @@ Development policy: maintain only the current initial Room schema during this de
 Phone/tablet adaptive POS, cart, modifier selection, cash/manual QRIS, local atomic sale+outbox, receipts, tests. Acceptance: offline sale survives restart.
 
 ## M3 Supabase foundation & security
-Initial development SQL schema for brands/outlets/members/catalog/sales/sync/audit (no development migrations), RLS policies and tests, invite/login, role-specific navigation and approved-device offline leases. Acceptance: unauthorized cross-outlet access denied server-side.
+Initial development SQL schema for brands/outlets/members/catalog/sales/sync/audit (no development migrations), RLS policies and tests, manual staff provisioning/login, role-specific navigation and approved-device offline leases. Acceptance: unauthorized cross-outlet access denied server-side.
 
 ## M4 Push sync
 Secure transactional `submit_sale`, operation dedupe, WorkManager retry/status. Acceptance: retry/ack-loss tests prove no duplicates.
@@ -26,7 +26,7 @@ Monotonic change feed, scoped cursors, catalog and sales updates, Realtime hints
 Role-scoped reports, staff management, backup/restore runbook, export, device revocation, audit trail. Acceptance: correct outlet scoping and verified restore rehearsal.
 
 ## M7 Release hardening
-Security review, end-to-end offline/online scenarios, UI accessibility, performance, migration and rollback plan, signed release checklist.
+Security review, remaining authorized mobile catalog editor, end-to-end offline/online scenarios, UI accessibility, performance, migration and rollback plan, signed release checklist. Local controls and acceptance gates are tracked in `M7_RELEASE_CHECKLIST.md`; production acceptance remains open until the device/hosted/signing checks are executed.
 
 ## Every milestone report
 Files changed; commands/tests actually run; unresolved blockers; assumptions/decisions; suggested next step.

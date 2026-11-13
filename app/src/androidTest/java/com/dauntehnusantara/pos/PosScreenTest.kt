@@ -29,7 +29,7 @@ class PosScreenTest {
         compose.onNodeWithText("Pembayaran").performClick()
         compose.onNodeWithText("Simpan penjualan lokal").assertIsNotEnabled()
         compose.onNodeWithText("Uang diterima (IDR)").performTextInput("10000")
-        compose.onNodeWithText("Simpan penjualan lokal").performClick()
+        compose.onNodeWithText("Simpan penjualan lokal").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
         compose.onNodeWithText("Menyimpan…").assertIsNotEnabled()
         compose.runOnIdle { assertEquals(1, submissions); assertEquals(10000L, paid?.tenderedIdr) }
     }
@@ -41,7 +41,7 @@ class PosScreenTest {
         compose.onNodeWithText("QRIS · konfirmasi manual").performClick()
         compose.onNodeWithText("Simpan penjualan lokal").assertIsNotEnabled()
         compose.onNodeWithText("Saya telah memeriksa dan memastikan pembayaran diterima.").performClick()
-        compose.onNodeWithText("Simpan penjualan lokal").performClick()
+        compose.onNodeWithText("Simpan penjualan lokal").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(PaymentMethod.QRIS_MANUAL, paid?.method); assertEquals(true, paid?.manuallyVerified); assertNull(paid?.tenderedIdr) }
     }
     @Test fun releaseDoesNotExposeDemoCheckout() {
@@ -49,4 +49,26 @@ class PosScreenTest {
         compose.onNodeWithText("Kasir belum tersedia", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Simpan penjualan lokal").assertDoesNotExist()
     }
+    @Test fun realCheckoutRequiresInitialCatalogPull() {
+        compose.setContent { DaunTehTheme { PosScreen(ready().copy(syncRequired = true), PosActions(), demoEnabled = true, demo = false) } }
+        compose.onNodeWithText("Sinkronkan katalog secara online", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Simpan penjualan lokal").assertDoesNotExist()
+    }
+    @Test fun realReceiptNeverUsesDemoOrUnsentDemoLabels() {
+        val state = ready()
+        val draft = requireNotNull(state.checkout).draft
+        val receipt = Receipt(draft.id, draft.operationId, "brand", "outlet", "device", "cashier", 0, draft.lines, draft.totalIdr,
+            CheckoutRules.payment(draft.totalIdr, PaymentInput(PaymentMethod.CASH, 100000)))
+        compose.setContent { DaunTehTheme { ReceiptContent(receipt, demo = false) } }
+        compose.onNodeWithText("Struk tersimpan di perangkat.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("belum dikirim (demo)", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Mode demo lokal", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun restoredFeedPreservesRecoveryInstructionsAndBlocksNewSales() {
+        compose.setContent { DaunTehTheme { PosScreen(ready().copy(syncRequired=true,recoveryRequired=true),PosActions(),demoEnabled=true,demo=false) } }
+        compose.onNodeWithText("Jangan hapus data aplikasi",substring=true).assertIsDisplayed()
+        compose.onNodeWithText("Simpan penjualan lokal").assertDoesNotExist()
+    }
+
 }

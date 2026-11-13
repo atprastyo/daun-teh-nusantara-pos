@@ -21,18 +21,17 @@ object OfflineLeaseRules {
         return now.wallMs - lease.anchorWallMs < duration && now.elapsedMs - lease.anchorElapsedMs < duration
     }
 }
-enum class AuthStage { LOADING, LOGIN, ACTIVATE, OUTLETS, READY, LOCKED }
-enum class AuthMessage { RATE_LIMIT, INVITE_CONFLICT, DEVICE_PENDING, CONFIGURATION, INVALID_INPUT, SIGN_IN_FAILED, UNAVAILABLE, NO_ACCESS, DENIED, OFFLINE_EXPIRED, INVITE_SENT, INVITE_UNCERTAIN }
+enum class AuthStage { LOADING, LOGIN, OUTLETS, READY, LOCKED }
+enum class AuthMessage { RATE_LIMIT, DEVICE_PENDING, CONFIGURATION, INVALID_INPUT, SIGN_IN_FAILED, UNAVAILABLE, NO_ACCESS, DENIED, OFFLINE_EXPIRED }
 data class DeviceRequest(val deviceId: String, val userId: String, val fullName: String, val email: String, val role: Role)
 data class AuthState(val stage: AuthStage = AuthStage.LOADING, val configured: Boolean = false,
     val choices: List<Membership> = emptyList(), val membership: Membership? = null, val email: String = "",
     val offline: Boolean = false, val leaseExpiresAtMs: Long? = null, val canOffline: Boolean = false,
-    val busy: Boolean = false, val pendingDeviceId: String? = null, val deviceRequests: List<DeviceRequest> = emptyList(), val message: AuthMessage? = null, val activationPending: Boolean = false)
+    val busy: Boolean = false, val pendingDeviceId: String? = null, val deviceRequests: List<DeviceRequest> = emptyList(), val message: AuthMessage? = null)
 interface AuthRepository {
     val state: StateFlow<AuthState>
     suspend fun restore()
     suspend fun signIn(email: String, password: String)
-    suspend fun activate(tokenHash: String, password: String)
     suspend fun selectOutlet(outletId: String)
     suspend fun chooseOutlets()
     suspend fun refresh()
@@ -40,7 +39,6 @@ interface AuthRepository {
     suspend fun enforceLease()
     suspend fun loadDeviceRequests()
     suspend fun approveDevice(id: String)
-    suspend fun invite(email: String, role: Role)
     suspend fun signOut()
 }
 enum class AccessDestination { OVERVIEW, POS, HISTORY, CATALOG, REPORTS, STAFF, SETTINGS }
@@ -49,14 +47,12 @@ object RoleNavigation {
         Role.CASHIER -> listOf(AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.SETTINGS)
         Role.MANAGER, Role.OWNER -> listOf(AccessDestination.OVERVIEW, AccessDestination.CATALOG, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
     }
-    fun mayInvite(actor: Role, requested: Role) = requested != Role.OWNER && (actor == Role.OWNER || actor == Role.MANAGER && requested == Role.CASHIER)
 }
 
 class AuthUseCases @javax.inject.Inject constructor(private val repository: AuthRepository) {
     val state get() = repository.state
     suspend fun restore() = repository.restore()
     suspend fun signIn(email: String, password: String) = repository.signIn(email, password)
-    suspend fun activate(code: String, password: String) = repository.activate(code, password)
     suspend fun selectOutlet(outlet: String) = repository.selectOutlet(outlet)
     suspend fun chooseOutlets() = repository.chooseOutlets()
     suspend fun refresh() = repository.refresh()
@@ -64,6 +60,8 @@ class AuthUseCases @javax.inject.Inject constructor(private val repository: Auth
     suspend fun enforceLease() = repository.enforceLease()
     suspend fun loadDeviceRequests() = repository.loadDeviceRequests()
     suspend fun approveDevice(id: String) = repository.approveDevice(id)
-    suspend fun invite(email: String, role: Role) = repository.invite(email, role)
     suspend fun signOut() = repository.signOut()
 }
+
+/** Recover only the public device ID for this account's retained queue; never credentials. */
+fun interface DeviceEnrollmentLookup { suspend fun retainedDevice(userId: String, outletId: String): String? }
