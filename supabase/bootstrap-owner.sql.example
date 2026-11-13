@@ -1,0 +1,10 @@
+-- Trusted operator only, in a FRESH DEVELOPMENT project after applying schema.sql.
+-- Provision/invite the initial owner in Supabase Auth first. Do not insert passwords.
+-- Replace placeholders with verified Auth UUIDs, your own brand/outlet UUIDs and outlet name.
+-- This file is deliberately not executable until configured; never run it on production blindly.
+begin;
+insert into public.brands(id,name) values ('<brand-uuid>','Daun Teh Nusantara');
+insert into public.outlets(id,brand_id,name) values ('<outlet-uuid>','<brand-uuid>','<outlet-name>');
+insert into public.user_profiles(id,full_name) values ('<verified-owner-auth-user-uuid>','<owner-name>');
+insert into public.brand_members(user_id,brand_id,role) values ('<verified-owner-auth-user-uuid>','<brand-uuid>','OWNER');
+commit;

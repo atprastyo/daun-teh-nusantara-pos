@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+.gradle-user-home/
+.idea/
+local.properties
+**/build/
+.DS_Store
+.env
+*.jks
+*.keystore
+
+node_modules/
+supabase/.temp/
+supabase/.branches/
+
+.env.*
+!.env.example
