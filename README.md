@@ -293,3 +293,10 @@ are unsigned until signing is configured externally. See
 [security review](docs/M7_SECURITY_REVIEW.md); physical-device, hosted concurrency,
 signing and hosted recovery remain acceptance gates. No production deployment or
 destructive migration is part of this iteration.
+
+## Branding
+
+The launcher uses the supplied Daun Teh Nusantara logo in an adaptive icon with a
+white background and mask-safe padding. `core/designsystem/Theme.kt` defines the
+fixed leaf-green Material 3 palettes for light/dark modes; native startup colors
+are in `res/values/colors.xml` and `res/values-night/colors.xml`.
