@@ -30,3 +30,11 @@ Security review, remaining authorized mobile catalog editor, end-to-end offline/
 
 ## Every milestone report
 Files changed; commands/tests actually run; unresolved blockers; assumptions/decisions; suggested next step.
+
+## Optional product-photo iteration
+
+One photo per saved product: online Owner/Manager picker/upload/remove, private
+Storage setup/RLS, independent photo revisions/feed, POS/catalog display and bounded
+scoped offline cache. Keep image failures out of checkout and sale snapshots; Room
+v1 is unchanged. Setup/manual acceptance: `PRODUCT_PHOTOS.md`. This iteration does
+not close the outstanding M7 hosted, device, signing or recovery acceptance gates.

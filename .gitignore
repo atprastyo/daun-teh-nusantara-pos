@@ -15,3 +15,5 @@ supabase/.branches/
 
 .env.*
 !.env.example
+
+.kotlin/

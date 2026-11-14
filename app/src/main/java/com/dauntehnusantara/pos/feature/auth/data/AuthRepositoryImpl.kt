@@ -24,11 +24,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
+import com.dauntehnusantara.pos.feature.catalog.photos.domain.*
+
 private class AuthInputFailure : IllegalArgumentException()
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private val config: BackendConfig,
-    private val store: SecretStore, private val clock: AccessClock, private val enrollmentLookup: DeviceEnrollmentLookup) : AuthRepository, SaleGateway, PullGateway, ReportingGateway, StaffGateway, CatalogGateway {
+    private val store: SecretStore, private val clock: AccessClock, private val enrollmentLookup: DeviceEnrollmentLookup) : AuthRepository, SaleGateway, PullGateway, ReportingGateway, StaffGateway, CatalogGateway, ProductPhotoGateway {
     private val mutable = MutableStateFlow(AuthState(configured = config.configured))
     override val state = mutable.asStateFlow()
     private val mutex = Mutex()
@@ -250,6 +252,36 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         } catch(_:IOException){throw ManagementFailure("UNAVAILABLE")}
         catch(e:ManagementFailure){throw e}
         catch(_:Exception){throw ManagementFailure("INVALID_RESPONSE")}
+    }
+    private suspend fun currentPhotoScope():PullScope? =
+        if(mutable.value.stage!=AuthStage.READY || mutable.value.busy || mutable.value.offline && !offlineValid())null else storedPullScope()
+    override suspend fun photoScope():PullScope? = mutex.withLock { currentPhotoScope() }
+    private suspend fun photoToken(scope:PullScope,writing:Boolean):String = mutex.withLock {
+        if(currentPhotoScope()!=scope || writing && currentManagementScope(true)!=scope)throw ManagementFailure("AUTH_REQUIRED")
+        if(mutable.value.offline)throw ManagementFailure("OFFLINE")
+        authorized { it.accessToken }
+    }
+    override suspend fun uploadPhoto(scope:PullScope,path:String,bytes:ByteArray) {
+        PhotoRules.path(path,scope.sale.brandId);require(bytes.size in 1..PhotoRules.MAX_BYTES)
+        // Binary IO deliberately runs outside the auth mutex: slow photos never gate checkout.
+        val token=photoToken(scope,true)
+        try { api.transferPhoto(token,"/storage/v1/object/${PhotoRules.BUCKET}/$path",bytes) }
+        catch(e:AuthHttpFailure){if(e.status!=409)throw e} // Immutable UUID path, same frozen bytes on retry.
+        if(photoScope()!=scope)throw ManagementFailure("AUTH_REQUIRED")
+    }
+    override suspend fun downloadPhoto(scope:PullScope,path:String):ByteArray {
+        PhotoRules.path(path,scope.sale.brandId)
+        val bytes=api.transferPhoto(photoToken(scope,false),"/storage/v1/object/authenticated/${PhotoRules.BUCKET}/$path")
+        if(photoScope()!=scope)throw ManagementFailure("AUTH_REQUIRED")
+        return bytes
+    }
+    override suspend fun setPhoto(scope:PullScope,epoch:String,command:PhotoCommand):PhotoAck = management(scope) { session,device ->
+        command.validate(scope.sale.brandId)
+        val j=JsonSafety.obj(api.management(session,device,"set_product_photo",JSONObject().put("p_epoch",epoch)
+            .put("p_product_id",command.productId).put("p_expected_version",command.expectedVersion)
+            .put("p_path",command.path?:JSONObject.NULL).put("p_operation_id",command.operationId)))
+        require(j.getString("operation_id")==command.operationId && j.getString("product_id")==command.productId && j.getString("feed_epoch")==epoch)
+        PhotoAck(j.getLong("version"),j.getLong("through_seq")).also{require(it.version==command.expectedVersion+1 && it.throughSeq>0)}
     }
     override suspend fun saveCatalog(scope:PullScope,epoch:String,change:CatalogMutation):CatalogAck = management(scope) { session,device ->
         change.validate()

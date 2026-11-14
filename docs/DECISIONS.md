@@ -406,3 +406,60 @@ Official sources checked for M6:
 Official Android references checked for M7:
 - https://developer.android.com/topic/performance/app-optimization/enable-app-optimization
 - https://developer.android.com/guide/practices/page-sizes
+
+## Brand icon and green theme (2026-11-14)
+
+- D061: Use the user-supplied Daun Teh Nusantara logo unchanged as the launcher
+  artwork, converted to a square PNG with white padding while preserving aspect
+  ratio. Adaptive icons use a white background and 20% foreground inset so the full
+  logo remains within the mask-safe area; regular and round icons share the artwork.
+- D062: Use a fixed leaf-green Material 3 palette in both light and dark modes,
+  including primary, secondary, tertiary, containers and neutral surfaces. Darker
+  light-mode action colors retain readable white labels. Match native startup
+  backgrounds/accent colors to Compose and provide night-mode native styling.
+  No dependencies, business behavior, database schema or migrations change.
+
+## Transparent logo and explicit white appearance (2026-11-14)
+
+- D063: Replace the logo bitmap with an alpha-transparent background extraction of
+  the supplied artwork, generated with the imagegen skill and packaged at 560×560.
+  Preserve the brand lettering/leaves/ring, keep generated originals outside the
+  project, and use the extracted PNG in the existing launcher foreground.
+- D064: Default the app to light mode independently of the phone's night setting,
+  following the user's report that debug appeared dark only. Keep the explicit
+  `darkTheme` argument/dark palette for future opt-in, but do not invent a theme
+  settings feature. White background/surface/containers and transparent surface tint
+  replace the green-tinted off-white surfaces. Native day/night startup styles and
+  system-bar icon appearance match the white UI; automatic view force-dark is off.
+  No dependency, API, database or business behavior changes.
+- D065: Remove the adaptive launcher's explicit white background as requested.
+  Both the foreground bitmap's empty pixels and background layer are transparent;
+  launcher masks/backdrops remain OS-dependent. Use AndroidX SystemBarStyle for
+  system icon compatibility and guard the native force-dark opt-out at API 29;
+  keep min SDK 26 without suppressing API lint checks.
+
+- D066 (2026-11-14): Use a `drawable-night` launcher foreground with white SRC_IN
+  tint when the device is in night mode. Reuse the transparent logo bitmap and its
+  alpha silhouette; light-mode artwork retains its original colors. This is a native
+  drawable tint, not a second redrawn logo, and does not change the app's explicitly
+  white light UI. Launcher refresh/cache behavior remains device-dependent.
+
+## Product photo preparation — 2026-11-14
+
+- D067: Add optional online product photos using the existing Activity Photo Picker,
+  framework image/EXIF tools and HTTPS stack; add no dependency versions. Automatically
+  center-crop/orient, strip metadata and encode bounded 512px JPEGs. No offline photo
+  upload queue, camera capture or interactive crop editor.
+- D068: Use optional `product-photos.sql` after the existing base schema: private JPEG
+  bucket with limits, approved Owner/Manager JWT upload RLS, published-brand reads,
+  immutable paths and no client object update/delete. Publish/detach through a
+  proof/role/epoch/version/idempotency-checked RPC with atomic audit/feed. No deployment.
+- D069: Keep photo revisions in their own table/feed rows so pictures cannot invalidate
+  prices/paid snapshots. Persist those rows in existing Room catalog metadata, in the
+  same page/cursor transaction; no Room schema, version or migration change. Upgrade
+  old clients before emitting the new feed table; never skip unsupported rows.
+- D070: Scope a bounded atomic private cache to the complete authorized context;
+  images are best-effort offline assets, not operational checkout dependencies.
+  Keep binary IO outside the auth mutex. Retain uncertain photo commands in memory
+  for stable retries across same-context revalidation. Retain orphaned/replaced
+  Storage objects until reviewed operator cleanup; no automatic deletion.

@@ -11,7 +11,7 @@ import org.json.JSONObject
 
 data class TokenSession(val accessToken: String, val refreshToken: String, val userId: String, val email: String, val expiresAtMs: Long) { override fun toString() = "TokenSession(redacted)" }
 data class EnrolledDevice(val id: String, val secret: String, val userId: String, val outletId: String) { override fun toString() = "EnrolledDevice(redacted)" }
-class AuthApi @Inject constructor(private val http: AuthTransport, private val clock: Clock) {
+class AuthApi @Inject constructor(private val http: AuthTransport, private val clock: Clock, private val photos: com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport = com.dauntehnusantara.pos.feature.catalog.photos.data.UnconfiguredPhotoTransport) {
     private fun parseSession(raw: String): TokenSession {
         val json = JsonSafety.obj(raw); val user = json.getJSONObject("user")
         return TokenSession(json.getString("access_token"), json.getString("refresh_token"), user.getString("id"), user.getString("email"),
@@ -50,8 +50,10 @@ class AuthApi @Inject constructor(private val http: AuthTransport, private val c
         JsonSafety.obj(http.request("/rest/v1/rpc/submit_sale", JSONObject().put("p_payload", payload)
             .put("p_device_secret", device.secret).toString(), session.accessToken))
     suspend fun management(session: TokenSession, device: EnrolledDevice, name: String, args: JSONObject): String {
-        require(name in listOf("get_sales_report","list_staff","set_staff_access","set_device_access","save_catalog_record"))
+        require(name in listOf("get_sales_report","list_staff","set_staff_access","set_device_access","save_catalog_record","set_product_photo"))
         return http.request("/rest/v1/rpc/$name", args.put("p_device_id",device.id).put("p_device_secret",device.secret).toString(),session.accessToken)
     }
     suspend fun logout(session: TokenSession) { http.request("/auth/v1/logout?scope=local", "{}", session.accessToken) }
+    suspend fun transferPhoto(token:String,path:String,bytes:ByteArray?=null) = photos.transfer(token,path,bytes)
+
 }

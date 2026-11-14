@@ -208,4 +208,18 @@ class PullSyncTest {
         try{a.checkout.dismissReceipt(sale.id);fail("Checkout must remain gated until reviewed recovery")}catch(_:IllegalStateException){}
     }
 
+    @Test fun photoOnlyFeedPersistsAcrossReopenWithoutRepricingPaidSaleOrChangingProductVersion():Unit=runBlocking {
+        val a=client();a.pull.sync();val paid=a.sell()
+        val path=com.dauntehnusantara.pos.feature.catalog.photos.domain.PhotoRules.newPath(brand,product)
+        events+=event("product_photos",record(product,"Photo").put("image_path",path))
+        a.pull.sync()
+        suspend fun photoMenu()=com.dauntehnusantara.pos.feature.catalog.data.RoomCatalogRepository(a.db,a.db.catalogDao(),clock).observe(brand).first()
+        assertEquals(path,photoMenu().products.single().imagePath);assertEquals(1L,photoMenu().products.single().info.version)
+        a.reopen();assertEquals(path,photoMenu().products.single().imagePath)
+        assertEquals(paid,a.checkout.receipts().single())
+        events+=event("product_photos",record(product,"Photo",2).put("active",false).put("image_path",JSONObject.NULL))
+        a.pull.sync();assertNull(photoMenu().products.single().imagePath);assertEquals(2L,photoMenu().products.single().imageVersion)
+        assertEquals(1L,photoMenu().products.single().info.version)
+    }
+
 }

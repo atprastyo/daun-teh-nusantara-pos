@@ -101,6 +101,7 @@ fun PosScreen(state: PosUiState, actions: PosActions, expanded: Boolean = false,
                 if (!state.loading && !state.loadFailed) items(state.catalog.visibleProducts(), key = { it.info.id }) { product ->
                     OutlinedCard(onClick = { productId = product.info.id }, enabled = !state.busy && draft != null) {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhoto(product.imagePath,product.info.name,Modifier.fillMaxWidth())
                             Text(product.info.name, style = MaterialTheme.typography.titleMedium)
                             Text(formatIdr(product.basePriceIdr))
                             Text(stringResource(R.string.pos_choose))

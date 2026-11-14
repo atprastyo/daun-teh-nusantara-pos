@@ -52,6 +52,11 @@ object StorageModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds @Singleton abstract fun photoGateway(implementation: AuthRepositoryImpl): com.dauntehnusantara.pos.feature.catalog.photos.domain.ProductPhotoGateway
+    @Binds @Singleton abstract fun photoRepository(implementation: com.dauntehnusantara.pos.feature.catalog.photos.data.CachedProductPhotos): com.dauntehnusantara.pos.feature.catalog.photos.domain.ProductPhotoRepository
+    @Binds @Singleton abstract fun photoTransport(implementation: com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoHttpClient): com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport
+    @Binds abstract fun photoProcessor(implementation: com.dauntehnusantara.pos.feature.catalog.photos.data.AndroidPhotoProcessor): com.dauntehnusantara.pos.feature.catalog.photos.domain.ProductPhotoProcessor
+
     @Binds @Singleton abstract fun catalogGateway(implementation: AuthRepositoryImpl): com.dauntehnusantara.pos.feature.catalog.domain.CatalogGateway
 
     @Binds abstract fun recovery(implementation: com.dauntehnusantara.pos.feature.recovery.data.RoomRecoveryRepository): com.dauntehnusantara.pos.feature.recovery.domain.RecoveryRepository

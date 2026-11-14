@@ -897,3 +897,179 @@ live Supabase Auth/RLS/concurrent-device and recovery rehearsal, real tablet and
 API 26/16 KB runtime/accessibility/performance checks, then externally configured
 signing and a smoke test of the minified signed build. Local hardening is complete;
 production readiness is not claimed. Staff provisioning remains manual without invites.
+
+## Brand icon and green theme — 2026-11-14
+
+Requested scope: apply the supplied brand image as the app icon and green as the
+main theme color. Added `drawable-nodpi/brand_logo.png` (560×560, aspect-preserving
+white padding), adaptive launcher XML/foreground and manifest regular/round icon
+references. Updated `core/designsystem/Theme.kt` to consistent light/dark greens,
+including secondary/tertiary colors and surfaces. Native day/night colors/styles
+match startup backgrounds and accents. Kept all documentation and existing features.
+
+Primary/label contrast checked with the standard relative-luminance calculation;
+light primary/secondary/tertiary and dark primary pairs all exceed 4.5:1. Build and
+lint checks are in progress. No device installation or launcher-mask runtime check
+has been performed for this branding change. Next milestone remains the existing
+M7 release acceptance; this is a scoped branding update, not a new business feature.
+
+Branding verification completed: `./gradlew :app:assembleDebug :app:lintDebug
+--no-daemon --no-parallel --max-workers=2 --console=plain` (Android Studio JBR)
+**BUILD SUCCESSFUL in 1m 53s**, 54 tasks (25 executed, 29 up-to-date). Android
+resources/theme compiled and debug APK generated. Lint passed; no unit or device
+suite rerun for this asset/palette-only change. Measured label contrast: light
+primary 6.05:1, secondary 6.38:1, tertiary 6.50:1; dark primary 7.75:1.
+`git diff --check` passed. Device launcher appearance still requires a visual check.
+
+Final resource cleanup removed the unused placeholder vector and redundant launcher
+API folder (min SDK is already 26). The incremental resource linker initially failed
+to find the moved mipmap. A clean rebuild resolved its stale generated state:
+`./gradlew clean :app:assembleDebug :app:lintDebug --no-daemon --no-parallel
+--max-workers=2 --console=plain` passed. APK inspection confirms the application
+references the packaged adaptive launcher icon. Lint has zero errors; optional
+monochrome/themed launcher artwork is not supplied because this change uses the
+provided full-color logo. Existing dependency/toolchain notices remain. The existing
+incomplete NDK still packages native libraries without stripping; it did not prevent
+this debug build. No app data was cleared by cleaning build outputs.
+
+Final clean command: **BUILD SUCCESSFUL in 2m 30s**, all 55 tasks executed;
+lint **0 errors / 20 warnings** (version/toolchain notices and optional monochrome
+launcher artwork). Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
+
+## Transparent logo and white light-mode correction — 2026-11-14
+
+The previous theme followed `isSystemInDarkTheme()`, so a phone in night mode opened
+only the dark appearance. `DaunTehTheme` now defaults explicitly to light mode;
+white backgrounds/surfaces/containers and disabled surface tint keep the main UI
+white while preserving green actions. Explicit dark palette opt-in remains available
+in the composable API. Native day/night startup colors/styles and MainActivity's
+edge-to-edge system-bar styles now match the light UI, including dark system icons.
+
+Used the imagegen skill's background-extraction workflow for the supplied logo and
+packaged the selected RGBA PNG at 560×560. Verified an alpha channel exists and the
+generated source's corner is fully transparent. Brand text, leaves and ring remain.
+Build/lint and connected-device appearance verification are in progress. No Room
+migration, app-data reset, credentials or business feature changes were needed.
+
+Initial assembly passed, but lint caught four API compatibility errors from native
+style attributes added for navigation-bar appearance (API 27) and force-dark (API
+29). Removed those XML attributes; AndroidX SystemBarStyle handles navigation icon
+compatibility and the decor force-dark opt-out is guarded with SDK >=29. No lint
+suppression or minimum-SDK change. Adaptive launcher background now also uses
+transparent rather than an explicit white plate; launchers can still impose their
+own icon mask/backdrop. Final build/lint/install verification is running.
+
+The corrected APK assembled, but the combined build/lint/install command stopped
+at installDebug: wireless APK transfer failed with EOF and the phone disappeared
+from both `adb devices` and mDNS discovery. No device smoke result is claimed.
+Before the disconnect, `adb shell cmd uimode night` returned `Night mode: yes`,
+confirming the previous dark appearance followed the device setting. Running the
+final assembly/lint separately so connectivity cannot interrupt local verification.
+
+Final independent verification:
+`./gradlew :app:assembleDebug :app:lintDebug --no-daemon --no-parallel
+--max-workers=2 --console=plain` with Android Studio JBR — **BUILD SUCCESSFUL in
+2m 36s**, 54 tasks (18 executed, 36 up-to-date), lint **0 errors / 20 warnings**
+(existing toolchain/version notices and optional monochrome launcher artwork).
+`sips -g hasAlpha` confirms the packaged 560×560 logo retains alpha transparency.
+`git diff --check` passed. No unit/instrumentation suite rerun for this visual update.
+
+ADB later rediscovered the phone on a different port, and a reconnect was attempted.
+Updated device installation/visual confirmation is not yet verified; local APK is
+ready at `app/build/outputs/apk/debug/app-debug.apk`. The user can install over the
+existing debug app without a data reset. Next release milestone remains M7 acceptance;
+this request changes branding/theme defaults only.
+
+## White launcher logo in device dark mode — 2026-11-14
+
+Added `res/drawable-night/ic_launcher_foreground.xml`: white SRC_IN bitmap tint
+preserves the existing logo's alpha/letter shapes and transparent background. The
+normal drawable remains full color. Android's night resource selection controls the
+launcher foreground independently of the app's explicitly white Compose UI. No new
+bitmap, dependency, business logic or database changes. Build/lint verification running.
+
+Verification: `./gradlew :app:assembleDebug :app:lintDebug --no-daemon --no-parallel
+--max-workers=2 --console=plain` with Android Studio JBR passed. Native bitmap tint
+and SRC_IN alpha-mask semantics were checked against the installed SDK's
+BitmapDrawable resource attributes. `git diff --check` passed. Device launcher
+refresh/appearance has not been rechecked; no app data reset or business tests needed
+for this drawable-only update. Next milestone remains M7 release acceptance.
+
+## Product-photo implementation — 2026-11-14
+
+### Changes and decisions
+
+- Added feature/catalog/photos domain gateways/repository/processor, bounded native
+  image preparation, HTTPS Storage transfer and scoped atomic 32 MiB LRU cache.
+  Photo Picker selects a source; center-crop/EXIF orientation/new JPEG encoding
+  produces 512×512 photos <=200 KiB, omitting original GPS/EXIF. No new libraries.
+- Added photo loading/placeholders/retry in POS and catalog cards; saved product rows
+  expose Add/Replace/Remove. Editor now uses a LazyColumn to keep thumbnail memory
+  limited to visible rows. Failed disk cache writes never prevent upload publication
+  or displaying downloaded bytes. Binary transfer runs outside the auth mutex.
+- Picker launcher lives at activity scope; VM retains selected source context through
+  foreground revalidation and retains immutable pending command/path/bytes across
+  same-context transitions for retries. Other scopes cannot publish/read those bytes.
+- Added optional `supabase/product-photos.sql`, to review/run once after base schema:
+  private bounded JPEG bucket, approved Owner/Manager upload RLS, published-brand
+  reads, photo table/private ledger and proof/role/epoch/version/idempotent publication.
+  Photo row, operation, audit and feed are atomic. No client overwrite/delete policy.
+- Photo-only revisions do not change product price versions or paid receipts. Room
+  v1/14 tables and exported schema remain unchanged: photo references use existing
+  catalog metadata within the existing pull/cursor transaction. No migration added.
+- Added real SQL RLS/RPC tests, JVM codec/cache/scope/mutex/pull tests, native photo
+  action/offline/retry test sources, PRODUCT_PHOTOS guide, model/auth/sync/plan docs,
+  README setup links and decisions D067–D070. Added `.kotlin/` build-cache ignore.
+  Existing branding/manual provisioning and all other work are preserved.
+
+### Commands and executed evidence
+
+- `npm test --prefix supabase`: **52 passed**, zero failures/errors/skips. Four new
+  photo cases run the optional setup and actual policies/functions against an
+  isolated Storage-schema fixture. They cover private bucket limits/config, role/
+  brand/path/proof/epoch/version checks, immutable client objects, atomic publication,
+  stable retries/audit/feed, removal and unchanged sale/product price snapshots.
+  This is not a hosted Storage HTTP/byte-enforcement test.
+- Initial Android compile/debug checks:
+  `./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
+  :app:lintDebug --no-daemon --no-parallel --max-workers=2 --console=plain`:
+  **BUILD SUCCESSFUL in 3m 36s**, 97 tasks (63 executed, 34 up-to-date).
+- Full build after photo/picker/regression integration:
+  `./gradlew build :app:assembleDebugAndroidTest --no-daemon --no-parallel
+  --max-workers=2 --console=plain`: **BUILD SUCCESSFUL in 7m 24s**, 161 tasks
+  (91 executed, 70 up-to-date).
+- Final bounded-memory/cache-failure/EXIF regression build, same full command:
+  **BUILD SUCCESSFUL in 5m 54s**, 161 tasks (65 executed, 96 up-to-date).
+  **107 debug JVM passed; 98 release JVM passed + 9 expected demo-only skips**,
+  zero failures/errors. New codec tests use native Robolectric graphics and cover
+  center crop, physical EXIF rotation/GPS removal, invalid files and byte bounds.
+  New cache tests verify repository recreation/offline reuse, account/role/project
+  isolation, corruption retry and unavailable-disk behavior. A suspended upload test
+  proves local checkout scope access is not held by binary IO. Pull test proves photo
+  references survive DB reopen and photo removal without rewriting paid receipts.
+  Decoder diagnostics for deliberately invalid fixture bytes are expected; no test fails.
+- Native test APK compiled (23 UI/database test methods total), including two new
+  photo-action cases. `adb devices -l`: no connected devices. These native cases were
+  **not executed** in this iteration. No app data cleared or live images uploaded.
+- JVM commands used Android Studio's bundled JBR via JAVA_HOME; package/namespace,
+  pinned dependencies and initial Room schema remain unchanged.
+
+### Limits and exact next step
+
+Apply the reviewed optional photo setup in the development Supabase project and
+install updated Android clients before the first photo event. Test real picker and
+cloud providers, upload/replace/remove, HTTP size/MIME enforcement, lost ACK, two-device
+convergence and offline cache/missing-photo checkout. Pictures load when displayed;
+OS/LRU eviction can remove cached files. No interactive crop editor or durable photo
+outbox; process loss requires refreshing before selecting again. Unreferenced/old
+Storage objects are retained pending reviewed operator cleanup, never automatic
+physical deletion. Existing M7 live/signed/tablet/performance/recovery gates remain open.
+
+Final lint: **0 errors / 24 warnings**. Four photo-related notices recommend
+AndroidX ExifInterface and KTX convenience APIs; this iteration deliberately uses
+bounded framework image/EXIF processing without adding a library version. No lint
+baseline or suppression was added. Remaining notices are existing toolchain/version
+and optional monochrome icon recommendations. `git diff --exit-code --
+app/schemas/com.dauntehnusantara.pos.core.database.PosDatabase/1.json` and final
+`git diff --check` passed. Debug APK and minified unsigned release APK are generated;
+no signing configuration, Storage service deployment or live account changes occurred.

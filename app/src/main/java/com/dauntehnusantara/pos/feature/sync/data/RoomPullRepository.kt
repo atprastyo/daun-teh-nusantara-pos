@@ -68,7 +68,7 @@ class RoomPullRepository @Inject constructor(private val db: PosDatabase, privat
         val j = JSONObject(change.payload)
         require(j.getInt("schema_version") == 1)
         val table = j.getString("table")
-        require(table in listOf("categories", "products", "modifier_groups", "modifier_options", "product_modifier_groups"))
+        require(table in listOf("categories", "products", "modifier_groups", "modifier_options", "product_modifier_groups", "product_photos"))
         val r = j.getJSONObject("record")
         require(r.getString("brand_id") == scope.sale.brandId)
         val assignment = table == "product_modifier_groups"
@@ -88,7 +88,11 @@ class RoomPullRepository @Inject constructor(private val db: PosDatabase, privat
             }
         }
         val catalog = db.catalogDao()
-        if (assignment) {
+        if(table=="product_photos") {
+            require(catalog.product(id)?.record?.brandId==scope.sale.brandId)
+            if(active)com.dauntehnusantara.pos.feature.catalog.photos.domain.PhotoRules.path(r.getString("image_path"),scope.sale.brandId,id)
+            else require(r.isNull("image_path"))
+        } else if (assignment) {
             val group = r.getString("group_id")
             if (active) catalog.put(ProductGroupEntity(id, group, scope.sale.brandId, r.getInt("sort_order")))
             else catalog.removeAssignment(id, group)

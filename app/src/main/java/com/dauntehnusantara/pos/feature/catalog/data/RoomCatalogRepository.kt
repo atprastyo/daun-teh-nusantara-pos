@@ -12,8 +12,14 @@ class RoomCatalogRepository @Inject constructor(
     private val db: PosDatabase, private val dao: CatalogDao, private val clock: Clock,
 ) : CatalogRepository {
     override fun observe(brandId: String) = db.invalidationTracker.createFlow(
-        "categories", "products", "modifier_groups", "modifier_options", "product_modifier_groups",
-    ).map { db.withTransaction { dao.snapshot(brandId).toDomain() } }
+        "app_metadata", "categories", "products", "modifier_groups", "modifier_options", "product_modifier_groups",
+    ).map { db.withTransaction { dao.snapshot(brandId).toDomain().let { menu -> menu.copy(products=menu.products.map { product ->
+            val raw=dao.metadata("sync.catalog.product_photos.${product.info.id}")
+            if(raw==null)product else runCatching {
+                val saved=org.json.JSONObject(raw);val photo=org.json.JSONObject(saved.getString("payload"))
+                product.copy(imageVersion=saved.getLong("version"),imagePath=if(photo.getBoolean("active"))photo.getString("image_path")else null)
+            }.getOrDefault(product)
+        }) } } }
 
     private fun next(info: RecordInfo, previous: CatalogRecordColumns?): CatalogRecordColumns {
         CatalogRules.validate(info)

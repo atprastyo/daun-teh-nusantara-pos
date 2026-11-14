@@ -1,5 +1,6 @@
 package com.dauntehnusantara.pos.feature.catalog.presentation
 
+import com.dauntehnusantara.pos.feature.catalog.photos.domain.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dauntehnusantara.pos.feature.auth.domain.*
@@ -13,23 +14,32 @@ import kotlinx.coroutines.flow.*
 
 data class CatalogEditorState(val scope:PullScope?=null,val catalog:Catalog=Catalog(),val pull:PullStatus=PullStatus(),
     val loading:Boolean=true,val offline:Boolean=false,val busy:Boolean=false,val error:String?=null,
+    val photoCommand:PhotoCommand?=null,val photoBusy:Boolean=false,val photoError:String?=null,
     val pending:CatalogMutation?=null,val waitingThrough:Long?=null,val saved:Boolean=false) {
-    val editable:Boolean get()=!loading&&!offline&&!busy&&pending==null&&waitingThrough==null&&pull.initialized&&pull.error==null&&pull.epoch!=null
+    val editable:Boolean get()=!loading&&!offline&&!busy&&!photoBusy&&photoCommand==null&&pending==null&&waitingThrough==null&&pull.initialized&&pull.error==null&&pull.epoch!=null
 }
 @HiltViewModel
 class CatalogEditorViewModel @Inject constructor(private val auth:AuthRepository,private val gateway:ReportingGateway,
-    private val observe:ObserveCatalog,private val pull:PullRepository,private val edit:EditCatalog,private val scheduler:SyncScheduler):ViewModel() {
+    private val observe:ObserveCatalog,private val pull:PullRepository,private val edit:EditCatalog,private val scheduler:SyncScheduler,private val photos:ProductPhotoRepository,private val photoGateway:ProductPhotoGateway,private val processor:ProductPhotoProcessor):ViewModel() {
     private val mutable=MutableStateFlow(CatalogEditorState());val state=mutable.asStateFlow()
     private var observation:Job?=null;private var action:Job?=null
+    private val pendingPhotos=mutableMapOf<String,Triple<PhotoCommand?,ByteArray?,Boolean>>()
+    private var pickerTarget:Pair<PullScope,Product>?=null
+    private var pickerDelivery:Job?=null
+    private var photoBytes:ByteArray?=null
+    private var uploaded=false
     private val unresolved=mutableMapOf<String,Pair<CatalogMutation?,Long?>>()
     init {viewModelScope.launch {
         auth.state.map{Triple(it.stage,it.membership,it.email to it.offline)}.distinctUntilChanged().collectLatest{(stage,_,_)->
             observation?.cancel();action?.cancel()
             val previous=state.value
             previous.scope?.let{unresolved[it.key]=previous.pending to previous.waitingThrough}
-            if(stage==AuthStage.LOGIN)unresolved.clear()
+            previous.scope?.let{pendingPhotos[it.key]=Triple(previous.photoCommand,photoBytes,uploaded)}
+            photoBytes=null;uploaded=false
+            if(stage==AuthStage.LOGIN){unresolved.clear();pendingPhotos.clear();pickerTarget=null;pickerDelivery?.cancel()}
             val s=if(stage==AuthStage.READY)gateway.reportingScope(false)else null
-            mutable.value=CatalogEditorState(scope=s,offline=auth.state.value.offline,
+            s?.let{photoBytes=pendingPhotos[it.key]?.second;uploaded=pendingPhotos[it.key]?.third?:false}
+            mutable.value=CatalogEditorState(scope=s,offline=auth.state.value.offline,photoCommand=s?.let{pendingPhotos[it.key]?.first},
                 pending=s?.let{unresolved[it.key]?.first},waitingThrough=s?.let{unresolved[it.key]?.second})
             if(s!=null)observe(s)
         }
@@ -58,4 +68,60 @@ class CatalogEditorViewModel @Inject constructor(private val auth:AuthRepository
             }finally{mutable.update{it.copy(busy=false)}}
         }
     }
+    fun beginPhotoPick(product:Product):Boolean {
+        if(!state.value.editable)return false
+        pickerTarget=requireNotNull(state.value.scope) to product
+        return true
+    }
+    fun photoPicked(uri:String?) {
+        val target=pickerTarget;pickerTarget=null
+        if(uri==null||target==null)return
+        pickerDelivery?.cancel()
+        pickerDelivery=viewModelScope.launch {
+            val ready=withTimeoutOrNull(30000){state.first{it.scope==target.first&&it.editable}}
+            if(ready!=null)pickPhoto(target.second,uri)
+            else mutable.update{it.copy(photoError="AUTH_REQUIRED")}
+        }
+    }
+    private fun pickPhoto(product:Product,uri:String) {
+        if(!state.value.editable)return
+        val source=state.value.scope?:return
+        action=viewModelScope.launch {
+            mutable.update{it.copy(photoBusy=true,photoError=null)}
+            try {
+                val bytes=processor.prepare(uri)
+                if(state.value.scope!=source)return@launch
+                photoBytes=bytes;uploaded=false
+                mutable.update{it.copy(photoCommand=PhotoCommand(productId=product.info.id,expectedVersion=product.imageVersion,
+                    path=PhotoRules.newPath(product.info.brandId,product.info.id)))}
+            }catch(e:CancellationException){throw e}catch(_:Exception){mutable.update{it.copy(photoError="INVALID_IMAGE")}}
+            finally{mutable.update{it.copy(photoBusy=false)}}
+            if(state.value.photoCommand!=null)sendPhoto()
+        }
+    }
+    fun removePhoto(product:Product) {
+        if(!state.value.editable)return
+        photoBytes=null;uploaded=true
+        mutable.update{it.copy(photoCommand=PhotoCommand(productId=product.info.id,expectedVersion=product.imageVersion,path=null),photoError=null)}
+        retryPhoto()
+    }
+    fun retryPhoto(){if(action?.isActive==true||state.value.offline)return;action=viewModelScope.launch{sendPhoto()}}
+    private suspend fun sendPhoto() {
+        val s=state.value.scope?:return;val c=state.value.photoCommand?:return;val epoch=state.value.pull.epoch?:return
+        mutable.update{it.copy(photoBusy=true,photoError=null,saved=false)}
+        try {
+            c.path?.let { if(!uploaded){photos.upload(s,it,requireNotNull(photoBytes));uploaded=true} }
+            val ack=photoGateway.setPhoto(s,epoch,c)
+            photoBytes=null;uploaded=false
+            mutable.update{it.copy(photoCommand=null,waitingThrough=ack.throughSeq.takeIf{seq->it.pull.seq<seq},saved=true)}
+            scheduler.enqueue(force=true)
+        }catch(e:CancellationException){throw e}catch(e:Exception){
+            val code=(e as? ManagementFailure)?.code?:"UNAVAILABLE"
+            val terminal=code in listOf("CONFLICT","INVALID","AUTH_REQUIRED","REBOOTSTRAP_REQUIRED")
+            if(terminal){photoBytes=null;uploaded=false}
+            mutable.update{it.copy(photoError=code,photoCommand=if(terminal)null else c)}
+            scheduler.enqueue(force=true)
+        }finally{mutable.update{it.copy(photoBusy=false)}}
+    }
+
 }

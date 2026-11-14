@@ -13,6 +13,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Base64
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -36,6 +37,7 @@ class AuthRepositoryTest {
         override fun read()=value
     }
     private class FakeHttp(private val base:Long) : AuthTransport {
+        var brand="brand"
         var unavailable=false; var denied=false; var noAccess=false; var pending=false
         var protocolFailure=false; var role=Role.CASHIER; var issuedDevice=""
         var managementStatus=200
@@ -64,14 +66,14 @@ class AuthRepositoryTest {
                 path.endsWith("list_staff") || path.endsWith("set_staff_access") || path.endsWith("set_device_access") -> {
                     if(managementStatus!=200)throw AuthHttpFailure(managementStatus)
                     val args=JSONObject(requireNotNull(body));require(args.getString("p_device_id")==issuedDevice && args.getString("p_device_secret")=="test-device-secret")
-                    if(!path.endsWith("list_staff"))"" else JSONObject().put("schema_version",1).put("brand_id","brand").put("outlet_id","outlet").put("user_id","user")
+                    if(!path.endsWith("list_staff"))"" else JSONObject().put("schema_version",1).put("brand_id",brand).put("outlet_id","outlet").put("user_id","user")
                         .put("device_id",issuedDevice).put("role",role.name).put("members",org.json.JSONArray()).put("devices",org.json.JSONArray()).put("audit",org.json.JSONArray()).toString()
                 }
                 path.endsWith("pull_changes") -> {
                     if(pullStatus!=200)throw AuthHttpFailure(pullStatus)
                     val input=JSONObject(requireNotNull(body));require(input.getString("p_device_id")==issuedDevice)
                     require(input.getString("p_device_secret")=="test-device-secret")
-                    JSONObject().put("schema_version",1).put("brand_id","brand").put("outlet_id",if(pullWrongScope)"foreign" else "outlet")
+                    JSONObject().put("schema_version",1).put("brand_id",brand).put("outlet_id",if(pullWrongScope)"foreign" else "outlet")
                         .put("device_id",issuedDevice).put("user_id","user").put("role",input.getString("p_role"))
                         .put("after_seq",input.getLong("p_after_seq")).put("next_seq",input.getLong("p_after_seq"))
                         .put("has_more",false).put("feed_epoch","11111111-1111-4111-8111-111111111111").put("changes",org.json.JSONArray()).toString()
@@ -85,14 +87,14 @@ class AuthRepositoryTest {
                         .put("request_hash","a".repeat(64)).put("payload_hash",if(wrongAck) "b".repeat(64) else hash)
                         .put("status",pushStatus).put("code",pushCode).toString()
                 }
-                path.endsWith("get_access_context") -> if(noAccess)"[]" else """[{"brand_id":"brand","brand_name":"Daun Teh","outlet_id":"outlet","outlet_name":"A","role":"${role.name}"}]"""
+                path.endsWith("get_access_context") -> if(noAccess)"[]" else """[{"brand_id":"${brand}","brand_name":"Daun Teh","outlet_id":"outlet","outlet_name":"A","role":"${role.name}"}]"""
                 path.endsWith("enroll_device") -> {
                     issuedDevice=JSONObject(requireNotNull(body)).getString("p_device_id")
                     JSONObject().put("device_id",issuedDevice).put("device_secret","test-device-secret").toString()
                 }
                 path.endsWith("issue_offline_lease") -> {
                     if(pending)throw AuthHttpFailure(423)
-                    JSONObject().put("user_id","user").put("brand_id","brand").put("outlet_id","outlet").put("device_id",issuedDevice)
+                    JSONObject().put("user_id","user").put("brand_id",brand).put("outlet_id","outlet").put("device_id",issuedDevice)
                         .put("role",role.name).put("issued_at_ms",base).put("expires_at_ms",base+30L*24*60*60*1000).toString()
                 }
                 path.endsWith("list_device_requests") -> "[]"
@@ -101,8 +103,8 @@ class AuthRepositoryTest {
             }
         }
     }
-    private fun repo(http:FakeHttp,store:MemoryStore,clock:FakeClock,configuration:BackendConfig=config)=
-        AuthRepositoryImpl(AuthApi(http,Clock.fixed(Instant.ofEpochMilli(base),ZoneOffset.UTC)),configuration,store,clock,DeviceEnrollmentLookup { _, _ -> null })
+    private fun repo(http:FakeHttp,store:MemoryStore,clock:FakeClock,configuration:BackendConfig=config,photos:com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport=com.dauntehnusantara.pos.feature.catalog.photos.data.UnconfiguredPhotoTransport)=
+        AuthRepositoryImpl(AuthApi(http,Clock.fixed(Instant.ofEpochMilli(base),ZoneOffset.UTC),photos),configuration,store,clock,DeviceEnrollmentLookup { _, _ -> null })
     private suspend fun signedIn(repository:AuthRepositoryImpl){repository.signIn("user@example.invalid","test-password-value");repository.selectOutlet("outlet")}
     @Test fun firstLoginRequiresOnlineAndServerMembership():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
@@ -297,6 +299,21 @@ class AuthRepositoryTest {
         http.managementStatus=410
         assertEquals("REBOOTSTRAP_REQUIRED",(runCatching{repository.saveCatalog(scope,epoch,command)}.exceptionOrNull() as com.dauntehnusantara.pos.feature.reports.domain.ManagementFailure).code)
         assertEquals(AuthStage.READY,repository.state.value.stage)
+    }
+
+    @Test fun slowPhotoTransferDoesNotHoldAuthorityMutexOrDelayLocalCheckoutScope():Unit=runBlocking {
+        val http=FakeHttp(base);http.role=Role.OWNER;http.brand="10000000-0000-4000-8000-000000000001"
+        val started=kotlinx.coroutines.CompletableDeferred<Unit>();val finish=kotlinx.coroutines.CompletableDeferred<Unit>()
+        val transport=object:com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport {
+            override suspend fun transfer(token:String,path:String,body:ByteArray?):ByteArray{started.complete(Unit);finish.await();return byteArrayOf()}
+        }
+        val repository=repo(http,MemoryStore(),FakeClock(base),photos=transport);signedIn(repository)
+        val scope=requireNotNull(repository.photoScope())
+        val path=com.dauntehnusantara.pos.feature.catalog.photos.domain.PhotoRules.newPath(http.brand,"10000000-0000-4000-8000-000000000002")
+        val upload=async { repository.uploadPhoto(scope,path,byteArrayOf(1)) }
+        started.await()
+        try { assertNotNull(kotlinx.coroutines.withTimeout(1000){repository.checkoutScope()}) }
+        finally{finish.complete(Unit);upload.await()}
     }
 
 }

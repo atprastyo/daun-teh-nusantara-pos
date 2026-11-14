@@ -10,7 +10,7 @@ data class RecordInfo(
     val createdAtUtcMs: Long = 0, val updatedAtUtcMs: Long = 0,
 )
 data class Category(val info: RecordInfo, val sortOrder: Int = 0)
-data class Product(val info: RecordInfo, val categoryId: String, val basePriceIdr: Long)
+data class Product(val info: RecordInfo, val categoryId: String, val basePriceIdr: Long, val imagePath: String? = null, val imageVersion: Long = 0)
 data class ModifierGroup(val info: RecordInfo, val minSelect: Int, val maxSelect: Int)
 data class ModifierOption(val info: RecordInfo, val groupId: String, val priceDeltaIdr: Long)
 data class ProductGroup(val productId: String, val groupId: String, val sortOrder: Int)

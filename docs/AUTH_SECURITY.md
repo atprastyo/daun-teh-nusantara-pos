@@ -122,3 +122,15 @@ idempotent/audited. Catalog modification affects all brand outlets, as labeled i
 Android cleartext traffic and backups are disabled; JSON is byte/depth bounded before
 parsing. Release builds optimize code/resources; this is not signing configuration.
 See M7_SECURITY_REVIEW.md and M7_RELEASE_CHECKLIST.md for evidence and open gates.
+
+## Optional product photos
+
+The private Storage bucket permits new immutable JPEG objects only to live
+Owner/Manager users with an approved role-bound device in the brand; published-photo
+reads use current brand access. Publication/removal additionally requires the current
+device secret, live role and feed generation through a narrow versioned RPC. Storage
+JWT/RLS does not bind every binary request to a particular device secret. Android
+validates the current scope before/after IO, bounds/decodes images, strips source EXIF,
+and scopes cached bytes to project/account/device/role/outlet under the normal lease.
+There is no public bucket, signed URL in Room, client overwrite/delete policy or
+photo data inside paid receipts. No hosted Storage deployment/acceptance is claimed.

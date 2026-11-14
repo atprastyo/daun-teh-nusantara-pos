@@ -296,7 +296,22 @@ destructive migration is part of this iteration.
 
 ## Branding
 
-The launcher uses the supplied Daun Teh Nusantara logo in an adaptive icon with a
-white background and mask-safe padding. `core/designsystem/Theme.kt` defines the
-fixed leaf-green Material 3 palettes for light/dark modes; native startup colors
-are in `res/values/colors.xml` and `res/values-night/colors.xml`.
+The launcher uses an alpha-transparent extraction of the supplied Daun Teh Nusantara
+logo with mask-safe padding. The app defaults to a white light appearance regardless
+of device night mode, with leaf-green actions. `core/designsystem/Theme.kt` retains
+an explicit dark palette option; native startup colors are in `res/values/colors.xml`
+and `res/values-night/colors.xml`.
+
+The launcher logo keeps its original colors in device light mode and uses a white
+alpha-preserving tint in device dark mode (`drawable-night/ic_launcher_foreground.xml`).
+Launchers may cache icons until they refresh. This does not switch the app's white UI.
+
+## Optional product photos
+
+Owner/Manager can add, replace or detach one product photo from Katalog → Product.
+Photos appear in catalog/POS cards and cache locally after loading; missing images
+never block checkout. First review/run `supabase/product-photos.sql` once after the
+base schema, and update all Android sync clients before publishing photos. Keep the
+bucket private. Room stays v1 with no migration. See
+[product photo setup and manual checks](docs/PRODUCT_PHOTOS.md) for limits, retries,
+cache behavior and the hosted Storage checks still required.

@@ -149,3 +149,17 @@ it requests pull and waits until the acknowledged `through_seq` is applied. Offl
 catalog editing is disabled. Form/uncertain command state is memory-only across
 navigation/outlet reselection; after process loss inspect the refreshed catalog
 before recreating a record. This does not change durable sale delivery semantics.
+
+## Optional product-photo events
+
+`product-photos.sql` adds `CATALOG` rows with table `product_photos`. Their record ID
+is the product UUID, with brand, nullable image_path, active and independent version.
+Active=false removes the reference but not historical Storage bytes. Updated clients
+validate brand/product/path and persist the row's metadata with the cursor atomically;
+photo events never bump product price revisions or change original paid snapshots.
+Upgrade all clients before publishing this optional table; old clients must not skip
+unknown events. Binary files are fetched separately on display, not in change-feed or
+sale outbox payloads. `set_product_photo` uses live device proof/role/epoch, expected
+photo version and stable operation UUID; photo reference, dedupe, feed and audit commit
+in one transaction. Upload itself precedes this transaction and can leave an orphan
+on interruption. See PRODUCT_PHOTOS.md for private cache and cleanup boundaries.

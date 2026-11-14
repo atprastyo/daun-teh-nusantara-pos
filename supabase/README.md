@@ -136,3 +136,12 @@ Archive through `active=false`; product link removals emit tombstones. Private
 `catalog_operations` is unexposed. Required-option validation, catalog writes,
 operation dedupe, feed and `CATALOG_SAVE` audit commit atomically. No deployment or
 migration history is introduced; this remains the fresh development schema.
+
+### Optional product photos
+
+Review/run `product-photos.sql` once after the base schema, with Supabase Storage
+available. It adds photo metadata, its private operation ledger, a private JPEG
+bucket/RLS and `set_product_photo`; existing price/sale tables are not rewritten.
+Do not rerun the base schema to enable photos. See
+[product photo guide](../docs/PRODUCT_PHOTOS.md). Install updated clients before
+publishing photo feed rows. No hosted SQL or bucket changes were executed here.

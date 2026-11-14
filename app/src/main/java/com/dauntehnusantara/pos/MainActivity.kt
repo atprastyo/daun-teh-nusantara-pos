@@ -5,6 +5,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import dagger.hilt.android.AndroidEntryPoint
@@ -18,6 +19,7 @@ import com.dauntehnusantara.pos.feature.auth.presentation.AuthViewModel
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val productPhotosViewModel: com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhotosViewModel by viewModels()
     private val catalogEditorViewModel: com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorViewModel by viewModels()
     private val reportsViewModel: com.dauntehnusantara.pos.feature.reports.presentation.ReportViewModel by viewModels()
     private val staffViewModel: com.dauntehnusantara.pos.feature.staff.presentation.StaffViewModel by viewModels()
@@ -29,11 +31,24 @@ class MainActivity : ComponentActivity() {
     private val viewModel: FoundationViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent { DaunTehTheme {
+        if (android.os.Build.VERSION.SDK_INT >= 29) window.decorView.isForceDarkAllowed = false
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+        )
+        setContent {
+            val photoPicker=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) {
+                catalogEditorViewModel.photoPicked(it?.toString())
+            }
+            val access by productPhotosViewModel.access.collectAsStateWithLifecycle()
+            androidx.compose.runtime.CompositionLocalProvider(com.dauntehnusantara.pos.feature.catalog.photos.presentation.LocalProductPhotos provides
+                com.dauntehnusantara.pos.feature.catalog.photos.presentation.PhotoAccess(productPhotosViewModel.repository,access)) {
+            DaunTehTheme {
             AuthRoot(authViewModel, authenticated = { destination, expanded ->
                 when(destination) {
-                    com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.CATALOG -> com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorRoute(catalogEditorViewModel)
+                    com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.CATALOG -> com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorRoute(catalogEditorViewModel) { product ->
+                        if(catalogEditorViewModel.beginPhotoPick(product)) photoPicker.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.OVERVIEW,
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.REPORTS -> com.dauntehnusantara.pos.feature.reports.presentation.ReportRoute(reportsViewModel,expanded)
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.STAFF -> com.dauntehnusantara.pos.feature.staff.presentation.StaffRoute(staffViewModel) {
@@ -45,6 +60,6 @@ class MainActivity : ComponentActivity() {
             }, recovery = { com.dauntehnusantara.pos.feature.recovery.presentation.RecoveryPanel(recoveryViewModel) }) {
                 PosApp(viewModel,catalogViewModel,posViewModel)
             }
-        } }
+        } } }
     }
 }

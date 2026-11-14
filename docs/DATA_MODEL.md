@@ -166,3 +166,13 @@ proof/approval/revocation, not ordinary last-seen updates. Private sync_generati
 contains one epoch UUID; it is not exposed or granted to clients. Report/staff/access
 RPCs use approved-device and live role checks; access mutations and audits commit
 atomically. A trusted post-restore epoch rotation records FEED_RESTORE_BOUNDARY.
+
+## Optional product photos
+
+After `supabase/product-photos.sql`, the backend has one additional public RLS table:
+`product_photos(id FK product,brand_id,image_path nullable,active,version,created_at,updated_at)`.
+Its revision is separate from product price/catalog revisions. A private operation
+ledger binds actor/device/request for publication retries. Storage bytes live in a
+private JPEG bucket under immutable brand/product/UUID paths, outside sale graphs.
+Initial Room remains v1/14 tables: photo feed rows use the existing versioned catalog
+metadata and cursor transaction. No migration, schema reset or sale rewrite occurs.
