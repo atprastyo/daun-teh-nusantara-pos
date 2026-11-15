@@ -23,7 +23,8 @@ class MainActivity : ComponentActivity() {
     private val catalogEditorViewModel: com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorViewModel by viewModels()
     private val reportsViewModel: com.dauntehnusantara.pos.feature.reports.presentation.ReportViewModel by viewModels()
     private val staffViewModel: com.dauntehnusantara.pos.feature.staff.presentation.StaffViewModel by viewModels()
-    private val recoveryViewModel: com.dauntehnusantara.pos.feature.recovery.presentation.RecoveryViewModel by viewModels()
+    private val settingsViewModel: com.dauntehnusantara.pos.feature.settings.presentation.SettingsViewModel by viewModels()
+    private val syncStatusViewModel: com.dauntehnusantara.pos.feature.sync.presentation.SyncStatusViewModel by viewModels()
     private val authViewModel: AuthViewModel by viewModels()
     private val historyViewModel: com.dauntehnusantara.pos.feature.history.presentation.HistoryViewModel by viewModels()
     private val authenticatedPosViewModel: com.dauntehnusantara.pos.feature.pos.presentation.AuthenticatedPosViewModel by viewModels()
@@ -62,7 +63,7 @@ class MainActivity : ComponentActivity() {
                         com.dauntehnusantara.pos.feature.history.presentation.HistoryRoute(historyViewModel,historyExpanded)
                     }
                 }
-            }, recovery = { com.dauntehnusantara.pos.feature.recovery.presentation.RecoveryPanel(recoveryViewModel) }) {
+            }, settings = { com.dauntehnusantara.pos.feature.settings.presentation.SettingsRoute(settingsViewModel,syncStatusViewModel) }) {
                 PosApp(viewModel,catalogViewModel,posViewModel)
             }
         } } }

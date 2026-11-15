@@ -84,3 +84,17 @@ remote deployment, signed release or production acceptance is implied.
 The phone tests use fixture screens and a scratch persistence database. They do not
 replace the manual, live-backend, signed-build or other-device gates above. Full
 commands, artifact hashes and earlier failed attempts are in PROGRESS.md.
+
+## Current readiness pass — 15 November 2026
+
+See [M7_DEVICE_ACCEPTANCE.md](M7_DEVICE_ACCEPTANCE.md) for the current artifact hashes,
+normal debug startup observation, 52 freshly executed isolated backend tests and
+repeatable ELF/ZIP verification. The current normal app reaches sign-in on Infinix
+API36/4 KB; authenticated screen checks await device sign-in. The user confirmed the
+brand's working project, so no fabricated sales/access changes/restore are exercised.
+
+Latest prior Android build: debug 292 passed; release 283 passed +9 expected skips;
+lint 0 errors/45 warnings; 9 component fixtures passed on the phone. Those are historical
+build/component evidence, not newly executed normal-app auth/provider acceptance.
+The release APK remains unsigned. No required production gate above is closed by
+read-only artifact checks, component fixtures or the local PGlite suite alone.

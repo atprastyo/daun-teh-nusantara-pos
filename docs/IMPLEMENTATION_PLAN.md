@@ -175,3 +175,24 @@ and bounded retry status, frozen validated recovery archive/ticket/provider life
 sign-out confirmation retaining data, tests/full Gradle/feasible phone checks. Reuse
 existing interfaces, archive format, authorization and M7 recovery gates. No automatic
 reset, archive import, live restore, new account setting or server deployment.
+
+
+## Native settings/recovery iteration (2026-11-15)
+
+SETTINGS-UI-01–03 implement the scoped adaptive route/read model, safe push/pull
+observation/retry state, frozen validated archive/ticket/provider lifecycle and
+retained-data sign-out confirmation. SETTINGS-UI-04 results are recorded in PROGRESS.md.
+Existing repository/archive/auth contracts remain; no migration, endpoint or library
+version change. Exact next milestone: cross-screen normal-application acceptance on
+the connected phone and M7 checklist review. Hosted auth/RLS/recovery, actual file
+providers/lease/sign-out, physical tablet/accessibility and signing remain gated.
+
+## M7 normal-app readiness review (2026-11-15)
+
+Normal debug startup reached sign-in on the connected Infinix API36/4 KB phone. Current
+APK/mapping hashes, manifest/signature/ELF/ZIP checks and 52 freshly executed isolated
+backend tests are recorded in M7_DEVICE_ACCEPTANCE.md. Added a repeatable artifact
+verifier and four parser tests. The user confirmed a working-brand backend; authenticated
+read-only checks await sign-in on the device. No live transaction/access/restore test,
+signing, data clearing or backend deployment. Next: complete the read-only authenticated
+navigation/cancel matrix, then arrange controlled hosted/provider/release gates.

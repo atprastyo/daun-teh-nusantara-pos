@@ -735,3 +735,40 @@ Official Android references checked for M7:
   required remains after login/export and directs authorized export/operator review,
   with no automatic epoch reset or data deletion. Browser fixtures are not native or
   hosted recovery/Keystore/document-provider acceptance.
+
+- D120: Implement SETTINGS-UI-01–03 with a scoped SettingsViewModel/route and guarded
+  existing SyncStatusViewModel. Bind push/pull by full PullScope, clear obsolete
+  observations/errors/retries and only report scheduling after scoped repository
+  retry returns. Keep missing counts distinct from zero and aggregate Int counts in
+  Long. Recovery-required blocks retry; authorized offline export remains available.
+- D121: Add RecoverySnapshot metadata to the domain/data boundary, preserving capture
+  String compatibility and the existing archive format/transaction/integrity rules.
+  Capture/size validation runs on IO before picker launch; private memory holds frozen
+  bytes and authority, with only an opaque ID saved for callback correlation. Null,
+  launch/navigation/scope/process failure consumes intent; provider writes/close on IO
+  and post-write authority gates success. Confirmed capture denial clears visible scope.
+- D122: Settings sign-out confirmation warns about retained/unknown work and never
+  deletes Room or requires export. Current auth stage determines leaving the shell;
+  remote logout remains best effort after local authority clears. Export and session
+  actions have independent guarded outcomes; foreground auth validation is awaited
+  before provider access, never bypassed. Keep schema, credentials, endpoint and
+  dependency policies unchanged; normal-app/provider/M7 acceptance remains separate.
+
+- D123: Run the M7 normal-app pass against the user's confirmed working-brand project
+  with read-only navigation and cancellation boundaries. No fabricated financial,
+  catalog/staff/device/restore operation or actual sign-out is used for acceptance.
+  Credentials are entered on the phone only; authenticated checks wait for that session.
+- D124: Record artifact fingerprints/signature/manifest/ELF/ZIP checks separately from
+  runtime and signed-release approval. Current unsigned optimized APK and a 4 KB phone
+  cannot establish signed or 16 KB-device acceptance. Add a read-only repeatable
+  artifact verifier with malformed/4 KB/header-boundary parser regressions.
+- D125: Fresh PGlite test evidence remains isolated sequential database evidence,
+  never proof of hosted Auth/Storage/concurrency or a live restore. Maintain an explicit
+  normal-app matrix and leave production gates open until their actual evidence exists;
+  do not promote prior component fixtures into end-to-end acceptance.
+
+- D126: Fix a normal-app acceptance finding: same-context periodic/foreground refresh
+  must not emit OUTLETS and destroy the authenticated shell/pending document intent.
+  Preserve READY with busy only after newly fetched choices confirm identical brand,
+  outlet, role, account and enrolled user. Changed scope/role or confirmed denial
+  continues to clear old authority; live lease validation and offline policy remain.

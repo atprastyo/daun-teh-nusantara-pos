@@ -14,6 +14,7 @@ import java.time.ZoneOffset
 import java.util.Base64
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CompletableDeferred
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -37,6 +38,8 @@ class AuthRepositoryTest {
         override fun read()=value
     }
     private class FakeHttp(private val base:Long) : AuthTransport {
+        var leaseGate:CompletableDeferred<Unit>?=null
+        var leaseEntered:CompletableDeferred<Unit>?=null
         var brand="brand"
         var unavailable=false; var denied=false; var noAccess=false; var pending=false
         var protocolFailure=false; var role=Role.CASHIER; var issuedDevice=""
@@ -93,6 +96,7 @@ class AuthRepositoryTest {
                     JSONObject().put("device_id",issuedDevice).put("device_secret","test-device-secret").toString()
                 }
                 path.endsWith("issue_offline_lease") -> {
+                    leaseEntered?.complete(Unit);leaseGate?.await()
                     if(pending)throw AuthHttpFailure(423)
                     JSONObject().put("user_id","user").put("brand_id",brand).put("outlet_id","outlet").put("device_id",issuedDevice)
                         .put("role",role.name).put("issued_at_ms",base).put("expires_at_ms",base+30L*24*60*60*1000).toString()
@@ -118,6 +122,26 @@ class AuthRepositoryTest {
         assertFalse(repository.state.value.deviceRequestsLoaded)
         assertEquals(AuthStage.LOCKED,repository.state.value.stage)
         assertNull(repository.state.value.membership)
+    }
+    @Test fun sameContextRefreshKeepsReadyShellWhileLeaseIsValidated():Unit=runBlocking {
+        val http=FakeHttp(base);val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        val original=repository.state.value.membership;http.leaseEntered=CompletableDeferred();http.leaseGate=CompletableDeferred()
+        val job=async{repository.refresh()}
+        try{http.leaseEntered!!.await();assertEquals(AuthStage.READY,repository.state.value.stage);assertEquals(original,repository.state.value.membership);assertTrue(repository.state.value.busy)}
+        finally{http.leaseGate!!.complete(Unit);job.await()}
+        assertEquals(AuthStage.READY,repository.state.value.stage);assertFalse(repository.state.value.busy)
+    }
+    @Test fun changedRoleStillRemovesOldReadyContextBeforeLeaseValidation():Unit=runBlocking {
+        val http=FakeHttp(base);val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        http.role=Role.MANAGER;http.leaseEntered=CompletableDeferred();http.leaseGate=CompletableDeferred()
+        val job=async{repository.refresh()}
+        try{http.leaseEntered!!.await();assertEquals(AuthStage.OUTLETS,repository.state.value.stage);assertNull(repository.state.value.membership)}
+        finally{http.leaseGate!!.complete(Unit);job.await()}
+        assertEquals(Role.MANAGER,repository.state.value.membership?.role)
+    }
+    @Test fun sameContextRefreshStillHonorsConfirmedDeviceDenial():Unit=runBlocking {
+        val http=FakeHttp(base);val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        http.pending=true;repository.refresh();assertEquals(AuthStage.LOCKED,repository.state.value.stage);assertNull(repository.state.value.membership);assertFalse(repository.state.value.canOffline)
     }
     @Test fun firstLoginRequiresOnlineAndServerMembership():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)

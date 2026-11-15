@@ -27,3 +27,19 @@ See M7_RELEASE_CHECKLIST.md for real Auth, hosted concurrency, device accessibil
 performance, page-size compatibility, signing and authorized recovery gates. Test
 fixtures use fake identities/proofs only. No live account, schema, email, signing
 key, data reset or production restore was created/performed.
+
+## Normal-app acceptance finding — 15 November 2026
+
+Normal signed-in navigation returned to Ringkasan during the periodic refresh.
+AuthViewModel refreshes every 60 seconds, and loadChoices previously emitted OUTLETS
+before selecting even an unchanged confirmed membership. That removed the entire
+shell; foreground revalidation could also invalidate a pending document callback.
+
+AuthRepository now keeps READY (busy) only after current membership choices confirm
+the same brand/outlet/role/account and enrolled user. Commands remain gated by busy;
+a changed context still leaves READY before lease validation. Device denial/network/
+protocol failure continues through existing fail-closed handling. Three regressions
+cover same-context in-flight refresh, changed role, and confirmed device denial.
+This does not bypass validation, extend offline deadlines locally, change server role
+checks, or preserve broader authority during a real scope change. Full build and
+normal-app retest results are recorded in PROGRESS.md / M7_DEVICE_ACCEPTANCE.md.

@@ -24,7 +24,7 @@ import com.dauntehnusantara.pos.core.designsystem.formatJakarta
 import com.dauntehnusantara.pos.feature.auth.domain.*
 
 @Composable
-fun AuthRoot(viewModel: AuthViewModel, authenticated: (@Composable (AccessDestination, Boolean) -> Unit)? = null, recovery: (@Composable () -> Unit)? = null, demo: @Composable () -> Unit) {
+fun AuthRoot(viewModel: AuthViewModel, authenticated: (@Composable (AccessDestination, Boolean) -> Unit)? = null, recovery: (@Composable () -> Unit)? = null, settings: (@Composable () -> Unit)? = null, demo: @Composable () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var demoMode by rememberSaveable { mutableStateOf(false) }
     val owner = LocalLifecycleOwner.current
@@ -41,7 +41,7 @@ fun AuthRoot(viewModel: AuthViewModel, authenticated: (@Composable (AccessDestin
         return
     }
     Surface(Modifier.fillMaxSize()) {
-        if (state.stage == AuthStage.READY) AccessPortal(state, viewModel, authenticated, recovery)
+        if (state.stage == AuthStage.READY) AccessPortal(state, viewModel, authenticated, recovery, settings)
         else LoginScreen(state, viewModel, if (BuildConfig.DEBUG) ({ demoMode = true }) else null)
     }
 }
@@ -69,9 +69,10 @@ private fun LoginScreen(state: AuthState, model: AuthViewModel, onDemo: (() -> U
 }
 
 @Composable
-private fun AccessPortal(state: AuthState, model: AuthViewModel, authenticated: (@Composable (AccessDestination, Boolean) -> Unit)?, recovery: (@Composable () -> Unit)?) {
+private fun AccessPortal(state: AuthState, model: AuthViewModel, authenticated: (@Composable (AccessDestination, Boolean) -> Unit)?, recovery: (@Composable () -> Unit)?, settings: (@Composable () -> Unit)?) {
     AuthenticatedShell(state, model::switchOutlet) { destination, expanded ->
-        if (authenticated != null && destination != AccessDestination.SETTINGS) {
+        if(destination==AccessDestination.SETTINGS&&settings!=null)settings()
+        else if (authenticated != null && destination != AccessDestination.SETTINGS) {
             authenticated(destination, expanded)
         } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {

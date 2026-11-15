@@ -1969,3 +1969,187 @@ accounts or credentials are needed for the component checks.
 Exact next milestone: detail T-01–T-04 settings/recovery/sign-out and existing X-03
 recovery-export screens before their native presentation redesign; retain current
 export/recovery boundaries and add no automatic reset/import/restore capability.
+
+## Settings/recovery detailed design — 15 November 2026 (T-01–T-04 / X-03)
+
+Completed one design/handoff milestone. Added SETTINGS_SCREEN_DESIGNS.md with account/
+access, scoped push/pull status, local recovery export, restored-server and sign-out
+layouts/state contracts. Added design/settings-flow.html and fictional phone/tablet
+captures. Updated README, UI_UX, UI_SCREEN_PLAN, IMPLEMENTATION_PLAN and D117–D119.
+No Android, dependency, Room/schema, backend or production deployment changes.
+
+Source verification used codebase-memory index readiness, search (43 results, no
+remaining page), RecoveryPanel caller/callee trace and exact snippets plus targeted
+source reads. Relied-on Kotlin paths had clean best-effort coverage metadata. Read
+BACKUP_RESTORE_RUNBOOK and current settings/auth, sync, archive and test anchors;
+no exhaustive security/SQL audit or new hosted evidence is claimed.
+
+Preserved boundaries: exact account/outlet/device/role/project scope; push delivery
+separate from last successful pull; scheduled work is not delivered/backup; missing
+counts are not zero. Existing recovery JSON keeps original operations/draft, checksum
+and 16 MiB UTF-8 bound without credentials or automatic import. Proposed native capture
+freezes validated archive before picker (current code prepares scope only), keeps
+callback authority in memory and handles cancel/process/scope/provider loss. Sign-out
+warns about retained work and unknown counts, does not require export or clear Room.
+Recovery-required remains after login/export and never offers reset/rebootstrap.
+
+Executed verification:
+
+- `node --check /tmp/settings-flow.js` passed for extracted reference JavaScript.
+- `node --check /tmp/daunteh-check-settings-flow.mjs` and
+  `node /tmp/daunteh-check-settings-flow.mjs` passed against isolated local headless
+  Chrome. Temporary harness checked 63 viewport/role/scenario combinations at
+  390/800/1440px for Owner/Manager/Cashier and ready/empty/loading/error/offline/
+  recovery/denied without document horizontal overflow; zero runtime exceptions.
+- Interaction assertions passed: scheduling leaves delivery counts unchanged;
+  capture-before-picker metadata stays frozen when queue changes; cancellation,
+  size-bound and provider failure clear prepared intent; late old-scope write result
+  is ignored; offline disables network actions but permits authorized local export;
+  access refresh leaves restored-server gate intact; no reset/import/server-restore
+  action; unknown-queue sign-out warning, cancel/export-return and explicit sign-out
+  without deleting simulated retained work. Large text applies to page and modal;
+  short-window confirmation actions remain reachable.
+- Two fictional PNG captures generated and visually inspected. Static unique document
+  IDs, local links/assets, no network/storage APIs, expected artifacts and final
+  `git diff --check` passed. Browser stores only fictional metadata; it does not create
+  or inspect real archives, schedule work or sign out an actual Android session.
+
+No Gradle/native/Room/ADB/hosted tests rerun for this documentation-only milestone;
+previous native staff build/device results remain historical. Actual document-provider,
+Keystore/Hilt/lease, WorkManager concurrency, retained-data sign-out/re-login, physical
+phone/tablet/IME/TalkBack, hosted restore/signing and M7 recovery acceptance remain open.
+No credentials, live accounts, device data deletion, real exports or restore performed.
+
+Exact next milestone: native SETTINGS-UI-01–04 presentation implementation from
+SETTINGS_SCREEN_DESIGNS.md; preserve existing recovery/auth/sync/data contracts.
+
+## Native settings/recovery — 15 November 2026 (SETTINGS-UI-01–04)
+
+Implemented SettingsViewModel/SettingsRoute/SettingsScreen and replaced the production
+inline AccessPortal settings branch. Groups separate account/access, scoped push/pull
+status, recovery archive and session confirmation. Wide windows use two columns;
+large text collapses. Bounded scrolling dialogs/sheets keep actions visible and
+request focus restoration on Cancel/return to export. Shell context is reused once.
+MainActivity/AuthScreen wire the new route without new permissions or onboarding.
+
+Hardened SyncStatusViewModel with full PullScope binding, stale observation/error/
+retry guards, clear-before-cancel behavior, explicit scheduling outcome and no unknown
+scope enqueue. Missing counts are not zero; sums use Long. Existing scoped repository
+retry force-enqueues work; UI never treats scheduling as delivery. Last-pull time is
+labeled download, and recovery-required prevents retry without offering reset/import.
+
+Added RecoverySnapshot metadata at the domain/data boundary without changing existing
+capture String callers, archive schema/checksum/16 MiB UTF-8 limit or Room transaction.
+Capture/size checks run on IO before CreateDocument. Memory-only frozen bytes/source/
+ticket correlate results; only opaque callback ID is saved for configuration recreation.
+Null/launch/navigation/process/scope loss consumes prepared intent. Provider writes
+and close run on IO, current authority is checked before/after, and interrupted or
+failed writes cannot claim success. Foreground validation is awaited, not bypassed.
+Confirmed repository capture denial clears visible scope. Superseded scope-only
+RecoveryPanel/RecoveryViewModel code was removed, not retained as another export route.
+
+Sign-out confirms current account/outlet and warns about retained or unknown work,
+allows Cancel/return to export, never requires successful export and never deletes
+Room. Current AuthState controls leaving the shell; remote logout remains best effort.
+Auth, archive, sale/outbox, endpoint, schema and library-version policies are retained.
+No migration, automatic rebootstrap/reset/import, production deployment or real restore.
+
+Added SettingsViewModelTest, SettingsSyncTest, SettingsPresentationTest and isolated
+SettingsScreenTest; extended existing PullSyncTest to check archive snapshot metadata
+and preserved operations. Updated README, decisions D120–D122, UI_UX, UI_SCREEN_PLAN,
+IMPLEMENTATION_PLAN and SETTINGS_SCREEN_DESIGNS section 9. Structural source review
+reused graph search/trace/snippets, refreshed index readiness and clean best-effort
+coverage for relied-on Kotlin paths, with direct verification reads. No SQL audit.
+
+Verification so far:
+
+- `./gradlew :app:compileDebugKotlin --offline --max-workers=2 --console=plain` passed.
+- `./gradlew :app:testDebugUnitTest --tests '*Settings*Test' --tests '*PullSyncTest'
+  --offline --max-workers=2 --console=plain` passed all 47 then-current tests: 14
+  settings VM, 7 sync VM, 7 Compose and 19 existing/extended Room/pull tests.
+- Final review added a confirmed capture-denial scope-clear guard and one regression;
+  an intermediate full build was intentionally cancelled (exit 130) before completing.
+  The final build also includes focus restoration and bounded modal dismissal gates.
+- Final `./gradlew :app:assembleDebugAndroidTest build --offline --max-workers=2
+  --console=plain`: BUILD SUCCESSFUL in 5m 4s, using Android Studio JBR via JAVA_HOME.
+  Debug: 292 passed. Release: 283 passed with 9 expected demo-only skips, no failures/
+  errors. Includes all 29 settings regressions (15 settings VM, 7 sync VM, 7 Compose)
+  and extended real Room archive metadata checks. Debug/release/test APKs assembled.
+  Lint: 0 errors, 45 warnings. Final log: app/build/settings-build-final.log.
+- Debug/test APKs installed successfully using `adb install -r -t` on connected
+  Infinix X6873; app data preserved. Targeted command:
+  `adb -s <connected-device> shell am instrument -w -e class
+  com.dauntehnusantara.pos.SettingsScreenTest,com.dauntehnusantara.pos.SyncStatusTest
+  com.dauntehnusantara.pos.test/com.dauntehnusantara.pos.ComponentTestRunner`:
+  OK (9 tests), seven settings and two existing sync UI fixtures.
+  Log: app/build/settings-device-tests.log. Target app force-stopped afterwards so
+  next manual launch runs normal PosApplication. No data clear/uninstall.
+- Final `git diff --check` passed. No data clear/uninstall or real credential/export/
+  sign-out/sale/access mutation was used to manufacture test results.
+
+Remaining acceptance: normal MainActivity/Hilt and real auth/Keystore/offline grants,
+actual document-provider cancel/rotation/process loss/partial files, sign-out/re-login
+with retained work, concurrent workers, physical tablet/split-window/IME/TalkBack,
+hosted RLS/restore/signing and remaining M7 gates. Component fixtures use fake scoped
+records and plain Application, not production startup sync; they do not prove these
+end-to-end controls. No real credentials/export/sign-out/sale workflow used for fixtures.
+
+Exact next milestone: cross-screen normal-application acceptance on the connected
+phone and M7 release checklist review, preserving retained data and recording actual
+provider/auth/offline/sign-out results separately from component tests.
+
+## M7 normal-app readiness review — 15 November 2026
+
+Reviewed M7_RELEASE_CHECKLIST/M7_SECURITY_REVIEW and normal application startup.
+The user confirmed the connected app uses the brand's working Supabase project.
+Scope stays read-only navigation and cancellation: no fabricated sales, catalog/access
+changes, actual sign-out, hosted SQL/restore or data reset. Authenticated checks are
+waiting for sign-in directly on the phone; credentials are not requested in chat.
+
+Executed normal-app checks on Infinix X6873, API36, 4096-byte pages:
+
+- `adb shell am start -W -n com.dauntehnusantara.pos/.MainActivity`: Status ok,
+  COLD, TotalTime439ms/WaitTime445ms. One observation, not a performance benchmark.
+- Normal PosApplication/Hilt/Activity reached Masuk with recognized Email/Kata sandi
+  labels. A filtered hierarchy printed only known labels/coordinates and app-node
+  counts, no credential/account/business text or screenshots. App process remained
+  running. It was not cleared/uninstalled or replaced by the component runner.
+- Production startup schedules normal existing WorkManager jobs as designed; this
+  is not a claim that startup background traffic was suppressed.
+
+Executed independent local readiness checks:
+
+- `npm test --prefix supabase`: 52 passed, 0 failures/skips, isolated PGlite fixtures;
+  app/build/m7-backend-tests.log. No working-project credentials or hosted operations.
+- `python3 -m unittest discover -s scripts -p 'test_verify_android_artifacts.py'`:
+  4 tests passed (ELF32/64/both endian formats, low/non-power alignment rejection,
+  missing load segments, malformed/truncated bounds).
+- `python3 scripts/verify_android_artifacts.py --mapping
+  app/build/outputs/mapping/release/mapping.txt --zipalign
+  /Users/agustro/Library/Android/sdk/build-tools/36.0.0/zipalign`: passed; artifact
+  fingerprints and eight native library PT_LOAD alignment records in generated
+  app/build/m7-artifact-check.json. All eight libraries uncompressed, alignments>=16384.
+- Build-tools36.0.0 zipalign `-c -P 16 4` passed for current release APK. Debug APK
+  apksigner verification passed (v2, one signer). Unsigned release verification failed
+  as expected: no signing manifest; no keystore/certificate configured or read.
+- AAPT2 release metadata confirmed app ID/version1/0.1.0/min26/target36 and manifest
+  backup/full-backup/cleartext false. SHA-256/size values are in M7_DEVICE_ACCEPTANCE.
+- `git diff --check` passed. No Gradle rerun: Android sources/artifacts unchanged in
+  this review. Prior 292 debug/283 release+9 skips and 9 UI fixtures remain historical.
+
+Added scripts/verify_android_artifacts.py, its four tests, Python cache ignore rules
+and docs/M7_DEVICE_ACCEPTANCE.md. Updated README, implementation plan, release
+checklist and D123–D125. Graph source review reused task-directed exploration and
+fresh best-effort coverage for relied-on application/test paths. This is not a full
+source-security audit. No Android library/schema/version changes or deployment.
+
+Remaining: authenticated read-only navigation, real picker and confirmation Cancel
+require device sign-in. Completed provider writes/rotation/process loss, OS credential/
+lease, live concurrency/recovery, signed/minified runtime, API26/tablet/16 KB/TalkBack
+and performance/operator gates remain open. The current unsigned artifact and alignment
+checks do not establish production readiness. No required release checkbox was closed
+using weaker fixture/readiness evidence.
+
+Exact next step: once signed in on the phone, complete the read-only authenticated
+screen and cancellation matrix in M7_DEVICE_ACCEPTANCE.md; use a controlled acceptance
+setup for live money/access/recovery tests and operator-approved signing/release gates.

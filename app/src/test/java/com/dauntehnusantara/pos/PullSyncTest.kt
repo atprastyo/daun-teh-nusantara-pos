@@ -194,6 +194,9 @@ class PullSyncTest {
         val operations=com.dauntehnusantara.pos.feature.recovery.data.RecoveryArchive.inspect(raw,a.gateway.context)
         assertEquals(listOf(requireNotNull(a.db.checkoutDao().outbox(sale.operationId)).payloadJson),operations)
         assertFalse(raw.contains("access_token"));assertFalse(raw.contains("refresh_token"));assertFalse(raw.contains("device_secret"))
+        val snapshot=archive.snapshot(a.gateway.context)
+        assertEquals(JSONObject(snapshot.raw).getJSONObject("payload").getLong("captured_at_ms"),snapshot.capturedAtMs)
+        assertEquals(operations,com.dauntehnusantara.pos.feature.recovery.data.RecoveryArchive.inspect(snapshot.raw,a.gateway.context))
         val tampered=JSONObject(raw);tampered.getJSONObject("payload").getJSONArray("operations").getJSONObject(0).put("state","SYNCED")
         try{com.dauntehnusantara.pos.feature.recovery.data.RecoveryArchive.inspect(tampered.toString(),a.gateway.context);fail("Checksum mismatch must fail")}catch(_:IllegalArgumentException){}
         val original=a.gateway.context;a.gateway.context=original.copy(sale=original.sale.copy(userId=newId()))

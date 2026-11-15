@@ -224,3 +224,37 @@ split-window/IME/TalkBack, hosted RLS/restore and signing. No live restore, prod
 SQL, backup setup or device data deletion is authorized by these design artifacts.
 
 Exact next milestone: native SETTINGS-UI-01–04 presentation implementation.
+
+
+## 9. Native implementation — 15 November 2026
+
+SETTINGS-UI-01–03 now replace the production inline settings branch with SettingsRoute/
+SettingsViewModel and an adaptive grouped SettingsScreen. Account/access, full-scope
+sync observation, recovery export and session confirmation remain separate. Wide
+windows use two columns; large text collapses. Dialog/sheet bodies scroll with fixed
+actions and focus restoration requests. Shell context is reused once.
+
+SyncStatusViewModel now binds full source identity and guards old observations/errors/
+retry completion. Counts stay unknown until read; presentation sums in Long. Retry
+uses the existing scoped Room repository, which force-enqueues work; successful
+scheduling never alters delivery proof. Last successful pull is labeled as download,
+and restored-feed state blocks retry without offering reset/import/restore.
+
+RecoverySnapshot exposes the actual archive capture time through domain/data; original
+capture String callers and unchanged LOCAL_RECOVERY/checksum/16 MiB format remain.
+Settings captures and validates off Main before launching CreateDocument. Memory-only
+bytes/source/ticket freeze the artifact; only callback ID survives configuration.
+Cancellation, launch failure, navigation, process/scope loss and provider interruption
+cannot claim success. Foreground validation is awaited before authority checks; a
+confirmed repository denial clears scope. Provider partial files cannot be retracted.
+The superseded scope-only RecoveryPanel/RecoveryViewModel implementation is removed.
+
+Sign-out warns about retained work/unknown counts, allows Cancel or return for export,
+and invokes existing auth sign-out only under current scope. It never deletes Room.
+No server, migration, dependency or public onboarding changes. SETTINGS-UI-04 executed
+checks are in PROGRESS.md; real provider/Hilt/lease/signing/restore and physical
+accessibility acceptance remain open.
+
+Exact next milestone: cross-screen normal-application acceptance on the connected
+phone and M7 release checklist review, preserving retained data and recording actual
+provider/auth/offline/sign-out results separately from component fixtures.

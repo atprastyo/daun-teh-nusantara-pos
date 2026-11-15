@@ -97,7 +97,14 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
             return
         }
         val previous = if (keepSelection) cache.membership?.let { saved -> choices.find { it.outletId == saved.outletId } } else null
-        mutable.value = AuthState(AuthStage.OUTLETS, true, choices = choices, email = cache.session?.email.orEmpty(), busy = true)
+        val current=mutable.value
+        val keepReady=previous!=null && current.stage==AuthStage.READY &&
+            current.membership?.let { it.brandId==previous.brandId && it.outletId==previous.outletId && it.role==previous.role }==true &&
+            current.email==cache.session?.email && cache.device?.userId==cache.session?.userId
+        // Revalidating an unchanged context must not remove the shell or a pending
+        // document callback. Busy still blocks commands; actual changes fail closed.
+        mutable.value = if(keepReady) current.copy(choices=choices,busy=true)
+            else AuthState(AuthStage.OUTLETS, true, choices = choices, email = cache.session?.email.orEmpty(), busy = true)
         if (previous != null) select(previous)
     }
     private suspend fun select(membership: Membership) {

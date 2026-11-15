@@ -445,3 +445,22 @@ and [interactive local reference](docs/design/settings-flow.html), with fictiona
 Open the HTML locally to review queue/recovery/export/sign-out states. It creates no
 file and changes no session or retained data. Android behavior is unchanged by this
 design step. Next: native SETTINGS-UI-01–04; no reset/import/restore workflow is added.
+
+
+## Native settings/recovery redesign
+
+Setelan now groups account/access, scoped sync state, recovery export and session
+confirmation. Scheduling is separate from delivery; recovery-required never offers
+reset. Recovery JSON is captured and validated before the picker, with guarded
+callbacks and private in-memory bytes. Sign-out preserves local work and warns when
+queue status is unknown. See [native behavior and limits](docs/SETTINGS_SCREEN_DESIGNS.md#9-native-implementation--15-november-2026)
+and [executed checks](docs/PROGRESS.md). No migration/backend deployment is needed.
+Next: cross-screen normal-app phone acceptance and M7 release checklist review.
+
+## M7 readiness and device acceptance
+
+See [the current acceptance record](docs/M7_DEVICE_ACCEPTANCE.md) for normal-app
+startup, artifact hashes, ELF/ZIP checks and open sign-in/provider/signing gates.
+Read-only artifact verification is repeatable with
+`python3 scripts/verify_android_artifacts.py`; use `--help` for mapping/zipalign options.
+The working-brand project is not used for fabricated sales or access/restore tests.

@@ -160,3 +160,13 @@ Groups separate account/access, observed delivery versus downloaded data, privat
 recovery export and session actions. Missing counts, restored-feed conflicts and
 provider failures retain honest states; scheduling is not success, export is not a
 server backup, and sign-out never deletes Room. Next: native SETTINGS-UI-01–04.
+
+
+### Native settings/recovery
+
+T-01–T-04/sign-out/recovery X-03 now uses a scoped adaptive settings route. Observed
+push/pull, retry scheduling, captured export and auth outcomes stay distinct; missing
+counts are unavailable, sums use Long, and recovery-required never implies reset.
+The provider uses frozen validated archive bytes and correlated callbacks. Sign-out
+retains local work and never requires export. See SETTINGS_SCREEN_DESIGNS.md section 9
+and PROGRESS.md for checks and normal-app/provider/device acceptance still open.

@@ -34,6 +34,12 @@ internal object RecoveryArchive {
     }
 }
 class RoomRecoveryRepository @Inject constructor(private val db:PosDatabase,private val gateway:SaleGateway,private val pull:PullGateway,private val clock:Clock):RecoveryRepository {
+    override suspend fun snapshot(scope:PullScope):com.dauntehnusantara.pos.feature.recovery.domain.RecoverySnapshot {
+        val raw=capture(scope)
+        val time=com.dauntehnusantara.pos.core.network.JsonSafety.obj(raw,16*1024*1024).getJSONObject("payload").getLong("captured_at_ms")
+        require(time>=0)
+        return com.dauntehnusantara.pos.feature.recovery.domain.RecoverySnapshot(raw,time)
+    }
     override suspend fun capture(scope:PullScope):String {
         if(gateway.checkoutScope()!=scope.sale || pull.pullScope()!=scope)throw ManagementFailure("AUTH_REQUIRED")
         val raw=db.withTransaction {

@@ -17,3 +17,6 @@ supabase/.branches/
 !.env.example
 
 .kotlin/
+
+__pycache__/
+*.pyc

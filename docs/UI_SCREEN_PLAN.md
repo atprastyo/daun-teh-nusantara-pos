@@ -318,3 +318,13 @@ a [fictional interactive reference](design/settings-flow.html) and phone/tablet 
 Next: native SETTINGS-UI-01–04. Preserve current archive/sync/auth contracts; add scoped
 read/IO guards, captured export lifecycle and reasoned sign-out presentation. No new
 reset/import/restore/admin/password/backup configuration or Android behavior this step.
+
+
+## Native settings/recovery presentation — 15 November 2026
+
+SETTINGS-UI-01–03 now implement scoped adaptive settings, guarded push/pull observation,
+validated captured export and sign-out confirmation. SETTINGS-UI-04 checks and limits
+are recorded in PROGRESS.md / SETTINGS_SCREEN_DESIGNS.md section 9. All planned native
+screen groups now have presentation implementations; this does not close hosted,
+normal-app/provider, physical accessibility, recovery or signing acceptance. Next:
+cross-screen normal-application phone acceptance and M7 release checklist review.
