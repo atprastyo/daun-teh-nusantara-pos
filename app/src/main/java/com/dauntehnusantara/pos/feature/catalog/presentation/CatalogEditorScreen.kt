@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import com.dauntehnusantara.pos.core.designsystem.components.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -150,11 +151,7 @@ private fun CatalogList(state: CatalogEditorState, ui: CatalogEditorUi, rows: Li
 
 @Composable
 internal fun CatalogNotice(text: String, error: Boolean = false) {
-    Surface(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }, shape = MaterialTheme.shapes.medium,
-        color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-        contentColor = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface) {
-        Text(text, Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
-    }
+    AppNotice(text,tone=if(error)NoticeTone.ERROR else NoticeTone.NEUTRAL)
 }
 
 @Composable

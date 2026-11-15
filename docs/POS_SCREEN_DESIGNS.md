@@ -305,3 +305,11 @@ again. Browser captures are not evidence for Android behavior or server acceptan
 Exact next milestone: detailed H-01/H-02 transaction-history designs, including
 scoped browsing, receipt detail and delivery/review states, before native history
 redesign. Do not add void/refund or printing without a separate approved scope.
+
+### Cash amount shortcuts (2026-11-15)
+
+P-04 cash entry now includes Rp5.000, Rp10.000, Rp20.000, Rp50.000 and Rp100.000
+buttons. Each replaces the tender draft; repeated taps do not accumulate or save.
+Uang pas and manual entry remain. Buttons wrap, have at least 48dp height, disappear
+for QRIS and disable during save. Insufficient tender still blocks submission;
+change recalculates through the existing payment rules. No payment is auto-submitted.

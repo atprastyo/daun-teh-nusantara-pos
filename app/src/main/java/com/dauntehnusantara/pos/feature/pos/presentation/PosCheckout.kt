@@ -20,23 +20,22 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.core.designsystem.*
+import com.dauntehnusantara.pos.core.designsystem.components.*
 import com.dauntehnusantara.pos.feature.checkout.domain.*
 
 internal fun Modifier.semanticsLabel(label:String)=semantics{contentDescription=label}
 
 @Composable
 internal fun PosNotice(message:String) {
-    Surface(color=MaterialTheme.colorScheme.surfaceContainerHighest,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth()) {
-        Text(message,Modifier.padding(16.dp).semantics{liveRegion=LiveRegionMode.Polite})
-    }
+    AppNotice(message)
 }
 
 @Composable
 internal fun PosErrorText(error:PosError?) {
-    if(error!=null)Text(stringResource(when(error){PosError.CONFLICT->R.string.pos_conflict;PosError.INVALID->R.string.pos_invalid;PosError.OVERFLOW->R.string.pos_overflow;PosError.STORAGE->R.string.pos_storage_error}),
-        color=MaterialTheme.colorScheme.error,modifier=Modifier.semantics{liveRegion=LiveRegionMode.Polite})
+    if(error!=null)AppErrorText(stringResource(when(error){PosError.CONFLICT->R.string.pos_conflict;PosError.INVALID->R.string.pos_invalid;PosError.OVERFLOW->R.string.pos_overflow;PosError.STORAGE->R.string.pos_storage_error}))
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CheckoutForm(draft:Draft,busy:Boolean,error:PosError?,onPay:(PaymentInput)->Unit,onBack:()->Unit,demo:Boolean=true,stale:Boolean=false) {
     var methodName by rememberSaveable(draft.id,draft.revision){mutableStateOf(PaymentMethod.CASH.name)}
@@ -44,7 +43,7 @@ internal fun CheckoutForm(draft:Draft,busy:Boolean,error:PosError?,onPay:(Paymen
     // Manual confirmation is intentionally memory-only; recreation requires rechecking.
     var verified by remember(draft.id,draft.revision){mutableStateOf(false)}
     val method=PaymentMethod.valueOf(methodName)
-    val tender=cashText.takeIf{it.matches(Regex("[0-9]+"))}?.toLongOrNull()
+    val tender=moneyInputLongOrNull(cashText)
     val input=PaymentInput(method,if(method==PaymentMethod.CASH)tender else null,verified)
     val result=runCatching{CheckoutRules.payment(draft.totalIdr,input)}.getOrNull()
     Box(Modifier.fillMaxSize(),contentAlignment=androidx.compose.ui.Alignment.TopCenter) {
@@ -63,9 +62,19 @@ internal fun CheckoutForm(draft:Draft,busy:Boolean,error:PosError?,onPay:(Paymen
                     }
                 }
                 if(method==PaymentMethod.CASH) {
-                    OutlinedTextField(cashText,{cashText=it},enabled=!busy,label={Text(stringResource(R.string.pos_tendered))},
-                        keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),singleLine=true,isError=cashText.isNotEmpty()&&result==null,modifier=Modifier.fillMaxWidth().testTag("pos.cash"))
-                    TextButton(onClick={cashText=draft.totalIdr.toString()},enabled=!busy){Text("Uang pas")}
+                    MoneyInputField(cashText,{cashText=it},stringResource(R.string.pos_tendered),enabled=!busy,
+                        isError=cashText.isNotEmpty()&&result==null,modifier=Modifier.fillMaxWidth().testTag("pos.cash"))
+                    Text("Pilih nominal uang diterima",style=MaterialTheme.typography.labelLarge)
+                    FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        listOf(5000L,10000L,20000L,50000L,100000L).forEach { amount ->
+                            OutlinedButton(onClick={cashText=amount.toString()},enabled=!busy,
+                                modifier=Modifier.heightIn(min=48.dp).testTag("pos.cash.preset.$amount")) {
+                                Text(formatIdr(amount))
+                            }
+                        }
+                        TextButton(onClick={cashText=draft.totalIdr.toString()},enabled=!busy,
+                            modifier=Modifier.heightIn(min=48.dp).testTag("pos.cash.exact")){Text("Uang pas")}
+                    }
                     if(result==null)Text(stringResource(R.string.pos_cash_invalid),color=MaterialTheme.colorScheme.error)
                     else Text(stringResource(R.string.pos_change,formatIdr(requireNotNull(result.changeIdr))),style=MaterialTheme.typography.titleLarge)
                 } else {
@@ -79,9 +88,7 @@ internal fun CheckoutForm(draft:Draft,busy:Boolean,error:PosError?,onPay:(Paymen
                 Text("Struk lokal berbeda dari penerimaan server.",style=MaterialTheme.typography.bodySmall)
             }
             if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-            Button(onClick={onPay(input)},enabled=result!=null&&!busy&&!stale,modifier=Modifier.fillMaxWidth().testTag("pos.save")) {
-                Text(stringResource(if(busy)R.string.pos_saving else R.string.pos_save))
-            }
+            AppPrimaryButton(stringResource(if(busy)R.string.pos_saving else R.string.pos_save),onClick={onPay(input)},enabled=result!=null&&!stale,busy=busy,modifier=Modifier.fillMaxWidth().testTag("pos.save"))
             Spacer(Modifier.height(12.dp))
         }
     }

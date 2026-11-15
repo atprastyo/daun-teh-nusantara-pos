@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dauntehnusantara.pos.core.designsystem.components.*
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.feature.catalog.domain.*
 import com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhoto
@@ -142,8 +143,10 @@ private fun CatalogDraftFields(draft: CatalogDraft, catalog: Catalog, enabled: B
                 Text(if (min == 0) stringResource(R.string.catalog_ui_optional_bounds, max) else stringResource(R.string.catalog_ui_required_bounds, min, max), style = MaterialTheme.typography.bodyMedium)
         }
         CatalogRecord.Product, CatalogRecord.Option -> {
-            CatalogInput("price", if (draft.original.kind == CatalogRecord.Product) R.string.catalog_ui_price else R.string.catalog_ui_price_delta,
-                draft.price, enabled, errors, numeric = true) { value -> update { it.copy(price = value) } }
+            MoneyInputField(draft.price,{value->if(value.length<=256)update{it.copy(price=value)}},
+                stringResource(if(draft.original.kind==CatalogRecord.Product)R.string.catalog_ui_price else R.string.catalog_ui_price_delta),
+                Modifier.fillMaxWidth().testTag("catalog.field.price"),enabled=enabled,isError="price" in errors,
+                supportingText=errors["price"]?.let{stringResource(it)})
             Text(stringResource(R.string.catalog_ui_money_help), style = MaterialTheme.typography.bodyMedium)
             val option = draft.original.kind == CatalogRecord.Option
             Text(stringResource(if (option) R.string.catalog_ui_groups else R.string.catalog_ui_categories), style = MaterialTheme.typography.titleMedium)
@@ -190,8 +193,7 @@ private fun CatalogDraftFields(draft: CatalogDraft, catalog: Catalog, enabled: B
 
 @Composable
 private fun CatalogInput(key: String, label: Int, value: String, enabled: Boolean, errors: Map<String, Int>, numeric: Boolean = false, change: (String) -> Unit) {
-    OutlinedTextField(value, { if (it.length <= 256) change(it) }, label = { Text(stringResource(label)) }, singleLine = true,
-        enabled = enabled, isError = key in errors, supportingText = errors[key]?.let { id -> ({ Text(stringResource(id)) }) },
-        keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text),
-        modifier = Modifier.fillMaxWidth().testTag("catalog.field.$key"), shape = MaterialTheme.shapes.medium)
+    AppTextField(value,{if(it.length<=256)change(it)},stringResource(label),Modifier.fillMaxWidth().testTag("catalog.field.$key"),
+        enabled=enabled,isError=key in errors,supportingText=errors[key]?.let{stringResource(it)},
+        keyboardOptions=KeyboardOptions(keyboardType=if(numeric)KeyboardType.Number else KeyboardType.Text))
 }

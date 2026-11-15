@@ -421,3 +421,12 @@ accepted-server basis and snapshot time; use green emphasis on the total, restra
 metric cards and readable daily/outlet/product rows. Keep draft versus applied query
 and snapshot export clear; do not invent trend/profit/bank metrics for decoration.
 Native implementation and provider/device/hosted acceptance are separate.
+
+## Shared native component APIs
+
+Use [UI_COMPONENTS.md](UI_COMPONENTS.md) and core/designsystem/components for the native
+shared headers, sections, notices/errors, rows/empty/identity, fields/buttons and
+adaptive confirmations. Initial adoption covers catalog/POS/reports/staff/settings;
+feature state and security remain outside these components. Monetary input now uses
+Rp/dot grouping with exact raw Long validation and strict paste handling; other
+integer fields keep their own quantity/order/bound rules.

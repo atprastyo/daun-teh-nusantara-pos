@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import com.dauntehnusantara.pos.core.designsystem.components.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -17,8 +18,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.feature.staff.domain.*
@@ -54,8 +53,7 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
     val wide=maxWidth>=1000.dp&&LocalDensity.current.fontScale<1.5f
     Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
     LazyColumn(Modifier.weight(1f).fillMaxHeight().testTag("staff.list"),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        item {Text(stringResource(R.string.auth_staff),Modifier.semantics{heading()},style=MaterialTheme.typography.headlineMedium)
-            Text("Kelola akses untuk outlet yang dipilih.",style=MaterialTheme.typography.bodyMedium)}
+        item {AppScreenHeader(stringResource(R.string.auth_staff),description="Kelola akses untuk outlet yang dipilih.")}
         item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
             if(state.offline)Text("Pengelolaan staf memerlukan koneksi. Data dan draf sebelumnya tidak ditampilkan.")
             ManagementError(state.error)
@@ -72,7 +70,7 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
             }}
             when(tab) {
                 StaffTab.MEMBERS->{
-                    if(roster.members.isEmpty())item{Text(stringResource(R.string.staff_empty))}
+                    if(roster.members.isEmpty())item{AppEmptyState(stringResource(R.string.staff_empty))}
                     items(roster.members,key={"member.${it.id}"}){m->StaffRow {
                         Text(m.name,style=MaterialTheme.typography.titleMedium);Text(m.email);Text(staffRole(m.role),style=MaterialTheme.typography.labelLarge)
                         Text(if(!m.profileActive)"Profil nonaktif · tinjau administrator" else if(m.active)"Akses outlet aktif" else "Akses outlet nonaktif")
@@ -84,10 +82,10 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
                     }}
                 }
                 StaffTab.DEVICES->{
-                    if(roster.devices.isEmpty())item{Text("Belum ada perangkat yang dikembalikan.")}
+                    if(roster.devices.isEmpty())item{AppEmptyState("Belum ada perangkat yang dikembalikan.")}
                     items(roster.devices,key={"device.${it.id}"}){d->StaffRow {
                         Text(roster.members.find{it.id==d.userId}?.name?:d.userId,style=MaterialTheme.typography.titleMedium)
-                        SelectionContainer{Text(d.id,style=MaterialTheme.typography.bodySmall)}
+                        AppIdentity(d.id)
                         Text(staffRole(d.role),style=MaterialTheme.typography.labelLarge)
                         if(d.id==roster.scope.sale.deviceId)Text("Perangkat ini")
                         Text(stringResource(if(d.revoked)R.string.staff_revoked else if(d.approved)R.string.staff_approved else R.string.staff_pending))
@@ -116,10 +114,14 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
     }
     if(currentTarget!=null&&!state.offline) {
         val cancel={if(!state.busy)editor.guard(token){restoreFocus=when(currentTarget){is StaffTarget.Member->"m.${currentTarget.value.id}";is StaffTarget.Device->"d.${currentTarget.value.id}"};editor.cancel()}}
-        val body:@Composable ()->Unit={
-            Column(Modifier.fillMaxWidth().heightIn(max=640.dp).imePadding().padding(horizontal=20.dp)) {
-                Column(Modifier.weight(1f,false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text(staffAction(currentTarget)+"?",Modifier.padding(vertical=16.dp).semantics{heading()},style=MaterialTheme.typography.headlineSmall)
+        AppConfirmation(staffAction(currentTarget)+"?",cancel,busy=state.busy,actions={
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick=cancel,enabled=!state.busy){Text("Batal")}
+                    AppPrimaryButton(text=if(state.busy)"Memproses…" else staffAction(currentTarget),busy=state.busy,modifier=Modifier.weight(1f).testTag("staff.confirm"),onClick={editor.guard(token){
+                        if(onConfirm!=null)onConfirm() else {when(currentTarget){is StaffTarget.Member->member(currentTarget.value,draft.reason);is StaffTarget.Device->device(currentTarget.value,draft.reason)};editor.cancel()}
+                    }},enabled=!locked&&draft.reason.trim().length in 3..240)
+                }
+        }) {
                     when(currentTarget){is StaffTarget.Member->{Text(currentTarget.value.name);Text(currentTarget.value.email);SelectionContainer{Text(currentTarget.value.id)};Text(staffRole(currentTarget.value.role))}
                         is StaffTarget.Device->{Text(roster?.members?.find{it.id==currentTarget.value.userId}?.name?:currentTarget.value.userId);SelectionContainer{Text(currentTarget.value.id)};Text(staffRole(currentTarget.value.role))}}
                     Text(state.outletName.ifBlank{state.scope?.sale?.outletId.orEmpty()})
@@ -129,23 +131,10 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
                     OutlinedTextField(draft.reason,{value->editor.guard(token){editor.reason(value)}},Modifier.fillMaxWidth().testTag("staff.reason"),enabled=!state.busy,label={Text(stringResource(R.string.staff_reason))})
                     Text("3–240 karakter setelah spasi tepi dihapus. Alasan dicatat; hindari kata sandi atau rahasia.",style=MaterialTheme.typography.bodySmall)
                     if(draft.reason.trim().length !in 3..240)Text("Periksa panjang alasan.",color=MaterialTheme.colorScheme.error)
-                }
-                Row(Modifier.padding(vertical=12.dp).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick=cancel,enabled=!state.busy){Text("Batal")}
-                    Button(modifier=Modifier.weight(1f).testTag("staff.confirm"),onClick={editor.guard(token){
-                        if(onConfirm!=null)onConfirm() else {when(currentTarget){is StaffTarget.Member->member(currentTarget.value,draft.reason);is StaffTarget.Device->device(currentTarget.value,draft.reason)};editor.cancel()}
-                    }},enabled=!locked&&draft.reason.trim().length in 3..240){Text(if(state.busy)"Memproses…" else staffAction(currentTarget))}
-                }
-            }
-        }
-        BoxWithConstraints {
-            if(maxWidth>=600.dp&&maxHeight>=500.dp&&LocalDensity.current.fontScale<1.5f)
-                Dialog(onDismissRequest=cancel,properties=DialogProperties(dismissOnBackPress=!state.busy,dismissOnClickOutside=!state.busy)){Surface(Modifier.widthIn(max=560.dp).fillMaxWidth(),shape=MaterialTheme.shapes.extraLarge){body()}}
-            else ModalBottomSheet(onDismissRequest=cancel,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true,confirmValueChange={!state.busy}),properties=ModalBottomSheetProperties(shouldDismissOnBackPress=!state.busy)){body()}
         }
     }
 }
-@Composable private fun StaffRow(content:@Composable ColumnScope.()->Unit){Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){content();HorizontalDivider(Modifier.padding(top=8.dp))}}
+@Composable private fun StaffRow(content:@Composable ColumnScope.()->Unit){AppListRow(content=content)}
 private fun staffEffect(target:StaffTarget)=when(target){
     is StaffTarget.Member->if(target.value.active)"Akses anggota di outlet ini dinonaktifkan dan perangkat outlet milik anggota dicabut. Perangkat terputus dapat tetap memakai izin offline hingga validasi online atau masa izin berakhir."
         else "Akses outlet diaktifkan. Perangkat yang dicabut tetap dicabut. Pemilik perlu memulihkan perangkat, lalu persetujuan baru tetap diperlukan. Profil global tidak diaktifkan di sini."

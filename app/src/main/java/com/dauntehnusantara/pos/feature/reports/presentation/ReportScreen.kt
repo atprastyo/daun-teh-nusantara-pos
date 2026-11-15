@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import com.dauntehnusantara.pos.core.designsystem.components.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -50,8 +51,8 @@ fun ReportRoute(model:ReportViewModel,expanded:Boolean,overview:Boolean=false) {
 @Composable
 fun ManagementError(code:String?) {
     if(code==null)return
-    Text(stringResource(when(code){"CONFLICT"->R.string.manage_conflict;"OFFLINE"->R.string.manage_offline;"INVALID"->R.string.manage_invalid;
-        "AUTH_REQUIRED"->R.string.manage_denied;"TOO_LARGE"->R.string.manage_too_large;"EXPORT_FAILED"->R.string.export_failed;else->R.string.manage_unavailable}),color=MaterialTheme.colorScheme.error)
+    AppErrorText(stringResource(when(code){"CONFLICT"->R.string.manage_conflict;"OFFLINE"->R.string.manage_offline;"INVALID"->R.string.manage_invalid;
+        "AUTH_REQUIRED"->R.string.manage_denied;"TOO_LARGE"->R.string.manage_too_large;"EXPORT_FAILED"->R.string.export_failed;else->R.string.manage_unavailable}))
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,8 +68,7 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
     val choices=state.choices.ifEmpty{state.report?.choices.orEmpty()}
     val outletLabel=reportOutletLabel(state.outlet,choices,state.scope?.sale?.outletId,state.outletName)
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(if(expanded)28.dp else 16.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        item {Text(if(overview)"Ringkasan" else stringResource(R.string.report_title),Modifier.semantics{heading()},style=MaterialTheme.typography.headlineMedium)}
-        item {Text(stringResource(R.string.report_basis),style=MaterialTheme.typography.bodyMedium)}
+        item {AppScreenHeader(if(overview)"Ringkasan" else stringResource(R.string.report_title),description=stringResource(R.string.report_basis))}
         item {OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Text("Outlet laporan · $outletLabel",style=MaterialTheme.typography.titleMedium)
             Text("${state.from} — ${state.to} · Asia/Jakarta")
@@ -79,7 +79,7 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
         if(report!=null&&report.query==applied) {
             item {Text(stringResource(if(state.cached)R.string.report_cached else R.string.report_fresh,formatJakarta(report.asOfMs)),style=MaterialTheme.typography.bodySmall)}
             item {ReportMetrics(report)}
-            if(report.summary.count==0L)item{Text(stringResource(R.string.report_empty))}
+            if(report.summary.count==0L)item{AppEmptyState(stringResource(R.string.report_empty))}
             if(overview)item {Button(onClick=onOpenReport){Text("Lihat laporan")}}
             else {
                 item {Text("Subtotal ${formatIdr(report.summary.subtotal)} · Diskon ${formatIdr(report.summary.discount)}",style=MaterialTheme.typography.bodyMedium)}
@@ -144,7 +144,7 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
 }
 @Composable private fun ReportRow(label:String,count:Long,amount:String,units:Boolean=false) {
     val quantity="$count ${if(units)"unit" else "penjualan"}"
-    Column(Modifier.fillMaxWidth()) {
+    AppListRow {
         if(androidx.compose.ui.platform.LocalDensity.current.fontScale>=1.5f) {
             Column(Modifier.padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text(label,style=MaterialTheme.typography.bodyLarge)
@@ -158,6 +158,5 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
             }
             Text(amount,style=MaterialTheme.typography.titleMedium,modifier=Modifier.widthIn(max=200.dp))
         }
-        HorizontalDivider()
     }
 }

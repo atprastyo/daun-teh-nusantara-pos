@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.dauntehnusantara.pos.core.designsystem.components.AppTextField
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -60,8 +61,8 @@ internal fun ModifierPicker(catalog:Catalog,product:Product,busy:Boolean,error:P
                 }
             }
             if(selected.isNotEmpty())TextButton(onClick={selected=emptyList()},enabled=!busy){Text("Hapus pilihan")}
-            OutlinedTextField(quantityText,{quantityText=it},label={Text(stringResource(R.string.pos_quantity))},enabled=!busy,
-                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),singleLine=true,modifier=Modifier.fillMaxWidth().testTag("pos.quantity"))
+            AppTextField(quantityText,{quantityText=it},stringResource(R.string.pos_quantity),enabled=!busy,
+                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.fillMaxWidth().testTag("pos.quantity"))
             if(draft?.lines?.size==CheckoutRules.MAX_LINES)Text("Keranjang maksimal 100 baris.",color=MaterialTheme.colorScheme.error)
             else if(line==null)Text("Periksa pilihan, jumlah 1–999, dan batas total.",color=MaterialTheme.colorScheme.error)
             else Text("Total pilihan ${formatIdr(line.totalIdr)}",style=MaterialTheme.typography.titleLarge)

@@ -13,14 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import com.dauntehnusantara.pos.core.designsystem.components.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dauntehnusantara.pos.core.designsystem.formatJakarta
 import com.dauntehnusantara.pos.feature.sync.domain.*
@@ -67,19 +66,19 @@ fun SettingsScreen(state:SettingsState,push:SyncStatus?=null,pull:PullStatus?=nu
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide=maxWidth>=840.dp&&LocalDensity.current.fontScale<1.5f
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp).testTag("settings.page"),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            Text("Setelan",Modifier.semantics{heading()},style=MaterialTheme.typography.headlineMedium)
+            AppScreenHeader("Setelan")
             ManagementError(state.error)
             if(state.loading){Text("Memuat akses perangkat…");LinearProgressIndicator(Modifier.fillMaxWidth())}
-            if(state.offline)SettingsNotice("Akses offline. Tindakan jaringan memerlukan koneksi; ekspor lokal tetap memeriksa izin.")
-            if(recovery)SettingsNotice("Data server perlu direkonsiliasi. Struk dan antrean lokal tetap disimpan. Jangan hapus data aplikasi. Ekspor data perangkat, lalu hubungi pemilik/operator. Login atau ekspor tidak menghapus status ini.")
-            val access:@Composable ()->Unit={SettingsGroup("Akun & akses") {
+            if(state.offline)AppNotice("Akses offline. Tindakan jaringan memerlukan koneksi; ekspor lokal tetap memeriksa izin.")
+            if(recovery)AppNotice("Data server perlu direkonsiliasi. Struk dan antrean lokal tetap disimpan. Jangan hapus data aplikasi. Ekspor data perangkat, lalu hubungi pemilik/operator. Login atau ekspor tidak menghapus status ini.")
+            val access:@Composable ()->Unit={AppSection("Akun & akses") {
                 if(state.email.isNotBlank())SelectionContainer{Text(state.email)}
                 Text(state.leaseExpiresMs?.let{"Izin offline berlaku hingga ${formatJakarta(it)}"}?:"Masa izin offline belum tersedia.")
-                state.scope?.let{SelectionContainer{Text("Identitas perangkat: ${it.sale.deviceId}")}}
+                state.scope?.let{AppIdentity(it.sale.deviceId,label="Identitas perangkat")}
                 Text("Maksimal satu bulan kalender sesuai izin server. Boot, waktu dan kunci perangkat tetap diperiksa.",style=MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick=onValidate,enabled=!locked&&!state.offline){Text("Validasi akses online")}
             }}
-            val sync:@Composable ()->Unit={SettingsGroup("Status sinkronisasi perangkat") {
+            val sync:@Composable ()->Unit={AppSection("Status sinkronisasi perangkat") {
                 if(readFailed||push==null) {
                     Text(if(readFailed)"Status antrean belum dapat dibaca. Jumlah belum tersedia." else if(state.scope==null&&!state.loading)"Status belum tersedia untuk akses ini." else "Memuat status antrean…")
                     OutlinedButton(onClick=onReload,enabled=!locked){Text("Muat ulang status")}
@@ -98,7 +97,7 @@ fun SettingsScreen(state:SettingsState,push:SyncStatus?=null,pull:PullStatus?=nu
                 }
                 if(scheduled)Text("Pengiriman dijadwalkan; tunggu status berubah. Ini bukan konfirmasi diterima server.",Modifier.semantics{liveRegion=LiveRegionMode.Polite})
             }}
-            val export:@Composable ()->Unit={SettingsGroup("Data pemulihan perangkat") {
+            val export:@Composable ()->Unit={AppSection("Data pemulihan perangkat") {
                 Text("Arsip JSON untuk akun, outlet dan perangkat ini. Termasuk operasi lokal yang dipertahankan dan draf, bukan seluruh data server.")
                 Text("Bukan CSV laporan atau cadangan server. Tidak berisi kredensial. Pilih tujuan pribadi; checksum bukan enkripsi atau tanda tangan.",style=MaterialTheme.typography.bodySmall)
                 Button(modifier=Modifier.focusRequester(exportFocus),onClick=onExport,enabled=!locked&&state.scope!=null){Text("Ekspor data perangkat")}
@@ -106,7 +105,7 @@ fun SettingsScreen(state:SettingsState,push:SyncStatus?=null,pull:PullStatus?=nu
                 state.ticket?.let{Text("Snapshot ditangkap ${formatJakarta(it.capturedAtMs)}. Perubahan sesudahnya tidak masuk arsip ini.")}
                 if(state.exportDone)Text("Arsip selesai di lokasi yang dipilih. Lindungi salinannya.",Modifier.semantics{liveRegion=LiveRegionMode.Polite})
             }}
-            val session:@Composable ()->Unit={SettingsGroup("Sesi akun") {
+            val session:@Composable ()->Unit={AppSection("Sesi akun") {
                 Text("Keluar bukan cara memperbaiki sinkronisasi. Data lokal tetap disimpan.")
                 OutlinedButton(modifier=Modifier.focusRequester(sessionFocus),onClick=onSignOut,enabled=!locked&&state.scope!=null,colors=ButtonDefaults.outlinedButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text(if(state.signingOut)"Keluar…" else "Keluar dari akun")}
             }}
@@ -116,9 +115,11 @@ fun SettingsScreen(state:SettingsState,push:SyncStatus?=null,pull:PullStatus?=nu
             }else {access();sync();export();session()}
         }
         if(state.exportConfirm||state.signOutConfirm) {
-            val body:@Composable ()->Unit={Column(Modifier.fillMaxWidth().heightIn(max=640.dp).imePadding().padding(horizontal=20.dp)) {
-                Column(Modifier.weight(1f,false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    Text(if(state.exportConfirm)"Ekspor data perangkat?" else "Keluar dari akun?",Modifier.padding(top=20.dp).semantics{heading()},style=MaterialTheme.typography.headlineSmall)
+            AppConfirmation(if(state.exportConfirm)"Ekspor data perangkat?" else "Keluar dari akun?",cancelAction,busy=locked,actions={
+                    AppPrimaryButton(if(state.exportConfirm)"Siapkan arsip" else "Keluar dari akun",onClick=if(state.exportConfirm)onPrepare else onConfirmSignOut,enabled=!locked,modifier=Modifier.fillMaxWidth().testTag("settings.confirm"))
+                    if(state.signOutConfirm)TextButton(onClick={pendingFocus=true;onCancel()},enabled=!locked){Text("Kembali untuk ekspor")}
+                    TextButton(onClick=cancelAction,enabled=!locked){Text("Batal")}
+            }) {
                     Text(state.email);Text(state.outletName)
                     state.scope?.let{SelectionContainer{Text(it.sale.deviceId)}}
                     if(state.exportConfirm) {
@@ -129,19 +130,8 @@ fun SettingsScreen(state:SettingsState,push:SyncStatus?=null,pull:PullStatus?=nu
                         Text(if(push==null||readFailed)"Keadaan antrean belum dapat dipastikan." else "Menunggu ${push.pending.toLong()+push.retrying} · perlu akses ${push.authRequired} · perlu ditinjau ${push.review}.")
                         Text("Keluar bukan cara memperbaiki sinkronisasi atau data server yang dipulihkan.")
                     }
-                }
-                Column(Modifier.padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Button(onClick=if(state.exportConfirm)onPrepare else onConfirmSignOut,enabled=!locked,modifier=Modifier.fillMaxWidth().testTag("settings.confirm")){Text(if(state.exportConfirm)"Siapkan arsip" else "Keluar dari akun")}
-                    if(state.signOutConfirm)TextButton(onClick={pendingFocus=true;onCancel()},enabled=!locked){Text("Kembali untuk ekspor")}
-                    TextButton(onClick=cancelAction,enabled=!locked){Text("Batal")}
-                }
-            }}
-            if(maxWidth>=600.dp&&maxHeight>=500.dp&&LocalDensity.current.fontScale<1.5f)
-                Dialog(onDismissRequest=cancelAction,properties=DialogProperties(dismissOnBackPress=!locked,dismissOnClickOutside=!locked)){Surface(Modifier.widthIn(max=560.dp).fillMaxWidth(),shape=MaterialTheme.shapes.extraLarge){body()}}
-            else ModalBottomSheet(onDismissRequest=cancelAction,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true,confirmValueChange={!locked}),properties=ModalBottomSheetProperties(shouldDismissOnBackPress=!locked)){body()}
+            }
         }
     }
 }
-@Composable private fun SettingsGroup(title:String,content:@Composable ColumnScope.()->Unit){Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){Text(title,Modifier.semantics{heading()},style=MaterialTheme.typography.titleLarge);content();HorizontalDivider(Modifier.padding(top=8.dp))}}
 @Composable private fun SettingsCount(label:String,count:Long){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){Text(label,Modifier.weight(1f));Text(count.toString(),style=MaterialTheme.typography.titleMedium)}}
-@Composable private fun SettingsNotice(text:String){Surface(color=MaterialTheme.colorScheme.surfaceContainerHigh,shape=MaterialTheme.shapes.large){Text(text,Modifier.padding(16.dp))}}

@@ -1932,7 +1932,7 @@ UI_SCREEN_PLAN, UI_UX and IMPLEMENTATION_PLAN. Structural review used prior grap
 search/trace/snippets, refreshed index readiness and clean best-effort coverage for
 relied-on Kotlin paths, plus direct reads. No SQL/security-surface audit this iteration.
 
-Executed checks so far:
+Executed checks:
 
 - `./gradlew :app:compileDebugKotlin --offline --max-workers=2 --console=plain` passed.
 - `./gradlew :app:testDebugUnitTest --tests '*Staff*Test' --offline --max-workers=2
@@ -2261,3 +2261,91 @@ or full unit/release suite. No ADB, device install or launcher manipulation whil
 phone checks are paused. Physical Samsung/Infinix launcher appearance remains to
 verify after installation. Current debug artifact supersedes earlier local debug
 fingerprints; historical M7 runtime/signing acceptance is not extended by this build.
+
+## Shared components and exact IDR input — 15 November 2026
+
+Implemented core/designsystem/components/Components.kt and FormFields.kt. Shared
+headers, sections, notices/errors, rows, empty/identity presentation, text/money fields,
+primary buttons and adaptive confirmation now use the existing Material3 theme tokens.
+Adopted across catalog, POS, reports, staff and settings. Catalog text/integer and POS
+quantity share AppTextField; product/option price and cash tender use MoneyInputField.
+Staff/settings confirmations share bounded dialog/sheet body/actions and busy gating.
+Feature-owned targets, reasons, focus restoration, role checks and callbacks remain.
+No generic domain form engine or component-owned business state/network access.
+
+MoneyInputField shows Rp and dot grouping over raw digit text. Strict valid grouped/
+Rp paste normalizes to digits; decimals/negative/malformed/overflow remain visibly
+invalid. No Float/Double, decimal rounding, truncation into another amount or blank
+coercion to zero. Long parsing and existing catalog/checkout validation remain; no
+sale snapshots, repositories, schemas, permissions, sync policy or dependency changes.
+String-based offset mapping preserves editing/selection around grouping separators.
+Quantity, order and modifier bounds keep ordinary integer semantics.
+
+Added MoneyInputTest (4 tests) and SharedComponentsPresentationTest (3 tests). Added
+UI_COMPONENTS.md with API/adoption/input contracts; updated UI_GUIDELINES, README,
+implementation plan and D129–D130. Task-directed graph search/coverage and direct source
+reads used; a partial StaffScreen parse line was read directly. Metadata is best effort,
+not an exhaustive architecture/security audit. Existing documentation preserved.
+
+Executed checks:
+
+- Initial `:app:compileDebugKotlin --offline --max-workers=2 --console=plain` passed.
+- Existing migrated-screen/formatter tests passed. New cursor-injection test first
+  required an ExperimentalTestApi opt-in; corrected in the test, not suppressed.
+- `./gradlew :app:testDebugUnitTest --tests '*MoneyInputTest'
+  --tests '*SharedComponentsPresentationTest' --tests '*PosPresentationTest'
+  --tests '*CatalogEditorPresentationTest' --tests '*StaffPresentationTest'
+  --tests '*SettingsPresentationTest' --tests '*ReportPresentationTest'
+  --offline --max-workers=2 --console=plain`: 55 tests passed, no failures/skips.
+  Includes strict paste, whole-IDR/Long bounds, every cursor offset for lengths0–80,
+  middle insertion/backspace/clear/paste, invalid decimal preservation, busy submit,
+  and existing compact/tablet/large-text/permission/command/checkout regressions.
+  Log: app/build/components-tests.log.
+- Full `./gradlew :app:assembleDebugAndroidTest build --offline --max-workers=2
+  --console=plain` initially passed in 5m23s: debug303 passed, release294 passed +9
+  expected demo-only skips; lint0 errors/46 warnings. One newly introduced shared-header
+  modifier-parameter ordering warning was corrected without suppression. The final same
+  build command passed in 5m51s: debug303 passed, release294 passed +9 expected skips,
+  lint0 errors/45 existing warnings. Final log: app/build/components-build-final.log.
+  Initial log: app/build/components-build.log. Uses Android Studio JBR via JAVA_HOME.
+  Final source also includes shared report-row separators and the generic POS quantity field.
+- Final `git diff --check` passed.
+
+No ADB, device installs or real account/business operations; device checks remain
+paused by the user. Physical IME/cursor/TalkBack/phone/tablet and normal-app acceptance
+remain separate from host regressions. New local artifacts supersede previous M7
+fingerprints; release signing/hosted/provider/recovery gates remain open.
+
+Exact next step: review/adopt these shared APIs for remaining specialized surfaces
+where contracts fit, and resume normal-device money/IME/accessibility acceptance only
+when requested. No role/financial/server capability was added by this refactor.
+
+## Cash tender shortcuts (2026-11-15)
+
+Added five fixed cash-received buttons to CheckoutForm, plus retained Uang pas.
+Buttons replace the raw whole-IDR draft and wrap on narrow/large-text layouts, with
+48dp minimum height. Existing insufficient-cash/change/submit rules remain; controls
+are disabled while saving and absent for QRIS. No schema/server/dependency change.
+Added host regressions for replacement, insufficient cash, exact tender submitted,
+change, exact total, saving/QRIS guards and large-text tablet reachability.
+
+Verification: offline `:app:testDebugUnitTest --tests '*PosPresentationTest'
+--tests '*MoneyInputTest' :app:assembleDebug :app:lintDebug --max-workers=2
+--console=plain` passed in 2m9s using Android Studio JBR. All 22 targeted tests passed;
+lint has zero errors and 45 existing warnings. Log: app/build/cash-shortcuts-checks.log.
+`git diff --check` passed. No ADB/install
+or real business operations; device checks remain paused. Next: physical money/IME
+and accessibility acceptance only when the user resumes device checks.
+
+## Resumed device check: cash shortcuts (2026-11-15)
+
+User resumed ADB checks and confirmed the phone was idle. Installed the current
+app/build/outputs/apk/debug/app-debug.apk with `adb install -r` successfully on the
+connected Samsung SM-M146B, preserving app data. Launched MainActivity and inspected
+visible controls with UI Automator. Normal app opened authenticated Ringkasan as
+Pemilik with validated access; navigation exposes Ringkasan/Katalog/Laporan/Staf/
+Setelan, with no Kasir route for this role. Thus physical cash-shortcut/IME acceptance
+was not executed. No sale, draft, membership or account/session changes were made.
+Next: sign in directly on the phone with an existing authorized Cashier account to
+verify the cash shortcuts without saving a sale. Host tests and debug build results
+from the cash-shortcut iteration remain valid; this check does not close M7 gates.

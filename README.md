@@ -476,3 +476,14 @@ nudges remain available; access validation has its own separate 60-second interv
 
 The launcher icon uses a fixed white background with the green brand mark in both
 light and dark modes. The in-app logo/theme remains independent of launcher styling.
+
+## Shared Compose components
+
+Repeated screen elements now live in core/designsystem/components; see
+[UI_COMPONENTS.md](docs/UI_COMPONENTS.md) for APIs and adoption. Catalog money fields
+and cash tender show `Rp`/thousands grouping (for example `10.000`) while keeping raw
+digits and exact Long IDR validation. Valid `Rp 10.000` paste is supported; decimals,
+negative/malformed amounts and overflow never silently become a different price.
+
+Cash payment supports quick tender amounts: Rp5.000, Rp10.000, Rp20.000, Rp50.000
+and Rp100.000. Tap to replace the received amount, or use Uang pas/manual input.

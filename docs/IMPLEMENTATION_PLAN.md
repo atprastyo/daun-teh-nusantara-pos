@@ -216,3 +216,12 @@ regressions and local debug assembly are recorded in PROGRESS.md. No device chec
 or install while the user's device-check pause is active. Access-validation frequency
 and event-driven sync remain separate. Next: install when appropriate and resume only
 explicitly authorized device acceptance; release/signing/hosted gates remain open.
+
+## Shared components and money input (2026-11-15)
+
+Extracted common presentation and adopted it across catalog/POS/reports/staff/settings.
+MoneyInputField formats whole IDR over raw drafts with strict grouped paste, cursor
+mapping and unchanged domain validation. No business/schema/auth/dependency changes.
+See UI_COMPONENTS.md and PROGRESS.md for contracts, verification and limits. Next:
+incremental adoption in remaining specialized screens only where contracts match;
+normal-device/IME/accessibility acceptance resumes only at the user's request.

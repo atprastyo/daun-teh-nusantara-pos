@@ -785,3 +785,19 @@ Official Android references checked for M7:
   Remove the launcher-only white night tint so the mark remains visible on white.
   Keep the transparent brand bitmap and in-app branding/theme untouched. Verify local
   resource packaging; device checks/install remain paused.
+
+- D129: Extract repeated presentation into core/designsystem/components: notices,
+  errors, headers, sections/rows/empty/identity, fields/buttons and adaptive confirmation.
+  Adopt across catalog/POS/reports/staff/settings while features retain permission,
+  target/version/reason/draft/result and business callbacks. No generic domain-driven
+  form engine, dependency or theme palette change.
+- D130: MoneyInputField displays Rp and dot grouping over raw whole-IDR text. Accept
+  valid Indonesian grouped/Rp pastes; preserve invalid/decimal/negative/overflow drafts
+  for existing validation rather than stripping them into a different amount. Parse
+  only ASCII digits to Long; empty is not zero, no floating point. Price/option delta/
+  cash tender use money formatting; quantity and bounds retain integer semantics.
+
+- D131: Cash checkout offers fixed Rp5.000/Rp10.000/Rp20.000/Rp50.000/Rp100.000
+  tender shortcuts. Each replaces the input; it does not add banknotes or submit a
+  payment. Retain exact-total/manual entry, existing insufficient-cash validation and
+  change calculation. Wrapping 48dp buttons remain cash-only and disabled while saving.

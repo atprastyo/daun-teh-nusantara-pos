@@ -47,6 +47,47 @@ class PosPresentationTest {
         compose.onNodeWithText("Menyimpan…").assertIsNotEnabled()
         compose.runOnIdle { assertEquals(1, submissions); assertEquals(10000L, paid?.tenderedIdr) }
     }
+    @Test fun cashShortcutsReplaceAmountValidateChangeAndSubmitExactTender() {
+        var paid:PaymentInput?=null
+        compose.setContent{DaunTehTheme{CheckoutForm(ready().checkout!!.draft,false,null,{paid=it},{})}}
+        compose.onNodeWithTag("pos.cash").performTextInput("12345")
+        for(amount in listOf(5000L,10000L,20000L,50000L,100000L)) {
+            compose.onNodeWithTag("pos.cash.preset.$amount").performScrollTo().performClick()
+            compose.onNodeWithTag("pos.cash").assertTextContains(amount.toString())
+            if(amount<6000L)compose.onNodeWithTag("pos.save").assertIsNotEnabled()
+            else compose.onNodeWithTag("pos.save").assertIsEnabled()
+        }
+        compose.onNodeWithText("Kembalian: ${com.dauntehnusantara.pos.core.designsystem.formatIdr(94000L)}").assertExists()
+        compose.onNodeWithTag("pos.save").performClick()
+        compose.runOnIdle{assertEquals(100000L,paid?.tenderedIdr)}
+        compose.onNodeWithTag("pos.cash.exact").performScrollTo().performClick()
+        compose.onNodeWithTag("pos.cash").assertTextContains("6000")
+        compose.onNodeWithTag("pos.save").performClick()
+        compose.runOnIdle{assertEquals(6000L,paid?.tenderedIdr)}
+    }
+    @Test fun cashShortcutsDisableWhileSavingAndHideForQris() {
+        var busy by mutableStateOf(false)
+        compose.setContent{DaunTehTheme{CheckoutForm(ready().checkout!!.draft,busy,null,{},{})}}
+        compose.runOnIdle{busy=true}
+        for(amount in listOf(5000L,10000L,20000L,50000L,100000L))
+            compose.onNodeWithTag("pos.cash.preset.$amount").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("pos.cash.exact").performScrollTo().assertIsNotEnabled()
+        compose.runOnIdle{busy=false}
+        compose.onNodeWithText("QRIS · konfirmasi manual").performScrollTo().performClick()
+        compose.onNodeWithTag("pos.cash.preset.5000").assertDoesNotExist()
+    }
+    @Test @Config(qualifiers="w1200dp-h900dp") fun cashShortcutsRemainReachableOnTabletWithLargeText() {
+        compose.setContent{
+            val density=LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {
+                DaunTehTheme{CheckoutForm(ready().checkout!!.draft,false,null,{},{})}
+            }
+        }
+        for(amount in listOf(5000L,10000L,20000L,50000L,100000L))
+            compose.onNodeWithTag("pos.cash.preset.$amount").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("pos.cash.exact").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("pos.save").assertIsEnabled()
+    }
     @Test fun qrisNeedsOperatorConfirmation() {
         var paid: PaymentInput? = null
         compose.setContent { DaunTehTheme { PosScreen(ready(), PosActions(pay = { paid = it }), demoEnabled = true) } }
