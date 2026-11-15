@@ -13,16 +13,16 @@ class CatalogEditorScreenTest {
     @Test fun offlineCatalogExplainsSharedBrandScopeAndDisablesCreation() {
         compose.setContent { DaunTehTheme { CatalogEditorScreen(CatalogEditorState(loading=false,offline=true),{}, {}, {}) } }
         compose.onNodeWithText("Perubahan berlaku untuk seluruh outlet",substring=true).assertExists()
-        compose.onNodeWithText("Offline — katalog hanya dapat dilihat.").assertExists()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Tambah Category"))
-        compose.onNodeWithText("Tambah Category").assertIsNotEnabled()
+        compose.onNodeWithText("Offline · katalog hanya dapat dilihat.").assertExists()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Tambah produk"))
+        compose.onNodeWithText("Tambah produk").assertIsNotEnabled()
     }
     @Test fun newFormRequiresNameBeforeSubmit() {
         compose.setContent { DaunTehTheme { CatalogEditorScreen(CatalogEditorState(loading=false,pull=PullStatus(initialized=true,epoch="test")),{}, {}, {}) } }
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Tambah Category"))
-        compose.onNodeWithText("Tambah Category").performClick()
-        compose.onNodeWithText("Simpan").assertIsNotEnabled()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Tambah produk"))
+        compose.onNodeWithText("Tambah produk").performClick()
+        compose.onNodeWithText("Simpan perubahan").assertIsNotEnabled()
         compose.onNodeWithText("Nama").performTextInput("Tea")
-        compose.onNodeWithText("Simpan").assertIsEnabled()
+        compose.onNodeWithText("Simpan perubahan").assertIsEnabled()
     }
 }

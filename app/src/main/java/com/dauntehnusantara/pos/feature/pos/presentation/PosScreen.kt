@@ -1,38 +1,36 @@
 package com.dauntehnusantara.pos.feature.pos.presentation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dauntehnusantara.pos.BuildConfig
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.core.designsystem.*
 import com.dauntehnusantara.pos.feature.catalog.domain.*
+import com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhoto
 import com.dauntehnusantara.pos.feature.checkout.domain.*
+import java.util.Locale
 
 data class PosActions(val retry: () -> Unit = {}, val add: (String, List<String>, Int) -> Unit = { _, _, _ -> },
     val quantity: (CartLine, Int) -> Unit = { _, _ -> }, val remove: (CartLine) -> Unit = {},
-    val pay: (PaymentInput) -> Unit = {}, val next: () -> Unit = {}, val clearError: () -> Unit = {})
+    val pay: (PaymentInput) -> Unit = {}, val next: () -> Unit = {}, val clearError: () -> Unit = {},
+    val reconcile: () -> Unit = {}, val retryLocal: () -> Unit = {}, val retryDelivery: () -> Unit = {})
 
 @Composable
 fun PosRoute(viewModel: PosViewModel, expanded: Boolean) {
@@ -41,232 +39,163 @@ fun PosRoute(viewModel: PosViewModel, expanded: Boolean) {
         viewModel::pay, viewModel::nextSale, viewModel::clearError), expanded)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosScreen(state: PosUiState, actions: PosActions, expanded: Boolean = false, demoEnabled: Boolean = BuildConfig.DEBUG, demo: Boolean = true) {
+    if (!demoEnabled) { Text(stringResource(R.string.pos_release_disabled), Modifier.padding(24.dp)); return }
+    key(state.scopeKey) { PosContent(state, actions, expanded, demo) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PosContent(state: PosUiState, actions: PosActions, expanded: Boolean, demo: Boolean) {
     var productId by rememberSaveable { mutableStateOf<String?>(null) }
     var showCart by rememberSaveable { mutableStateOf(false) }
     var checkout by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var categoryId by rememberSaveable { mutableStateOf<String?>(null) }
+    var awaitingAdd by rememberSaveable { mutableStateOf(false) }
+    var addBaseline by rememberSaveable { mutableLongStateOf(0) }
+    val busyNow by rememberUpdatedState(state.busy)
+    val selectionSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || !busyNow })
     val draft = state.checkout?.draft
-    if (!demoEnabled) { Text(stringResource(R.string.pos_release_disabled), Modifier.padding(24.dp)); return }
-    if (state.loadFailed) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(stringResource(R.string.local_error))
-            Button(onClick = actions.retry) { Text(stringResource(R.string.retry)) }
-        }
-        return
-    }
-    if (state.loading) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            CircularProgressIndicator(); Text(stringResource(R.string.catalog_loading))
-        }
-        return
-    }
-    if (state.syncRequired) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(stringResource(if (state.recoveryRequired) R.string.recovery_required else R.string.pull_initial_required))
-            if (state.pullFailed) Text(stringResource(R.string.pull_failed))
-            Button(onClick = actions.retry) { Text(stringResource(R.string.sync_retry)) }
-        }
-        return
-    }
     val receipt = state.checkout?.receipt
-    if (receipt != null) {
-        ReceiptContent(receipt, Modifier.fillMaxSize(), onNext = { checkout = false; showCart = false; actions.next() }, busy = state.busy, error = state.error, demo = demo)
+    LaunchedEffect(state.added, state.busy, state.error) {
+        if(awaitingAdd && state.added > addBaseline) { productId=null; awaitingAdd=false }
+        else if(awaitingAdd && !state.busy && state.error!=null) awaitingAdd=false
+    }
+    // A locally observed receipt remains readable when recovery blocks new writes.
+    if(receipt!=null && state.pending==null) {
+        ReceiptContent(receipt, Modifier.fillMaxSize(), onNext = { checkout=false; showCart=false; actions.next() },
+            busy=state.busy || state.syncRequired || state.recoveryRequired || state.loadFailed, error=state.error, demo=demo,
+            delivery=state.checkout.deliveries[receipt.id], onRetryDelivery=actions.retryDelivery,
+            notice=if(state.syncRequired||state.recoveryRequired) stringResource(if(state.recoveryRequired) R.string.recovery_required else R.string.pull_initial_required) else null)
         return
     }
-    if (checkout && draft != null && draft.lines.isNotEmpty()) {
-        BackHandler { if (!state.busy) checkout = false }
-        CheckoutForm(draft, state.busy, state.error, actions.pay, { checkout = false }, demo)
+    if(state.pending!=null) { UncertainCheckout(state, actions); return }
+    if(state.loadFailed || state.loading || state.syncRequired || state.recoveryRequired) {
+        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            Text("Kasir",style=MaterialTheme.typography.headlineMedium)
+            if(state.loading) CircularProgressIndicator()
+            Text(stringResource(when {
+                state.recoveryRequired -> R.string.recovery_required
+                state.syncRequired -> R.string.pull_initial_required
+                state.loadFailed -> R.string.local_error
+                else -> R.string.catalog_loading
+            }))
+            if(!state.loading) Button(onClick=actions.retry){Text(stringResource(R.string.retry))}
+        };return
+    }
+    if(checkout && draft!=null && draft.lines.isNotEmpty()) {
+        BackHandler { if(!state.busy) checkout=false }
+        CheckoutForm(draft,state.busy,state.error,actions.pay,{checkout=false},demo,state.staleLineIds.isNotEmpty())
         return
     }
-    val cart: @Composable () -> Unit = {
-        CartContent(draft, state.busy, actions, { showCart = false; checkout = true }, Modifier.fillMaxSize())
-    }
-    Row(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f)) {
-            LazyVerticalGrid(columns = GridCells.Adaptive(160.dp), modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.cashier), style = MaterialTheme.typography.headlineLarge)
-                        if (demo) Text(stringResource(R.string.pos_demo))
-                        Text(stringResource(if (demo) R.string.pos_pending else R.string.pos_real_pending, state.checkout?.pendingCount ?: 0))
-                        if (state.pullFailed) Text(stringResource(R.string.pull_failed))
-                        PosErrorText(state.error)
-                        if (state.error != null) TextButton(onClick = actions.clearError) { Text(stringResource(R.string.pos_dismiss_error)) }
-                        if (state.catalog.visibleProducts().isEmpty()) Text(stringResource(if (demo) R.string.pos_empty else R.string.pos_real_empty))
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val fontScale=LocalDensity.current.fontScale
+        val twoPanes=expanded && maxWidth>=900.dp && fontScale<1.5f
+        if(showCart && !twoPanes) {
+            BackHandler { if(!state.busy)showCart=false }
+            Column(Modifier.fillMaxSize()) {
+                TextButton(onClick={showCart=false},enabled=!state.busy){Text("Kembali ke menu")}
+                PosErrorText(state.error)
+                CartContent(draft,state.busy,actions,{checkout=true;showCart=false},Modifier.weight(1f),state.staleLineIds)
+            }
+        } else Row(Modifier.fillMaxSize()) {
+            Column(Modifier.weight(1f)) {
+                LazyVerticalGrid(columns=GridCells.Adaptive(if(fontScale>=1.5f) 230.dp else 156.dp),modifier=Modifier.weight(1f),
+                    contentPadding=PaddingValues(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    item(span={GridItemSpan(maxLineSpan)}) {
+                        Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                            Text("Kasir",style=MaterialTheme.typography.headlineLarge)
+                            if(demo) Text(stringResource(R.string.pos_demo))
+                            Text(stringResource(if(demo)R.string.pos_pending else R.string.pos_real_pending,state.checkout?.pendingCount?:0),style=MaterialTheme.typography.bodySmall)
+                            if(state.pullFailed) {
+                                PosNotice(stringResource(R.string.pull_failed))
+                                TextButton(onClick=actions.retry,enabled=!state.busy){Text(stringResource(R.string.sync_retry))}
+                            }
+                            PosErrorText(state.error)
+                            if(state.error!=null)TextButton(onClick=actions.clearError){Text(stringResource(R.string.pos_dismiss_error))}
+                            OutlinedTextField(query,{query=it},label={Text("Cari minuman")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("pos.search"),
+                                leadingIcon={Icon(Icons.Default.Search,contentDescription=null)})
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected=categoryId==null,onClick={categoryId=null},label={Text("Semua")})
+                                state.catalog.categories.filter{it.info.active}.sortedBy{it.sortOrder}.forEach { category ->
+                                    FilterChip(selected=categoryId==category.info.id,onClick={categoryId=category.info.id},label={Text(category.info.name)})
+                                }
+                            }
+                            if(state.catalog.visibleProducts().isEmpty())Text(stringResource(if(demo)R.string.pos_empty else R.string.pos_real_empty))
+                            else if(filteredProducts(state.catalog,query,categoryId).isEmpty()) {
+                                Text("Tidak ada hasil yang cocok.");TextButton(onClick={query="";categoryId=null}){Text("Hapus pencarian/filter")}
+                            }
+                        }
                     }
-                }
-                if (!state.loading && !state.loadFailed) items(state.catalog.visibleProducts(), key = { it.info.id }) { product ->
-                    OutlinedCard(onClick = { productId = product.info.id }, enabled = !state.busy && draft != null) {
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhoto(product.imagePath,product.info.name,Modifier.fillMaxWidth())
-                            Text(product.info.name, style = MaterialTheme.typography.titleMedium)
-                            Text(formatIdr(product.basePriceIdr))
-                            Text(stringResource(R.string.pos_choose))
+                    items(filteredProducts(state.catalog,query,categoryId),key={it.info.id}) { product ->
+                        // The photo retry remains separate from the select button; no nested click targets.
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            ProductPhoto(product.imagePath,product.info.name,Modifier.fillMaxWidth())
+                            Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                                Text(product.info.name,style=MaterialTheme.typography.titleMedium)
+                                Text("Harga dasar",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatIdr(product.basePriceIdr),style=MaterialTheme.typography.titleMedium)
+                                FilledTonalButton(onClick={actions.clearError();productId=product.info.id},enabled=state.canEdit&&draft!=null,
+                                    modifier=Modifier.fillMaxWidth().testTag("pos.product.${product.info.id}")) { Text("Pilih minuman") }
+                            }
                         }
                     }
                 }
-            }
-            if (!expanded) Surface(tonalElevation = 3.dp) {
-                Button(onClick = { showCart = true }, enabled = draft != null && !state.busy,
-                    modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                    Text(stringResource(R.string.pos_cart_total, draft?.lines?.sumOf { it.quantity } ?: 0, formatIdr(draft?.totalIdr ?: 0)))
+                if(!twoPanes) Surface(color=MaterialTheme.colorScheme.surfaceContainerHighest) {
+                    Button(onClick={showCart=true},enabled=draft!=null&&!state.busy,modifier=Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text(stringResource(R.string.pos_cart_total,draft?.lines?.sumOf{it.quantity}?:0,formatIdr(draft?.totalIdr?:0)))
+                    }
                 }
             }
+            if(twoPanes) Surface(Modifier.width(340.dp).fillMaxHeight().padding(12.dp),shape=MaterialTheme.shapes.large,color=MaterialTheme.colorScheme.surfaceContainerHighest) {
+                CartContent(draft,state.busy,actions,{checkout=true;showCart=false},Modifier.fillMaxSize(),state.staleLineIds)
+            }
         }
-        if (expanded) OutlinedCard(Modifier.width(320.dp).fillMaxHeight().padding(8.dp)) { cart() }
-    }
-    if (showCart && !expanded) ModalBottomSheet(onDismissRequest = { showCart = false }) {
-        Box(Modifier.fillMaxWidth().fillMaxHeight(0.9f)) { cart() }
-    }
-    state.catalog.visibleProducts().find { it.info.id == productId }?.let { product ->
-        ModalBottomSheet(onDismissRequest = { productId = null }) {
-            ModifierPicker(state.catalog, product, state.busy) { options, quantity ->
-                actions.add(product.info.id, options, quantity); productId = null
+        state.catalog.visibleProducts().find{it.info.id==productId}?.let { product ->
+            ModalBottomSheet(onDismissRequest={if(!state.busy){productId=null;awaitingAdd=false}},sheetState=selectionSheet) {
+                ModifierPicker(state.catalog,product,state.busy,state.error,draft) { options,quantity ->
+                    if(!awaitingAdd){addBaseline=state.added;awaitingAdd=true;actions.add(product.info.id,options,quantity)}
+                }
             }
         }
     }
 }
 
+internal fun filteredProducts(catalog:Catalog,query:String,categoryId:String?):List<Product> = catalog.visibleProducts().filter {
+    (categoryId==null||it.categoryId==categoryId)&&it.info.name.lowercase(Locale.forLanguageTag("id")).contains(query.trim().lowercase(Locale.forLanguageTag("id")))
+}
+
 @Composable
-private fun CartContent(draft: Draft?, busy: Boolean, actions: PosActions, onCheckout: () -> Unit, modifier: Modifier) {
-    Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.cart), style = MaterialTheme.typography.headlineSmall)
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (draft == null || draft.lines.isEmpty()) item { Text(stringResource(R.string.cart_empty)) }
-            items(draft?.lines ?: emptyList(), key = { it.id }) { line ->
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(line.productName, style = MaterialTheme.typography.titleMedium)
-                    Text(line.modifiers.joinToString { "${it.groupName}: ${it.optionName}" })
-                    Text(stringResource(R.string.pos_line_price, line.quantity, formatIdr(line.unitPriceIdr), formatIdr(line.totalIdr)))
-                    Row {
-                        TextButton(onClick = { actions.quantity(line, line.quantity - 1) }, enabled = !busy && line.quantity > 1) { Text(stringResource(R.string.pos_minus)) }
-                        TextButton(onClick = { actions.quantity(line, line.quantity + 1) }, enabled = !busy && line.quantity < CheckoutRules.MAX_QUANTITY) { Text(stringResource(R.string.pos_plus)) }
-                        TextButton(onClick = { actions.remove(line) }, enabled = !busy) { Text(stringResource(R.string.pos_remove)) }
+internal fun CartContent(draft:Draft?,busy:Boolean,actions:PosActions,onCheckout:()->Unit,modifier:Modifier,stale:Set<String>) {
+    Column(modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        Text("Keranjang",style=MaterialTheme.typography.headlineSmall)
+        LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            if(draft==null||draft.lines.isEmpty())item{Text(stringResource(R.string.cart_empty))}
+            items(draft?.lines.orEmpty(),key={it.id}){line ->
+                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text(line.productName,style=MaterialTheme.typography.titleMedium)
+                    if(line.modifiers.isNotEmpty())Text(line.modifiers.joinToString{"${it.groupName}: ${it.optionName}"},style=MaterialTheme.typography.bodySmall)
+                    Text("${line.quantity} × ${formatIdr(line.unitPriceIdr)}",style=MaterialTheme.typography.bodyMedium)
+                    Text(formatIdr(line.totalIdr),style=MaterialTheme.typography.titleMedium)
+                    if(line.id in stale)Text("Katalog berubah. Hapus lalu pilih ulang.",color=MaterialTheme.colorScheme.error)
+                    Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                        OutlinedButton(onClick={actions.quantity(line,line.quantity-1)},enabled=!busy&&line.quantity>1,
+                            modifier=Modifier.testTag("pos.minus.${line.id}").semanticsLabel("Kurangi ${line.productName}"),contentPadding=PaddingValues(12.dp)){Text("−")}
+                        OutlinedButton(onClick={actions.quantity(line,line.quantity+1)},enabled=!busy&&line.quantity<CheckoutRules.MAX_QUANTITY,
+                            modifier=Modifier.semanticsLabel("Tambah jumlah ${line.productName}"),contentPadding=PaddingValues(12.dp)){Text("+")}
+                        TextButton(onClick={actions.remove(line)},enabled=!busy){Text("Hapus",color=MaterialTheme.colorScheme.error)}
                     }
                     HorizontalDivider()
                 }
             }
         }
-        Text(stringResource(R.string.pos_total, formatIdr(draft?.totalIdr ?: 0)), style = MaterialTheme.typography.titleLarge)
-        Button(onClick = onCheckout, enabled = !busy && draft != null && draft.lines.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.pos_checkout))
-        }
+        Text(stringResource(R.string.pos_total,formatIdr(draft?.totalIdr?:0)),style=MaterialTheme.typography.headlineSmall)
+        Button(onClick=onCheckout,enabled=!busy&&draft!=null&&draft.lines.isNotEmpty()&&stale.isEmpty(),modifier=Modifier.fillMaxWidth()){Text(stringResource(R.string.pos_checkout))}
     }
 }
-
-@Composable
-private fun ModifierPicker(catalog: Catalog, product: Product, busy: Boolean, onAdd: (List<String>, Int) -> Unit) {
-    var selected by rememberSaveable(product.info.id) { mutableStateOf(emptyList<String>()) }
-    var quantityText by rememberSaveable(product.info.id) { mutableStateOf("1") }
-    val quantity = quantityText.toIntOrNull()
-    val line = runCatching { CheckoutRules.line(catalog, product.info.id, selected, quantity ?: 0) }.getOrNull()
-    Column(Modifier.fillMaxWidth().fillMaxHeight(0.9f).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(product.info.name, style = MaterialTheme.typography.headlineSmall)
-            catalog.groupsFor(product.info.id).forEach { group ->
-                Text(group.info.name, style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.catalog_limits, group.minSelect, group.maxSelect))
-                catalog.options.filter { it.groupId == group.info.id && it.info.active }.forEach { option ->
-                    val checked = option.info.id in selected
-                    Row(Modifier.fillMaxWidth().toggleable(value = checked, enabled = !busy, role = Role.Checkbox, onValueChange = { _ ->
-                        selected = if (checked) selected - option.info.id else {
-                            val base = if (group.maxSelect == 1) selected.filterNot { id -> catalog.options.any { it.info.id == id && it.groupId == group.info.id } } else selected
-                            base + option.info.id
-                        }
-                    }).padding(vertical = 8.dp)) {
-                        Checkbox(checked = checked, onCheckedChange = null)
-                        Text(stringResource(R.string.catalog_option, option.info.name, formatIdr(option.priceDeltaIdr)), Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-            OutlinedTextField(quantityText, onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) quantityText = it },
-                label = { Text(stringResource(R.string.pos_quantity)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), enabled = !busy)
-            if (line == null) Text(stringResource(R.string.pos_selection_invalid), color = MaterialTheme.colorScheme.error)
-            else Text(stringResource(R.string.pos_total, formatIdr(line.totalIdr)))
-        }
-        Button(onClick = { onAdd(selected, requireNotNull(quantity)) }, enabled = line != null && !busy, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.pos_add))
-        }
-        Spacer(Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun CheckoutForm(draft: Draft, busy: Boolean, error: PosError?, onPay: (PaymentInput) -> Unit, onBack: () -> Unit, demo: Boolean = true) {
-    var methodName by rememberSaveable(draft.id) { mutableStateOf(PaymentMethod.CASH.name) }
-    var cashText by rememberSaveable(draft.id) { mutableStateOf("") }
-    var verified by rememberSaveable(draft.id) { mutableStateOf(false) }
-    val method = PaymentMethod.valueOf(methodName)
-    val input = PaymentInput(method, if (method == PaymentMethod.CASH) cashText.toLongOrNull() else null, verified)
-    val result = runCatching { CheckoutRules.payment(draft.totalIdr, input) }.getOrNull()
-    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        TextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.pos_back_cart)) }
-        Text(stringResource(R.string.pos_checkout), style = MaterialTheme.typography.headlineMedium)
-        Text(stringResource(R.string.pos_total, formatIdr(draft.totalIdr)), style = MaterialTheme.typography.titleLarge)
-        PaymentMethod.entries.forEach { choice ->
-            Row(Modifier.fillMaxWidth().selectable(selected = method == choice, enabled = !busy, role = Role.RadioButton) { methodName = choice.name }.padding(vertical = 8.dp)) {
-                RadioButton(selected = method == choice, onClick = null)
-                Text(stringResource(if (choice == PaymentMethod.CASH) R.string.pos_cash else R.string.pos_qris), Modifier.padding(start = 12.dp))
-            }
-        }
-        if (method == PaymentMethod.CASH) {
-            OutlinedTextField(cashText, onValueChange = { if (it.length <= 19 && it.all(Char::isDigit)) cashText = it }, enabled = !busy,
-                label = { Text(stringResource(R.string.pos_tendered)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), isError = cashText.isNotEmpty() && result == null)
-            if (result == null) Text(stringResource(R.string.pos_cash_invalid))
-            else Text(stringResource(R.string.pos_change, formatIdr(requireNotNull(result.changeIdr))))
-        } else {
-            Text(stringResource(R.string.pos_qris_notice))
-            Row(Modifier.fillMaxWidth().toggleable(value = verified, enabled = !busy, role = Role.Checkbox, onValueChange = { verified = it }).padding(vertical = 8.dp)) {
-                Checkbox(checked = verified, onCheckedChange = null)
-                Text(stringResource(R.string.pos_qris_confirm), Modifier.padding(start = 8.dp))
-            }
-        }
-        PosErrorText(error)
-        Button(onClick = { onPay(input) }, enabled = result != null && !busy, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(if (busy) R.string.pos_saving else R.string.pos_save))
-        }
-        if (demo) Text(stringResource(R.string.pos_demo))
-    }
-}
-
-@Composable
-private fun PosErrorText(error: PosError?) {
-    if (error != null) Text(stringResource(when (error) {
-        PosError.CONFLICT -> R.string.pos_conflict
-        PosError.INVALID -> R.string.pos_invalid
-        PosError.OVERFLOW -> R.string.pos_overflow
-        PosError.STORAGE -> R.string.pos_storage_error
-    }), color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-}
-
-@Composable
-fun ReceiptContent(receipt: Receipt, modifier: Modifier = Modifier, onNext: (() -> Unit)? = null, busy: Boolean = false, error: PosError? = null, demo: Boolean = true) {
-    Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PosErrorText(error)
-        Text(stringResource(R.string.pos_receipt), style = MaterialTheme.typography.headlineMedium)
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(if (demo) R.string.pos_local_saved else R.string.pos_real_saved))
-        Text(receipt.id)
-        Text(formatJakarta(receipt.createdAtUtcMs))
-        receipt.lines.forEach { line ->
-            Text(line.productName, style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.pos_line_price, line.quantity, formatIdr(line.unitPriceIdr), formatIdr(line.totalIdr)))
-            line.modifiers.forEach { Text(stringResource(R.string.pos_receipt_modifier, it.groupName, it.optionName, formatIdr(it.priceDeltaIdr))) }
-        }
-        HorizontalDivider()
-        Text(stringResource(R.string.pos_total, formatIdr(receipt.totalIdr)), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(if (receipt.payment.method == PaymentMethod.CASH) R.string.pos_cash else R.string.pos_qris))
-        receipt.payment.tenderedIdr?.let { Text(stringResource(R.string.pos_paid, formatIdr(it))) }
-        receipt.payment.changeIdr?.let { Text(stringResource(R.string.pos_change, formatIdr(it))) }
-        if (receipt.payment.method == PaymentMethod.QRIS_MANUAL) Text(stringResource(R.string.pos_qris_manual_receipt))
-        if (demo) Text(stringResource(R.string.pos_demo))
-        if (onNext != null) Button(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.pos_next)) }
-    }
-}
-
 @Composable
 fun LocalHistoryRoute(viewModel: PosViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -275,31 +204,15 @@ fun LocalHistoryRoute(viewModel: PosViewModel) {
 }
 @Composable
 fun HistoryContent(state: PosUiState, retry: () -> Unit, demo: Boolean = true) {
-    var selected by rememberSaveable { mutableStateOf<String?>(null) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { Text(stringResource(R.string.history), style = MaterialTheme.typography.headlineLarge) }
-        item { Text(stringResource(if (demo) R.string.pos_local_history else R.string.pos_synced_history)) }
-        if (state.loading) item { CircularProgressIndicator() }
-        if (!demo && (state.syncRequired || state.pullFailed)) item {
-            Text(stringResource(if (state.recoveryRequired) R.string.recovery_required else if (state.syncRequired) R.string.pull_initial_required else R.string.pull_failed))
-            Button(onClick = retry) { Text(stringResource(R.string.sync_retry)) }
-        }
-        if (state.loadFailed) item {
-            Text(stringResource(R.string.local_error))
-            Button(onClick = retry) { Text(stringResource(R.string.retry)) }
-        }
-        if (!state.loading && !state.loadFailed && state.history.isEmpty()) item { Text(stringResource(R.string.pos_no_receipts)) }
-        items(state.history, key = { it.id }) { receipt ->
-            OutlinedCard(onClick = { selected = receipt.id }, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(formatJakarta(receipt.createdAtUtcMs)); Text(formatIdr(receipt.totalIdr)); Text(receipt.id)
-                }
-            }
-        }
-    }
-    state.history.find { it.id == selected }?.let { receipt ->
-        AlertDialog(onDismissRequest = { selected = null }, confirmButton = { TextButton(onClick = { selected = null }) { Text(stringResource(R.string.catalog_close)) } },
-            text = { ReceiptContent(receipt, Modifier.heightIn(max = 500.dp), demo = demo) })
+    key(state.scopeKey) {
+        val session = remember { com.dauntehnusantara.pos.feature.history.presentation.HistorySession() }
+        com.dauntehnusantara.pos.feature.history.presentation.HistoryScreen(
+            com.dauntehnusantara.pos.feature.history.presentation.HistoryState(
+                scopeKey=state.scopeKey,receipts=state.history,deliveries=state.checkout?.deliveries.orEmpty(),
+                loading=state.loading,loadFailed=state.loadFailed,allowed=true,demo=demo,
+                pull=com.dauntehnusantara.pos.feature.sync.domain.PullStatus(initialized=!state.syncRequired,
+                    error=if(state.recoveryRequired) "REBOOTSTRAP_REQUIRED" else if(state.pullFailed) "UNAVAILABLE" else null)),
+            session,retry)
     }
 }
 

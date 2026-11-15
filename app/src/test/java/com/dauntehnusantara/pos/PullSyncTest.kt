@@ -28,7 +28,9 @@ class PullSyncTest {
     private val events = mutableListOf<Change>()
     private var epoch = newId()
     private val serverSales = mutableMapOf<String,String>()
-    private val scheduler = object : SyncScheduler { override fun enqueue(force: Boolean) {};override fun ensurePeriodic() {} }
+    private var scheduleCalls = 0
+    private var failScheduleAt = -1
+    private val scheduler = object : SyncScheduler { override fun enqueue(force: Boolean) { scheduleCalls++; check(scheduleCalls != failScheduleAt) };override fun ensurePeriodic() {} }
     private val clients = mutableListOf<Client>()
     private val context get() = RuntimeEnvironment.getApplication()
     private inner class Gateway(var context: PullScope) : SaleGateway,PullGateway {
@@ -222,4 +224,83 @@ class PullSyncTest {
         assertEquals(1L,photoMenu().products.single().info.version)
     }
 
+
+    @Test fun originalCommandReadbackSurvivesCommitThenEnqueueFailureAndRestart():Unit=runBlocking {
+        val a=client();a.pull.sync();val d=a.checkout.observe().first().draft
+        a.checkout.add(d,CheckoutRules.line(a.menu(),product,listOf(option),1))
+        val draft=a.checkout.observe().first().draft
+        val command=CheckoutCommand(draft.id,draft.operationId,draft.revision,PaymentInput(PaymentMethod.CASH,10000))
+        assertEquals(CheckoutResolution.Unsaved,a.checkout.reconcile(command))
+        scheduleCalls=0;failScheduleAt=2 // recordAuthorized enqueue is inside the transaction; complete enqueue follows commit.
+        try{a.checkout.complete(command);fail("Post-commit enqueue failure expected")}catch(_:IllegalStateException){}
+        a.reopen();val resolution=a.checkout.reconcile(command) as CheckoutResolution.Saved
+        assertEquals(draft.id,resolution.receipt.id);assertEquals(1,a.checkout.receipts().size)
+        assertEquals(CheckoutResolution.Unknown,a.checkout.reconcile(command.copy(payment=PaymentInput(PaymentMethod.CASH,20000))))
+        failScheduleAt=-1;assertEquals(resolution.receipt,a.checkout.complete(command))
+        assertEquals(1,a.db.checkoutDao().syncRows(brand,outlet,a.gateway.context.sale.deviceId,user).size)
+    }
+    @Test fun readbackRequiresExactDraftRevisionAndActiveOriginalScope():Unit=runBlocking {
+        val a=client();a.pull.sync();val draft=a.checkout.observe().first().draft
+        val command=CheckoutCommand(draft.id,draft.operationId,draft.revision,PaymentInput(PaymentMethod.CASH,10000))
+        assertEquals(CheckoutResolution.Unsaved,a.checkout.reconcile(command))
+        assertEquals(CheckoutResolution.Unknown,a.checkout.reconcile(command.copy(revision=100)))
+        val stale=a.checkout;a.gateway.context=a.gateway.context.copy(sale=a.gateway.context.sale.copy(userId=newId()))
+        try{stale.reconcile(command);fail("Cross-scope read must be denied")}catch(_:IllegalStateException){}
+    }
+    @Test fun deliveryProjectionIsPerReceiptAndTerminalReviewKeepsSnapshotAndPayload():Unit=runBlocking {
+        val a=client();a.pull.sync();val original=a.sell()
+        val dao=a.db.checkoutDao();val payload=dao.outbox(original.operationId)!!.payloadJson
+        assertEquals(ReceiptDeliveryState.PENDING,a.checkout.observe().first().deliveries[original.id]?.state)
+        dao.syncResult(original.operationId,"RETRY",1,100,"DELIVERY_UNCERTAIN",null)
+        assertEquals(ReceiptDeliveryState.RETRY,a.checkout.observe().first().deliveries[original.id]?.state)
+        dao.syncResult(original.operationId,"REVIEW",1,0,"CATALOG_CHANGED",null)
+        val state=a.checkout.observe().first()
+        assertEquals(ReceiptDelivery(ReceiptDeliveryState.REVIEW,true),state.deliveries[original.id]);assertEquals(1,state.pendingCount)
+        a.push.retry(a.gateway.context.sale)
+        assertEquals("REVIEW",dao.outbox(original.operationId)?.state);assertEquals(payload,dao.outbox(original.operationId)?.payloadJson)
+        assertEquals(original,state.receipt)
+        val stale=a.checkout;a.gateway.context=a.gateway.context.copy(sale=a.gateway.context.sale.copy(deviceId=newId()))
+        try{stale.observe().first();fail("Old scope must not expose labels")}catch(_:IllegalStateException){}
+    }
+    @Test fun validatedRemoteReceiptProofAndAckAreDistinctFromAggregatePending():Unit=runBlocking {
+        val a=client();val b=client();a.pull.sync();b.pull.sync();val original=a.sell()
+        a.gateway.loseAck=true;a.push.drain()
+        assertEquals(ReceiptDeliveryState.RETRY,a.checkout.observe().first().deliveries[original.id]?.state)
+        a.pull.sync();b.pull.sync()
+        assertEquals(ReceiptDeliveryState.SYNCED,a.checkout.observe().first().deliveries[original.id]?.state)
+        assertEquals(ReceiptDeliveryState.SYNCED,b.checkout.observe().first().deliveries[original.id]?.state)
+        assertEquals(original,b.checkout.receipts().single())
+    }
+
+    @Test fun historyReadsKeepExistingDraftReceiptPointerAndImmutableOutboxUntouched():Unit=runBlocking {
+        val a=client();a.pull.sync();val paid=a.sell()
+        val before=a.db.checkoutDao().session(a.gateway.context.key)
+        val operation=a.db.checkoutDao().outbox(paid.operationId)
+        repeat(3){
+            assertEquals(listOf(paid),a.checkout.receipts())
+            val observed=a.checkout.observe().first()
+            assertEquals(paid,observed.receipt)
+            val session=com.dauntehnusantara.pos.feature.history.presentation.HistorySession()
+            session.select(paid.id);session.close()
+        }
+        assertEquals(before,a.db.checkoutDao().session(a.gateway.context.key))
+        assertEquals(operation,a.db.checkoutDao().outbox(paid.operationId))
+        assertEquals(paid,a.checkout.receipts().single())
+    }
+    @Test fun boundedHistoryCacheMustNotBePresentedAsGloballyLatestHundredSales():Unit=runBlocking {
+        val a=client();a.pull.sync();val own=a.sell()
+        val newest=own.copy(id=newId(),operationId=newId(),deviceId=newId(),createdAtUtcMs=clock.millis()+1000)
+        events+=Change(6,"SALE",newest.id,"UPSERT",CheckoutJson.payload(newest,false))
+        repeat(100){index->
+            val older=own.copy(id=newId(),operationId=newId(),deviceId=newId(),createdAtUtcMs=clock.millis()-(index+1)*1000L)
+            events+=Change(events.last().seq+1,"SALE",older.id,"UPSERT",CheckoutJson.payload(older,false))
+        }
+        while(a.pull.sync()){ /* bounded passes, same authorized scope */ }
+        val history=a.checkout.receipts()
+        assertEquals(100,history.size);assertTrue(history.any{it.id==own.id})
+        assertFalse(history.any{it.id==newest.id}) // Old feed position is outside the remote query cap despite newer sale time.
+        assertEquals(100,history.map{it.id}.distinct().size)
+        assertTrue(history.zipWithNext().all{(x,y)->x.createdAtUtcMs>=y.createdAtUtcMs})
+        assertEquals("PENDING",a.db.checkoutDao().outbox(own.operationId)?.state)
+    }
 }

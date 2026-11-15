@@ -29,7 +29,7 @@ class PosScreenTest {
         compose.onNodeWithText("Pembayaran").performClick()
         compose.onNodeWithText("Simpan penjualan lokal").assertIsNotEnabled()
         compose.onNodeWithText("Uang diterima (IDR)").performTextInput("10000")
-        compose.onNodeWithText("Simpan penjualan lokal").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        compose.onNodeWithText("Simpan penjualan lokal").assertIsDisplayed().assertIsEnabled().performClick()
         compose.onNodeWithText("Menyimpan…").assertIsNotEnabled()
         compose.runOnIdle { assertEquals(1, submissions); assertEquals(10000L, paid?.tenderedIdr) }
     }
@@ -41,7 +41,7 @@ class PosScreenTest {
         compose.onNodeWithText("QRIS · konfirmasi manual").performClick()
         compose.onNodeWithText("Simpan penjualan lokal").assertIsNotEnabled()
         compose.onNodeWithText("Saya telah memeriksa dan memastikan pembayaran diterima.").performClick()
-        compose.onNodeWithText("Simpan penjualan lokal").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        compose.onNodeWithText("Simpan penjualan lokal").assertIsDisplayed().assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(PaymentMethod.QRIS_MANUAL, paid?.method); assertEquals(true, paid?.manuallyVerified); assertNull(paid?.tenderedIdr) }
     }
     @Test fun releaseDoesNotExposeDemoCheckout() {

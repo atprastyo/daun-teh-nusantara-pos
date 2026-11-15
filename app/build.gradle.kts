@@ -35,7 +35,7 @@ android {
         versionName = "0.1.0"
         buildConfigField("String", "SUPABASE_URL", configLiteral(publicConfig("SUPABASE_URL")))
         buildConfigField("String", "SUPABASE_PUBLIC_KEY", configLiteral(publicConfig("SUPABASE_PUBLIC_KEY")))
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.dauntehnusantara.pos.ComponentTestRunner"
     }
     buildTypes {
         getByName("release") {
@@ -80,6 +80,9 @@ dependencies {
     ksp("com.google.dagger:hilt-compiler:2.57.1")
     implementation("androidx.work:work-runtime-ktx:2.10.2")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test:runner:1.6.2")
+    testImplementation("androidx.test.ext:junit:1.2.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.17")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.07.00"))

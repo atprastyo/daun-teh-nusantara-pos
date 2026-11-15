@@ -25,7 +25,15 @@ data class CheckoutCommand(val draftId: String, val operationId: String, val rev
 data class Receipt(val id: String, val operationId: String, val brandId: String, val outletId: String,
     val deviceId: String, val cashierId: String, val createdAtUtcMs: Long, val lines: List<CartLine>,
     val totalIdr: Long, val payment: PaymentResult)
-data class CheckoutState(val draft: Draft, val receipt: Receipt?, val pendingCount: Int)
+enum class ReceiptDeliveryState { PENDING, RETRY, AUTH_REQUIRED, REVIEW, SYNCED, UNKNOWN }
+data class ReceiptDelivery(val state: ReceiptDeliveryState, val catalogChanged: Boolean = false)
+data class CheckoutState(val draft: Draft, val receipt: Receipt?, val pendingCount: Int,
+    val deliveries: Map<String, ReceiptDelivery> = emptyMap())
+sealed interface CheckoutResolution {
+    data class Saved(val receipt: Receipt) : CheckoutResolution
+    data object Unsaved : CheckoutResolution
+    data object Unknown : CheckoutResolution
+}
 class CheckoutConflict : IllegalStateException("Draft or catalog changed")
 
 object CheckoutRules {
@@ -89,6 +97,8 @@ interface CheckoutRepository {
     suspend fun complete(command: CheckoutCommand): Receipt
     suspend fun dismissReceipt(saleId: String)
     suspend fun receipts(): List<Receipt>
+    /** Read-only reconciliation of the original command, never a new sale. */
+    suspend fun reconcile(command: CheckoutCommand): CheckoutResolution = CheckoutResolution.Unknown
 }
 
 // Development identities only, never an enrollment or offline authorization lease.

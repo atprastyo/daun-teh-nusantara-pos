@@ -106,6 +106,19 @@ class AuthRepositoryTest {
     private fun repo(http:FakeHttp,store:MemoryStore,clock:FakeClock,configuration:BackendConfig=config,photos:com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport=com.dauntehnusantara.pos.feature.catalog.photos.data.UnconfiguredPhotoTransport)=
         AuthRepositoryImpl(AuthApi(http,Clock.fixed(Instant.ofEpochMilli(base),ZoneOffset.UTC),photos),configuration,store,clock,DeviceEnrollmentLookup { _, _ -> null })
     private suspend fun signedIn(repository:AuthRepositoryImpl){repository.signIn("user@example.invalid","test-password-value");repository.selectOutlet("outlet")}
+    @Test fun deviceRequestEmptySuccessIsDistinctFromUnloadedAndNetworkFailure():Unit=runBlocking {
+        val http=FakeHttp(base).apply { role = Role.MANAGER };val repository=repo(http,MemoryStore(),FakeClock(base))
+        signedIn(repository)
+        assertFalse(repository.state.value.deviceRequestsLoaded)
+        repository.loadDeviceRequests()
+        assertTrue(repository.state.value.deviceRequestsLoaded)
+        assertTrue(repository.state.value.deviceRequests.isEmpty())
+        http.unavailable=true
+        repository.loadDeviceRequests()
+        assertFalse(repository.state.value.deviceRequestsLoaded)
+        assertEquals(AuthStage.LOCKED,repository.state.value.stage)
+        assertNull(repository.state.value.membership)
+    }
     @Test fun firstLoginRequiresOnlineAndServerMembership():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
         repo.restore();assertEquals(AuthStage.LOGIN,repo.state.value.stage)
@@ -121,7 +134,11 @@ class AuthRepositoryTest {
         val leaseCalls=http.calls.count{it.endsWith("issue_offline_lease")}
         http.unavailable=true
         val restored=repo(http,store,clock);restored.restore()
-        assertTrue(restored.state.value.canOffline);restored.unlockOffline();assertTrue(restored.state.value.offline)
+        assertTrue(restored.state.value.canOffline)
+        assertEquals("outlet", restored.state.value.lockedContext?.outletId)
+        assertNotNull(restored.state.value.leaseExpiresAtMs)
+        assertNull(restored.state.value.membership)
+        restored.unlockOffline();assertTrue(restored.state.value.offline)
         assertEquals(leaseCalls,http.calls.count{it.endsWith("issue_offline_lease")})
         clock.value=clock.value.copy(elapsedMs=clock.value.elapsedMs+30L*24*60*60*1000)
         restored.enforceLease();assertEquals(AuthStage.LOCKED,restored.state.value.stage);assertFalse(restored.state.value.canOffline);assertNull(restored.state.value.membership)
@@ -135,13 +152,15 @@ class AuthRepositoryTest {
     @Test fun onlineDenialInvalidatesStoredOfflineAuthority():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
         signedIn(repo);http.denied=true;repo.refresh()
-        assertEquals(AuthStage.LOGIN,repo.state.value.stage);assertFalse(repo.state.value.canOffline);assertNull(store.value)
+        assertEquals(AuthStage.LOGIN,repo.state.value.stage);assertFalse(repo.state.value.canOffline);assertNull(store.value);assertNull(repo.state.value.lockedContext)
         repo.unlockOffline();assertFalse(repo.state.value.offline)
     }
     @Test fun pendingApprovalCannotBecomeReadyOrOfflineUntilServerApproves():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
         http.pending=true;signedIn(repo)
         assertEquals(AuthMessage.DEVICE_PENDING,repo.state.value.message);assertFalse(repo.state.value.canOffline)
+        assertEquals("outlet", repo.state.value.lockedContext?.outletId)
+        assertNull(repo.state.value.membership)
         http.pending=false;repo.refresh();assertEquals(AuthStage.READY,repo.state.value.stage)
     }
     @Test fun manuallyProvisionedStaffSignInWithoutAcceptanceOrAccountMutation():Unit=runBlocking {

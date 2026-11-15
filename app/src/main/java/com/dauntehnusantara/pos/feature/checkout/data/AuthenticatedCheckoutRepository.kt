@@ -35,8 +35,24 @@ internal class AuthenticatedCheckoutRepository(private val db: PosDatabase, priv
         db.withTransaction {
             check(db.pullDao().metadata("sync.project").let { it == null || it == scope.project })
             val session = session()
+            val deliveries = dao.syncRows(s.brandId, s.outletId, s.deviceId, s.userId).associate { row ->
+                row.aggregateId to ReceiptDelivery(
+                    runCatching { ReceiptDeliveryState.valueOf(row.state) }.getOrDefault(ReceiptDeliveryState.UNKNOWN),
+                    row.state == "REVIEW" && row.lastErrorCode == "CATALOG_CHANGED")
+            }.toMutableMap()
+            // Only the validated, current-scope feed proves delivery of downloaded receipts.
+            db.pullDao().sales(scope.key).forEach { row ->
+                val remote = PullJson.receipt(row.payload)
+                val localSale = dao.byOperation(remote.operationId)
+                if (remote.id == row.saleId && remote.operationId == row.operationId &&
+                    remote.brandId == s.brandId && remote.outletId == s.outletId &&
+                    (scope.role in listOf("OWNER", "MANAGER") || remote.cashierId == s.userId) &&
+                    (localSale == null || local(localSale) == remote)) {
+                    deliveries[remote.id] = ReceiptDelivery(ReceiptDeliveryState.SYNCED)
+                }
+            }
             CheckoutState(session.draft(), session.lastSaleId?.let { local(requireNotNull(dao.sale(it, s.brandId, s.outletId))) },
-                dao.syncRows(s.brandId, s.outletId, s.deviceId, s.userId).count { it.state != "SYNCED" })
+                dao.syncRows(s.brandId, s.outletId, s.deviceId, s.userId).count { it.state != "SYNCED" }, deliveries)
         }
     }
     private fun expected(session: CheckoutSessionEntity, draft: Draft) {
@@ -68,7 +84,7 @@ internal class AuthenticatedCheckoutRepository(private val db: PosDatabase, priv
         guard()
         val receipt = db.withTransaction {
             val p = command.payment
-            val commandKey = listOf(command.draftId, command.operationId, command.revision, p.method, p.tenderedIdr, p.manuallyVerified).joinToString("|")
+            val commandKey = commandKey(command)
             val key = "checkout.command.${command.operationId}"
             dao.byOperation(command.operationId)?.let { old ->
                 if (old.brandId != s.brandId || old.outletId != s.outletId || old.deviceId != s.deviceId || old.cashierId != s.userId || db.pullDao().metadata(key) != commandKey) throw CheckoutConflict()
@@ -87,6 +103,27 @@ internal class AuthenticatedCheckoutRepository(private val db: PosDatabase, priv
         }
         scheduler.enqueue()
         return receipt
+    }
+    private fun commandKey(command: CheckoutCommand): String = command.payment.let { p ->
+        listOf(command.draftId, command.operationId, command.revision, p.method, p.tenderedIdr, p.manuallyVerified).joinToString("|")
+    }
+    override suspend fun reconcile(command: CheckoutCommand): CheckoutResolution {
+        check(pullGateway.pullScope() == scope && gateway.backgroundScope() == s)
+        return db.withTransaction {
+            check(db.pullDao().metadata("sync.project").let { it == null || it == scope.project })
+            val old = dao.byOperation(command.operationId)
+            if (old != null) {
+                if (old.id != command.draftId || old.brandId != s.brandId || old.outletId != s.outletId ||
+                    old.deviceId != s.deviceId || old.cashierId != s.userId ||
+                    db.pullDao().metadata("checkout.command.${command.operationId}") != commandKey(command)) CheckoutResolution.Unknown
+                else CheckoutResolution.Saved(local(old))
+            } else {
+                val current = dao.session(scope.key)
+                if (current != null && current.lastSaleId == null && current.draftId == command.draftId &&
+                    current.operationId == command.operationId && current.revision == command.revision)
+                    CheckoutResolution.Unsaved else CheckoutResolution.Unknown
+            }
+        }
     }
     override suspend fun dismissReceipt(saleId: String) {
         guard()

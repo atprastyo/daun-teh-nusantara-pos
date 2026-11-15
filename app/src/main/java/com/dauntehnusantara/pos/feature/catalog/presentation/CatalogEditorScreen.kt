@@ -3,118 +3,194 @@ package com.dauntehnusantara.pos.feature.catalog.presentation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhoto
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dauntehnusantara.pos.R
+import com.dauntehnusantara.pos.core.designsystem.formatIdr
 import com.dauntehnusantara.pos.feature.catalog.domain.*
+import com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhoto
 
 @Composable
-fun CatalogEditorRoute(vm: CatalogEditorViewModel, launchPhotoPicker:(Product)->Unit) {
+fun CatalogEditorRoute(vm: CatalogEditorViewModel, launchPhotoPicker: (Product) -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
-    CatalogEditorScreen(state, vm::save, vm::retrySync, vm::retryCommand,launchPhotoPicker,vm::removePhoto,vm::retryPhoto)
+    CatalogEditorScreen(state, vm::save, vm::retrySync, vm::retryCommand, launchPhotoPicker,
+        vm::removePhoto, vm::retryPhoto, vm.editor)
 }
 
 @Composable
-fun CatalogEditorScreen(state: CatalogEditorState, save: (CatalogMutation)->Unit, refresh: ()->Unit, retry: ()->Unit, pickPhoto:(Product)->Unit={}, removePhoto:(Product)->Unit={}, retryPhoto:()->Unit={}) {
-    var kind by remember { mutableStateOf(CatalogRecord.Category) }
-    var form by remember { mutableStateOf<CatalogMutation?>(null) }
-    LaunchedEffect(state.scope, state.offline) { form = null }
-    val c=state.catalog
-    val rows=when(kind){
-        CatalogRecord.Category->c.categories.map{CatalogMutation(kind=kind,id=it.info.id,expectedVersion=it.info.version,name=it.info.name,active=it.info.active,sortOrder=it.sortOrder)}
-        CatalogRecord.Product->c.products.map{p->CatalogMutation(kind=kind,id=p.info.id,expectedVersion=p.info.version,name=p.info.name,active=p.info.active,priceIdr=p.basePriceIdr,parentId=p.categoryId,groupIds=c.assignments.filter{it.productId==p.info.id}.sortedBy{it.sortOrder}.map{it.groupId})}
-        CatalogRecord.Group->c.groups.map{CatalogMutation(kind=kind,id=it.info.id,expectedVersion=it.info.version,name=it.info.name,active=it.info.active,minSelect=it.minSelect,maxSelect=it.maxSelect)}
-        CatalogRecord.Option->c.options.map{CatalogMutation(kind=kind,id=it.info.id,expectedVersion=it.info.version,name=it.info.name,active=it.info.active,priceIdr=it.priceDeltaIdr,parentId=it.groupId)}
+fun CatalogEditorScreen(state: CatalogEditorState, save: (CatalogMutation) -> Unit, refresh: () -> Unit,
+    retry: () -> Unit, pickPhoto: (Product) -> Unit = {}, removePhoto: (Product) -> Unit = {},
+    retryPhoto: () -> Unit = {}, session: CatalogEditorSession = remember { CatalogEditorSession() }) {
+    val ui by session.state.collectAsStateWithLifecycle()
+    if (state.loading && state.scope == null) {
+        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text(stringResource(R.string.catalog_ui_loading))
+        }
+        return
     }
-    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item { Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Katalog", style=MaterialTheme.typography.headlineMedium)
-        Text("Perubahan berlaku untuk seluruh outlet Daun Teh Nusantara. Pengeditan memerlukan koneksi online.")
-        if(state.loading || state.busy || state.photoBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if(state.offline) Text("Offline — katalog hanya dapat dilihat.")
-        if(state.waitingThrough!=null) Text("Tersimpan di server. Menunggu katalog lokal diperbarui…")
-        if(state.saved && state.waitingThrough==null) Text("Katalog lokal sudah diperbarui.")
-        (state.error ?: state.pull.error)?.let { code ->
-            Text(when(code){"CONFLICT"->"Katalog berubah. Muat ulang, lalu periksa perubahan sebelum menyimpan kembali."
-                "INVALID"->"Data tidak valid. Periksa harga, kategori, dan pilihan wajib."
-                "REBOOTSTRAP_REQUIRED"->"Data server dipulihkan. Tinjau pemulihan melalui Pengaturan."
-                "AUTH_REQUIRED"->"Otorisasi diperlukan. Masuk kembali."
-                else->"Belum dapat memastikan perubahan. Coba kembali dengan permintaan yang sama."}, color=MaterialTheme.colorScheme.error)
+    LaunchedEffect(state.scope?.key) { state.scope?.key?.let(session::bindScope) }
+    LaunchedEffect(state.completedOperationId, state.waitingThrough, state.pull, state.catalog, ui.submittedOperation) {
+        val draft=ui.draft
+        if (draft!=null && state.waitingThrough == null && state.pull.initialized && state.pull.error == null &&
+            state.catalog.editorRows(draft.original.kind).any { it.id==draft.original.id && it.expectedVersion>draft.original.expectedVersion })
+            state.completedOperationId?.let(session::applied)
+    }
+    LaunchedEffect(state.error) { if (state.error == "CONFLICT") session.conflict() }
+    val rows = remember(state.catalog, ui.kind) { state.catalog.editorRows(ui.kind) }
+    val visible = remember(rows, ui.query, ui.filter) { rows.filter {
+        it.name.contains(ui.query, ignoreCase = true) && when (ui.filter) {
+            CatalogFilter.ALL -> true; CatalogFilter.ACTIVE -> it.active; CatalogFilter.ARCHIVED -> !it.active
         }
-        if(state.photoBusy) Text("Menyiapkan / mengunggah foto…")
-        state.photoError?.let { Text(when(it){
-            "INVALID_IMAGE"->"Foto tidak didukung atau terlalu besar. Pilih gambar lain (maksimal 16 MB)."
-            "CONFLICT"->"Foto berubah di perangkat lain. Muat ulang sebelum memilih lagi."
-            "INVALID"->"Foto belum tersedia di server. Periksa penyiapan Storage lalu pilih ulang."
-            else->"Foto belum dapat disimpan. Coba kembali; katalog dan checkout tetap tersedia."},color=MaterialTheme.colorScheme.error) }
-        if(state.photoCommand!=null) OutlinedButton(onClick=retryPhoto,enabled=!state.photoBusy&&!state.offline){Text("Coba simpan foto lagi")}
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick=refresh,enabled=!state.busy){Text("Muat ulang")}
-            if(state.pending!=null) Button(onClick=retry,enabled=!state.busy&&!state.offline){Text("Coba simpan lagi")}
+    } }
+    val openNew = {
+        if (state.editable && ui.draft == null) {
+            val kind = when {
+                ui.kind == CatalogRecord.Product && state.catalog.categories.none { it.info.active } -> CatalogRecord.Category
+                ui.kind == CatalogRecord.Option && state.catalog.groups.none { it.info.active } -> CatalogRecord.Group
+                else -> ui.kind
+            }
+            session.open(CatalogMutation(kind = kind))
         }
-        CatalogRecord.entries.forEach { tab -> FilterChip(selected=kind==tab,onClick={kind=tab},label={Text(tab.name)}) }
-        Button(onClick={form=CatalogMutation(kind=kind)},enabled=state.editable){Text("Tambah ${kind.name}")}
-        } }
-        if(!state.loading&&rows.isEmpty()) item { Text("Belum ada data ${kind.name}.") }
-        items(rows,key={it.id}) { row -> OutlinedCard(Modifier.fillMaxWidth()) {
-            if(kind==CatalogRecord.Product) c.products.find{it.info.id==row.id}?.let { product ->
-                Row(Modifier.padding(12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                    ProductPhoto(product.imagePath,product.info.name,Modifier.size(80.dp))
-                    Column {
-                        TextButton(onClick={pickPhoto(product)},enabled=state.editable){Text(if(product.imagePath==null) "Tambah foto" else "Ganti foto")}
-                        if(product.imagePath!=null) TextButton(onClick={removePhoto(product)},enabled=state.editable){Text("Hapus foto")}
-                    }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 1100.dp && LocalDensity.current.fontScale < 1.5f
+        val density = LocalDensity.current
+        val heightWithoutIme = maxHeight + with(density) { WindowInsets.ime.getBottom(this).toDp() }
+        val compactForm = maxWidth < 600.dp || heightWithoutIme < 480.dp || density.fontScale >= 1.5f
+        Row(Modifier.fillMaxSize()) {
+            if (ui.draft == null || wide || !compactForm) {
+                CatalogList(state, ui, visible, refresh, retry, retryPhoto, openNew,
+                    edit = { if (state.editable) session.open(it) }, session = session, modifier = Modifier.weight(1f))
+            }
+            if (ui.draft != null) CatalogEditorHost(state, session, wide, compactForm, save, refresh, pickPhoto, removePhoto, retry, retryPhoto)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CatalogList(state: CatalogEditorState, ui: CatalogEditorUi, rows: List<CatalogMutation>,
+    refresh: () -> Unit, retry: () -> Unit, retryPhoto: () -> Unit, add: () -> Unit,
+    edit: (CatalogMutation) -> Unit, session: CatalogEditorSession, modifier: Modifier) {
+    LazyColumn(modifier.fillMaxWidth().testTag("catalog.list"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(stringResource(R.string.catalog_ui_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
+                Text(stringResource(R.string.catalog_ui_shared), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                CatalogStatus(state, retry, retryPhoto)
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = add, enabled = state.editable && ui.draft == null) { Text(stringResource(R.string.catalog_ui_add, stringResource(ui.kind.singular()))) }
+                    OutlinedButton(onClick = refresh, enabled = !state.busy && !state.photoBusy && !state.offline) { Text(stringResource(R.string.catalog_ui_refresh)) }
                 }
+                val kinds = listOf(CatalogRecord.Product, CatalogRecord.Category, CatalogRecord.Group, CatalogRecord.Option)
+                @Suppress("DEPRECATION")
+                ScrollableTabRow(selectedTabIndex = kinds.indexOf(ui.kind), edgePadding = 0.dp, containerColor = MaterialTheme.colorScheme.surface) {
+                    kinds.forEach { kind -> Tab(selected = ui.kind == kind, onClick = { session.tab(kind) }, enabled = ui.draft == null,
+                        text = { Text(stringResource(kind.label())) }) }
+                }
+                OutlinedTextField(ui.query, session::search, label = { Text(stringResource(R.string.catalog_ui_search)) }, singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth())
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CatalogFilter.entries.forEach { filter -> FilterChip(selected = ui.filter == filter,
+                        onClick = { session.filter(filter) }, label = { Text(stringResource(when (filter) {
+                            CatalogFilter.ALL -> R.string.catalog_ui_all; CatalogFilter.ACTIVE -> R.string.catalog_ui_active; CatalogFilter.ARCHIVED -> R.string.catalog_ui_archive_filter
+                        })) }) }
+                }
+                Text(stringResource(R.string.catalog_ui_count, rows.size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceBetween){
-                Column(Modifier.weight(1f)){Text(row.name);Text(if(row.active) "Aktif · v${row.expectedVersion}" else "Diarsipkan · v${row.expectedVersion}");row.priceIdr?.let{Text("Rp $it")}}
-                TextButton(onClick={form=row},enabled=state.editable){Text("Edit")}
+        }
+        if (!state.loading && rows.isEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val filtered = ui.query.isNotEmpty() || ui.filter != CatalogFilter.ALL
+                Text(if (filtered) stringResource(R.string.catalog_ui_no_results) else stringResource(R.string.catalog_ui_empty, stringResource(ui.kind.singular())))
+                if (filtered) TextButton(onClick = session::clearFilters) { Text(stringResource(R.string.catalog_ui_clear_filters)) }
+                else if (ui.kind == CatalogRecord.Product) Text(stringResource(R.string.catalog_ui_category_first))
+                else if (ui.kind == CatalogRecord.Option) Text(stringResource(R.string.catalog_ui_group_first))
             }
-        }}
-    }
-    form?.let { original -> CatalogForm(original,state.catalog,onDismiss={form=null},onSave={if(state.editable){save(it);form=null}}) }
-}
-
-@Composable
-private fun CatalogForm(original:CatalogMutation,catalog:Catalog,onDismiss:()->Unit,onSave:(CatalogMutation)->Unit) {
-    var name by remember(original){mutableStateOf(original.name)}
-    var active by remember(original){mutableStateOf(original.active)}
-    var price by remember(original){mutableStateOf(original.priceIdr?.toString()?:"0")}
-    var min by remember(original){mutableStateOf(original.minSelect?.toString()?:"0")}
-    var max by remember(original){mutableStateOf(original.maxSelect?.toString()?:"1")}
-    var order by remember(original){mutableStateOf(original.sortOrder.toString())}
-    var parent by remember(original){mutableStateOf(original.parentId)}
-    var groups by remember(original){mutableStateOf(original.groupIds)}
-    val change=original.copy(name=name,active=active,priceIdr=price.toLongOrNull(),minSelect=min.toIntOrNull(),maxSelect=max.toIntOrNull(),sortOrder=order.toIntOrNull()?:-1,parentId=parent,groupIds=groups)
-    val valid=runCatching{change.validate()}.isSuccess
-    AlertDialog(onDismissRequest=onDismiss,title={Text("${original.kind.name} · ${if(original.expectedVersion==0L) "Tambah" else "Edit"}")},text={
-        Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name,{name=it},label={Text("Nama")},singleLine=true)
-            Row { Checkbox(active,{active=it});Text("Aktif") }
-            when(original.kind){
-                CatalogRecord.Category->OutlinedTextField(order,{order=it},label={Text("Urutan (0 atau lebih)")},singleLine=true)
-                CatalogRecord.Group->{OutlinedTextField(min,{min=it},label={Text("Minimal pilihan")},singleLine=true);OutlinedTextField(max,{max=it},label={Text("Maksimal pilihan")},singleLine=true)}
-                CatalogRecord.Product,CatalogRecord.Option->{
-                    OutlinedTextField(price,{price=it},label={Text("Harga IDR (bilangan bulat)")},singleLine=true)
-                    Text(if(original.kind==CatalogRecord.Product) "Kategori" else "Grup modifier (tetap setelah dibuat)")
-                    val parents=if(original.kind==CatalogRecord.Product)catalog.categories.map{it.info}else catalog.groups.map{it.info}
-                    parents.filter{it.active||it.id==parent}.forEach { item ->
-                        Row { RadioButton(parent==item.id,{parent=item.id},enabled=original.kind==CatalogRecord.Product||original.expectedVersion==0L);Text(item.name) }
-                    }
-                    if(original.kind==CatalogRecord.Product){
-                        Text("Grup modifier")
-                        catalog.groups.filter{it.info.active||it.info.id in original.groupIds}.forEach { g ->
-                            Row {Checkbox(g.info.id in groups,{checked->groups=if(checked)groups+g.info.id else groups-g.info.id},enabled=g.info.active||g.info.id in groups);Text(g.info.name)}
+        }
+        items(rows, key = { it.id }) { row ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (row.kind == CatalogRecord.Product) state.catalog.products.find { it.info.id == row.id }?.let {
+                    ProductPhoto(it.imagePath, it.info.name, Modifier.size(80.dp))
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(row.name, style = MaterialTheme.typography.titleMedium)
+                    when (row.kind) {
+                        CatalogRecord.Category -> Text(stringResource(R.string.catalog_ui_order_display, row.sortOrder), style = MaterialTheme.typography.bodyMedium)
+                        CatalogRecord.Group -> Text(stringResource(R.string.catalog_ui_bounds, row.minSelect ?: 0, row.maxSelect ?: 1), style = MaterialTheme.typography.bodyMedium)
+                        else -> {
+                            val parent = if (row.kind == CatalogRecord.Product) state.catalog.categories.find { it.info.id == row.parentId }?.info else state.catalog.groups.find { it.info.id == row.parentId }?.info
+                            parent?.let { Text(it.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            Text(formatIdr(row.priceIdr ?: 0), style = MaterialTheme.typography.titleMedium)
+                            if (row.kind == CatalogRecord.Product && row.active && parent?.active == false) Text(stringResource(R.string.catalog_ui_category_archived))
                         }
                     }
+                    Text(stringResource(if (row.active) R.string.catalog_ui_active else R.string.catalog_ui_archived), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                val editDescription = stringResource(R.string.catalog_ui_edit_title, row.name)
+                TextButton(onClick = { edit(row) }, enabled = state.editable && ui.draft == null, modifier = Modifier.semantics { contentDescription = editDescription }) { Text(stringResource(R.string.catalog_ui_edit)) }
             }
-            if(!valid) Text("Lengkapi nama, nilai bilangan bulat, dan pilihan induk yang sesuai.")
+            HorizontalDivider()
         }
-    },confirmButton={TextButton(onClick={onSave(change)},enabled=valid){Text("Simpan")}},dismissButton={TextButton(onClick=onDismiss){Text("Batal")}})
+    }
+}
+
+@Composable
+internal fun CatalogNotice(text: String, error: Boolean = false) {
+    Surface(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }, shape = MaterialTheme.shapes.medium,
+        color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface) {
+        Text(text, Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+internal fun CatalogStatus(state: CatalogEditorState, retry: () -> Unit = {}, retryPhoto: () -> Unit = {}) {
+    if (state.loading || !state.pull.initialized || state.pull.epoch == null || state.busy || state.photoBusy || state.refreshing || state.waitingThrough != null) {
+        LinearProgressIndicator(Modifier.fillMaxWidth())
+        Text(stringResource(when {
+            state.loading || !state.pull.initialized || state.pull.epoch == null -> R.string.catalog_ui_loading; state.photoBusy -> R.string.catalog_ui_photo_busy
+            state.busy -> R.string.catalog_ui_saving; state.waitingThrough != null -> R.string.catalog_ui_waiting
+            else -> R.string.catalog_ui_refreshing
+        }), style = MaterialTheme.typography.bodyMedium)
+    }
+    if (state.offline) CatalogNotice(stringResource(R.string.catalog_ui_offline))
+    if (state.saved && !state.refreshing && !state.refreshRequired && !state.busy && !state.photoBusy && state.waitingThrough == null && state.pull.initialized && state.pull.error == null) CatalogNotice(stringResource(R.string.catalog_ui_applied))
+    if (state.refreshRequired && state.error != "CONFLICT" && state.photoError != "CONFLICT") CatalogNotice(stringResource(R.string.catalog_ui_conflict), error = true)
+    (state.error ?: state.pull.error)?.let { code -> CatalogNotice(stringResource(when (code) {
+        "CONFLICT" -> R.string.catalog_ui_conflict; "INVALID" -> R.string.catalog_ui_invalid
+        "AUTH_REQUIRED" -> R.string.catalog_ui_auth; "REBOOTSTRAP_REQUIRED" -> R.string.catalog_ui_recovery
+        else -> R.string.catalog_ui_unknown
+    }), error = true) }
+    state.photoError?.let { code -> CatalogNotice(stringResource(when (code) {
+        "INVALID_IMAGE" -> R.string.catalog_ui_photo_invalid; "CONFLICT" -> R.string.catalog_ui_photo_conflict
+        "INVALID" -> R.string.catalog_ui_photo_setup; "AUTH_REQUIRED" -> R.string.catalog_ui_auth
+        "REBOOTSTRAP_REQUIRED" -> R.string.catalog_ui_recovery; else -> R.string.catalog_ui_photo_unknown
+    }), error = true) }
+    if (state.pending != null && !state.busy && state.error == null) CatalogNotice(stringResource(R.string.catalog_ui_unknown))
+    if (state.photoCommand != null && !state.photoBusy && state.photoError == null) CatalogNotice(stringResource(R.string.catalog_ui_photo_unknown))
+    if (state.pending != null) OutlinedButton(onClick = retry, enabled = !state.busy && !state.offline && !state.photoBusy) { Text(stringResource(R.string.catalog_ui_retry)) }
+    if (state.photoCommand != null) OutlinedButton(onClick = retryPhoto, enabled = !state.photoBusy && !state.offline && !state.busy) { Text(stringResource(R.string.catalog_ui_retry_photo)) }
+}
+
+internal fun CatalogRecord.label(): Int = when (this) {
+    CatalogRecord.Product -> R.string.catalog_ui_products; CatalogRecord.Category -> R.string.catalog_ui_categories
+    CatalogRecord.Group -> R.string.catalog_ui_groups; CatalogRecord.Option -> R.string.catalog_ui_options
+}
+internal fun CatalogRecord.singular(): Int = when (this) {
+    CatalogRecord.Product -> R.string.catalog_ui_product; CatalogRecord.Category -> R.string.catalog_ui_category
+    CatalogRecord.Group -> R.string.catalog_ui_group; CatalogRecord.Option -> R.string.catalog_ui_option
 }

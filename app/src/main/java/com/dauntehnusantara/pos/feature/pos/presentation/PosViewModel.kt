@@ -13,7 +13,14 @@ enum class PosError { STORAGE, INVALID, CONFLICT, OVERFLOW }
 data class PosUiState(val catalog: Catalog = Catalog(), val checkout: CheckoutState? = null,
     val loading: Boolean = true, val loadFailed: Boolean = false, val busy: Boolean = false,
     val error: PosError? = null, val history: List<Receipt> = emptyList(),
-    val syncRequired: Boolean = false, val pullFailed: Boolean = false, val recoveryRequired: Boolean = false)
+    val syncRequired: Boolean = false, val pullFailed: Boolean = false, val recoveryRequired: Boolean = false,
+    val scopeKey: String = "demo", val added: Long = 0, val pending: CheckoutCommand? = null,
+    val retryLocalAllowed: Boolean = false, val pendingDraft: Draft? = null) {
+    val canEdit: Boolean get() = !loading && !loadFailed && !busy && !syncRequired && !recoveryRequired && pending == null && checkout?.receipt == null
+    val staleLineIds: Set<String> get() = checkout?.draft?.lines.orEmpty().filter { line ->
+        runCatching { CheckoutRules.checkCatalog(Draft("", "", 0, listOf(line)), catalog) }.isFailure
+    }.map { it.id }.toSet()
+}
 
 @HiltViewModel
 class PosViewModel @Inject constructor(private val observeCatalog: ObserveCatalog,
@@ -38,7 +45,7 @@ class PosViewModel @Inject constructor(private val observeCatalog: ObserveCatalo
             catch (_: Exception) { mutableState.update { it.copy(loading = false, loadFailed = true) } }
         }
     }
-    private fun mutate(block: suspend (Draft) -> Unit) {
+    private fun mutate(added: Boolean = false, block: suspend (Draft) -> Unit) {
         if (action?.isActive == true) return
         val draft = mutableState.value.checkout?.draft ?: return
         action = viewModelScope.launch {
@@ -47,7 +54,7 @@ class PosViewModel @Inject constructor(private val observeCatalog: ObserveCatalo
                 block(draft)
                 val checkout = observeCheckout().first()
                 val history = complete.receipts()
-                mutableState.update { it.copy(checkout = checkout, history = history) }
+                mutableState.update { it.copy(checkout = checkout, history = history, added = it.added + if (added) 1 else 0) }
             } catch (e: CancellationException) { throw e }
             catch (_: CheckoutConflict) { mutableState.update { it.copy(error = PosError.CONFLICT) } }
             catch (_: ArithmeticException) { mutableState.update { it.copy(error = PosError.OVERFLOW) } }
@@ -58,7 +65,7 @@ class PosViewModel @Inject constructor(private val observeCatalog: ObserveCatalo
     }
     fun add(productId: String, options: List<String>, quantity: Int) {
         val catalog = mutableState.value.catalog
-        mutate { draft -> edit.add(draft, CheckoutRules.line(catalog, productId, options, quantity)) }
+        mutate(added = true) { draft -> edit.add(draft, CheckoutRules.line(catalog, productId, options, quantity)) }
     }
     fun quantity(line: CartLine, quantity: Int) = mutate { edit.quantity(it, line.id, quantity) }
     fun remove(line: CartLine) = mutate { edit.remove(it, line.id) }

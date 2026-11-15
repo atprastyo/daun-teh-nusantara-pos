@@ -20,9 +20,9 @@ class ProductPhotoScreenTest {
     private val menu=Catalog(categories=listOf(category),products=listOf(product))
     @Test fun offlinePhotoActionsAreDisabledButCatalogRemainsReadable() {
         compose.setContent{DaunTehTheme{CatalogEditorScreen(CatalogEditorState(catalog=menu,loading=false,offline=true),{}, {}, {})}}
-        compose.onNodeWithText("Product").performClick()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Ganti foto"))
-        compose.onNodeWithText("Ganti foto").assertIsNotEnabled();compose.onNodeWithText("Hapus foto").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Edit Original").assertIsNotEnabled()
+        compose.onNodeWithText("Ganti foto").assertDoesNotExist()
+        compose.onNodeWithText("Hapus foto").assertDoesNotExist()
     }
     @Test fun onlineRemoveUsesProductPhotoRevisionAndMissingImageOffersRetry() {
         var removed:Product?=null
@@ -34,9 +34,11 @@ class ProductPhotoScreenTest {
         compose.setContent{DaunTehTheme{CompositionLocalProvider(LocalProductPhotos provides PhotoAccess(photos,"owner")){
             CatalogEditorScreen(CatalogEditorState(catalog=menu,loading=false,pull=PullStatus(initialized=true,epoch="epoch")),{}, {}, {},removePhoto={removed=it})
         }}}
-        compose.onNodeWithText("Product").performClick()
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Muat foto"));compose.onNodeWithText("Muat foto").assertIsEnabled()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Hapus foto"));compose.onNodeWithText("Hapus foto").performClick()
+        compose.onNodeWithContentDescription("Edit Original").performScrollTo().performClick()
+        compose.onNodeWithText("Hapus foto").performScrollTo().performClick()
+        compose.runOnIdle{assertNull(removed)}
+        compose.onNode(hasText("Hapus foto") and hasAnyAncestor(isDialog())).performClick()
         compose.runOnIdle{assertEquals(1L,removed?.imageVersion);assertEquals(product.info.id,removed?.info?.id)}
     }
 }

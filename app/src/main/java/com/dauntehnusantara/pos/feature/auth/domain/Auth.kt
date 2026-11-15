@@ -27,7 +27,10 @@ data class DeviceRequest(val deviceId: String, val userId: String, val fullName:
 data class AuthState(val stage: AuthStage = AuthStage.LOADING, val configured: Boolean = false,
     val choices: List<Membership> = emptyList(), val membership: Membership? = null, val email: String = "",
     val offline: Boolean = false, val leaseExpiresAtMs: Long? = null, val canOffline: Boolean = false,
-    val busy: Boolean = false, val pendingDeviceId: String? = null, val deviceRequests: List<DeviceRequest> = emptyList(), val message: AuthMessage? = null)
+    val busy: Boolean = false, val pendingDeviceId: String? = null, val deviceRequests: List<DeviceRequest> = emptyList(), val message: AuthMessage? = null,
+    val deviceRequestsLoaded: Boolean = false,
+    // Display context only: LOCKED context never grants access to the authenticated shell.
+    val lockedContext: Membership? = null)
 interface AuthRepository {
     val state: StateFlow<AuthState>
     suspend fun restore()

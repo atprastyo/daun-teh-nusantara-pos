@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
     private val staffViewModel: com.dauntehnusantara.pos.feature.staff.presentation.StaffViewModel by viewModels()
     private val recoveryViewModel: com.dauntehnusantara.pos.feature.recovery.presentation.RecoveryViewModel by viewModels()
     private val authViewModel: AuthViewModel by viewModels()
+    private val historyViewModel: com.dauntehnusantara.pos.feature.history.presentation.HistoryViewModel by viewModels()
     private val authenticatedPosViewModel: com.dauntehnusantara.pos.feature.pos.presentation.AuthenticatedPosViewModel by viewModels()
     private val posViewModel: PosViewModel by viewModels()
     private val catalogViewModel: CatalogViewModel by viewModels()
@@ -50,12 +51,16 @@ class MainActivity : ComponentActivity() {
                         if(catalogEditorViewModel.beginPhotoPick(product)) photoPicker.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.OVERVIEW,
-                    com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.REPORTS -> com.dauntehnusantara.pos.feature.reports.presentation.ReportRoute(reportsViewModel,expanded)
-                    com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.STAFF -> com.dauntehnusantara.pos.feature.staff.presentation.StaffRoute(staffViewModel) {
+                    com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.REPORTS -> com.dauntehnusantara.pos.feature.reports.presentation.ReportRoute(reportsViewModel,expanded,overview=destination==com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.OVERVIEW)
+                    com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.STAFF -> run {
                         val state by authViewModel.state.collectAsStateWithLifecycle()
-                        com.dauntehnusantara.pos.feature.auth.presentation.StaffDevicesPanel(state,authViewModel)
+                        com.dauntehnusantara.pos.feature.staff.presentation.StaffRoute(staffViewModel,reviewerBusy=state.busy) { enabled ->
+                            com.dauntehnusantara.pos.feature.auth.presentation.StaffDevicesPanel(state,authViewModel,enabled)
+                        }
                     }
-                    else -> com.dauntehnusantara.pos.feature.pos.presentation.AuthenticatedPosRoute(authenticatedPosViewModel,destination,expanded)
+                    else -> com.dauntehnusantara.pos.feature.pos.presentation.AuthenticatedPosRoute(authenticatedPosViewModel,destination,expanded) { historyExpanded ->
+                        com.dauntehnusantara.pos.feature.history.presentation.HistoryRoute(historyViewModel,historyExpanded)
+                    }
                 }
             }, recovery = { com.dauntehnusantara.pos.feature.recovery.presentation.RecoveryPanel(recoveryViewModel) }) {
                 PosApp(viewModel,catalogViewModel,posViewModel)

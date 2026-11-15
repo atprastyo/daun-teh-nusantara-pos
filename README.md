@@ -315,3 +315,133 @@ base schema, and update all Android sync clients before publishing photos. Keep 
 bucket private. Room stays v1 with no migration. See
 [product photo setup and manual checks](docs/PRODUCT_PHOTOS.md) for limits, retries,
 cache behavior and the hosted Storage checks still required.
+
+## UI design reference
+
+The proposed visual system is in [UI guidelines](docs/UI_GUIDELINES.md), with an
+[offline component/screen reference](docs/design/ui-reference.html). It specifies
+colors, typography, icons, spacing, adaptive layouts and operational feedback. These
+are design targets for the next Android UI pass; the reference uses fictional data.
+
+Screen-level planning starts with the [screen inventory and flow maps](docs/UI_SCREEN_PLAN.md).
+The first detailed flow is [login/outlet/device access](docs/AUTH_SCREEN_DESIGNS.md),
+with an [interactive phone/tablet reference](docs/design/access-flow.html). Remaining
+screen groups are inventoried and will receive detailed designs in later iterations.
+
+The first native access redesign now applies the handoff to login, outlet selection,
+locked/pending/offline entry and device-request review. It uses a bounded form with
+an expanded-window brand pane and a single scrolling column for large text. Approval
+requires confirmation; offline unlock still uses Android's device-credential prompt.
+Host Compose checks run with `:app:testDebugUnitTest`; real OS credential/keyboard,
+TalkBack and hosted approval acceptance still require Android devices and test users.
+The shared authenticated shell is described below; remaining screen groups receive
+later redesign iterations.
+
+The authenticated shell now has distinct rounded destination icons, localized roles
+and a single outlet/access header. It uses bottom navigation on phones, a rail on
+wider windows, and a scrolling menu for large text or short windows. Header outlet
+switching reuses online validation and is disabled offline/busy. “Akses tervalidasi”
+is access context, not a receipt-sync/network guarantee. See the
+[shell handoff and checks](docs/SHELL_SCREEN_DESIGNS.md) and
+[icon provenance/license](docs/MATERIAL_SYMBOLS_SOURCES.md). Feature layouts and
+cashier initial-pull/recovery gates stay with their existing routes.
+
+Catalog C-01–C-08 now has a [detailed design handoff](docs/CATALOG_SCREEN_DESIGNS.md)
+and [interactive phone/tablet reference](docs/design/catalog-flow.html). It covers
+products/categories/modifiers, photos, archive, dependency validation and uncertain
+save/pull states using fictional local data. The reference remains fictional; the native implementation is described below.
+CAT-UI-01–CAT-UI-05 track its implementation and acceptance.
+
+The native catalog redesign now applies that handoff: localized product-first tabs,
+name/status filtering, adaptive product/category/modifier forms and explicit archive/
+photo-removal confirmations. Drafts survive rotation/layout changes in memory; they
+clear on scope change/logout and are not a durable offline editor. Unknown saves
+retain their original command for retry; conflicts wait for observed pull and review.
+Save completion waits for local application, with photo revisions separate from
+product prices. Real picker/IME/rotation/TalkBack and hosted two-device checks remain
+required. The next UI handoff is POS/modifiers/cart/payment/receipts.
+
+
+## POS screen designs
+
+POS P-01–P-06 now has a [detailed handoff](docs/POS_SCREEN_DESIGNS.md) and
+[interactive phone/tablet reference](docs/design/pos-flow.html). Open the HTML locally;
+all data and outcomes are fictional and reset on refresh. Covers selection, cart,
+cash/manual QRIS, local-save reconciliation and immutable receipt delivery/review.
+Native POS-UI-01–05 status is described below; the browser remains fictional.
+
+
+## Native POS redesign
+
+P-01–P-06 now uses adaptive Compose product search/category filters, modifier limits,
+compact/persistent cart, focused cash/manual QRIS payment and immutable receipt
+delivery/review states. Authenticated unknown local saves freeze the original command
+until scoped Room readback; retries retain the same operation/payment. No DB migration
+or backend deployment is needed. See [native status/manual checks](docs/POS_SCREEN_DESIGNS.md#10-native-implementation--15-november-2026)
+and [verification results](docs/PROGRESS.md). Real phone/tablet/hosted acceptance remains
+open. Next: detailed transaction-history H-01/H-02 designs before its native redesign.
+
+
+## History screen designs
+
+H-01/H-02 now has a [detailed design handoff](docs/HISTORY_SCREEN_DESIGNS.md) and
+[interactive phone/tablet reference](docs/design/history-flow.html). Open the HTML
+locally; all receipts/outcomes are fictional browser-memory fixtures. The design
+covers cache-limited search/day/status filtering, scoped read-only receipt detail,
+refresh and recovery. Native Android is unchanged by this design iteration.
+Next: implement HIST-UI-01–04; physical/hosted M7 acceptance remains open.
+
+
+## Native history redesign
+
+Cashier Riwayat now has cache-only UUID/original-name search, Jakarta day/status
+filters, adaptive list/detail and read-only immutable receipts. Refresh separates
+local-only, observed pull, partial and failed outcomes without modifying checkout
+commands or receipt pointers. See [native details/manual checks](docs/HISTORY_SCREEN_DESIGNS.md#7-native-implementation--15-november-2026)
+and [verification](docs/PROGRESS.md). No migration/backend deployment is needed.
+Component tests use a plain test Application to skip production startup sync;
+MainActivity/Hilt/Auth end-to-end acceptance needs a separate normal-app runner.
+The subsequent overview/report redesign is described below.
+
+
+## Overview/report screen designs
+
+R-01–R-03 and the X-03 export handoff now have [detailed designs](docs/REPORT_SCREEN_DESIGNS.md)
+and an [interactive phone/tablet reference](docs/design/report-flow.html). Open the HTML
+locally; data, report outcomes and picker/write behavior are fictional browser fixtures.
+The native RPT-UI-01–03 implementation now shares overview/report state, uses a
+separate draft filter sheet, adaptive metrics/rows, scoped cached reports and captured
+CSV export. See [native behavior and remaining manual checks](docs/REPORT_SCREEN_DESIGNS.md#7-native-implementation--15-november-2026)
+and [executed verification](docs/PROGRESS.md). No migration or backend deployment is
+needed. Next: S-01–S-03 staff/access/confirmation design handoff.
+
+
+## Staff/access screen designs
+
+S-01–S-03 now has a [detailed handoff](docs/STAFF_SCREEN_DESIGNS.md) and
+[interactive local reference](docs/design/staff-flow.html), with fictional
+[phone](docs/design/staff-phone.png) and [tablet](docs/design/staff-tablet.png) captures.
+Open the HTML locally to review member/device/audit views and reasoned confirmations,
+including conflict and uncertain response simulations. It changes no real staff access.
+Next: native STAFF-UI-01–04. Manual account provisioning and role rules remain intact.
+
+
+## Native staff/access redesign
+
+Staf now separates Anggota, Perangkat and Owner-only Aktivitas akses. Confirmations
+show the captured target/effect and audited reason, preflight current target versions,
+and distinguish conflict, uncertain outcome and acknowledged changes with failed
+readback. Staff operations remain online-only; account provisioning remains manual.
+See [native behavior and limits](docs/STAFF_SCREEN_DESIGNS.md#9-native-implementation--15-november-2026)
+and [executed verification](docs/PROGRESS.md). No migration/backend deployment needed.
+Next: settings/recovery/sign-out T-01–T-04 detailed screen designs.
+
+
+## Settings/recovery screen designs
+
+T-01–T-04/sign-out and recovery export now have a [detailed handoff](docs/SETTINGS_SCREEN_DESIGNS.md)
+and [interactive local reference](docs/design/settings-flow.html), with fictional
+[phone](docs/design/settings-phone.png) and [tablet](docs/design/settings-tablet.png) captures.
+Open the HTML locally to review queue/recovery/export/sign-out states. It creates no
+file and changes no session or retained data. Android behavior is unchanged by this
+design step. Next: native SETTINGS-UI-01–04; no reset/import/restore workflow is added.

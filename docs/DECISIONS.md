@@ -463,3 +463,275 @@ Official Android references checked for M7:
   Keep binary IO outside the auth mutex. Retain uncertain photo commands in memory
   for stable retries across same-context revalidation. Retain orphaned/replaced
   Storage objects until reviewed operator cleanup; no automatic deletion.
+
+## UI guideline and visual reference — 2026-11-14
+
+- D071: Define a coherent light-first design direction before the next UI implementation
+  pass: white canvas, semantic leaf-green emphasis, quieter surfaces, rounded shapes,
+  meaningful spacing and an explicit sans-serif type scale. Preserve the requested
+  white app default and independent dark-mode white launcher logo.
+- D072: Target one Material Symbols Rounded icon style with distinct destination
+  meanings. Current authenticated tabs reuse Info; replace them in the next pass.
+  Asset identifiers in the guide are design targets, not promised installed Kotlin
+  symbols. No new font/icon dependency or app behavior change in this documentation pass.
+- D073: Keep the guide and an offline HTML component reference in docs, with fictional
+  data and illustrative icons. Keep operational state semantics, role/outlet access,
+  device/offline lease, idempotent retries and immutable paid snapshots as design
+  constraints. Apply changes incrementally: shared foundations/navigation first,
+  then catalog/POS, checkout/history, and management screens.
+
+## Screen-level design handoff — 2026-11-15
+
+- D074: Inventory screens, sheets, inline states and OS boundaries with stable design
+  IDs, role/connectivity gates and existing implementation anchors. Design IDs do not
+  automatically become navigation routes. Detail one connected flow per iteration.
+- D075: Detail access first: restore/login/outlet choice, pending/locked/offline access,
+  reviewer requests/confirmation and Android credential boundary. Reuse current
+  AuthState/ViewModel actions and server hierarchy. No signup, client-selected role,
+  custom app PIN or new password recovery/approval contract. Auth READY retains the
+  separate initial-pull/recovery gate for cashier checkout.
+- D076: Add a local phone/tablet state reference with read-only fictional credentials,
+  externally labeled scenario controls and explicit separate reviewer context. It
+  makes no auth/network/approval call. Keep current white/green tokens, preserve
+  prior design work, and defer Android implementation to ACCESS-01–ACCESS-05 tasks.
+
+## Access-flow Compose implementation — 2026-11-15
+
+- D077: Implement the access handoff as callback-only Compose presentation over the
+  existing AuthStage/actions. Use a scrolling 480dp form, a brand pane at >=840dp,
+  and a single column at large font scales. Keep the white app canvas, original-color
+  logo and server-authorized role/outlet navigation. No dependency versions changed;
+  host Compose tests reuse the existing Compose BOM/test runner/JUnit versions.
+- D078: Publish `lockedContext` solely as display context for pending/eligible offline
+  screens; `membership` stays null while locked. Publish the original eligible lease
+  expiry without renewing it. Add `deviceRequestsLoaded` so an unloaded/failed list
+  cannot be rendered as a successful empty result. These memory-only fields are not
+  persisted authority and change no RPC, lease validation or Room schema.
+- D079: Reviewer approval requires a phone sheet/tablet dialog showing staff, outlet,
+  role and public UUID. Block repeated submit/dismiss while pending and refresh via
+  the existing repository action. Unknown/error results retain existing fail-closed
+  handling; there is no new automatic approval retry/deduplication guarantee. Copy
+  only public device UUIDs. Keep passwords memory-only and clear them on submission.
+
+## Shared authenticated shell — 2026-11-15
+
+- D080: Extract callback-only AuthenticatedShell with one outlet/role/access header,
+  role-filtered destination content and distinct localized navigation. Below 600dp
+  use bottom navigation; >=600dp use a scrolling rail and retain the >=840dp expanded
+  content flag. At >=150% text or <480dp height use a scrolling labeled drawer.
+  This presentation fallback preserves the same destinations/order and business gates.
+  Keep the content composition location stable across navigation-form changes to
+  preserve in-progress inputs when font/window/IME changes the layout.
+- D081: Scope selected destination to account email/brand/outlet/role and validate a
+  restored name against RoleNavigation before rendering. Header switch calls existing
+  chooseOutlets through AuthViewModel, disabled offline/busy. Do not synthesize an
+  outlet, offline switch, cancellation endpoint or approval. Settings retains sync,
+  recovery, lease deadline, revalidation and sign-out; it no longer repeats the header.
+- D082: Label AuthState.offline as access mode (“Akses offline” / “Akses tervalidasi”),
+  not a live network probe or synced/backup guarantee. Keep auth errors and in-flight
+  validation visible; preserve cashier initial-pull/recovery gating in its feature.
+- D083: Vendor twelve official Material Symbols Rounded 24px vectors at pinned source
+  commit 10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7. Remove only root theme tint so Compose
+  supplies semantic colors without AppCompat attrs. Retain license/attribution in
+  docs and APK assets, path/source hashes in MATERIAL_SYMBOLS_SOURCES. No dependency
+  version, Room schema, API or production deployment change.
+
+## Catalog design handoff — 2026-11-15
+
+- D084: Detail C-01–C-08 against existing editor/mutation/photo contracts before the
+  native redesign. Preserve whole nonnegative IDR, immutable option parent, active
+  dependency/minimum rules, independent photo versions, stable unknown-result retry
+  identity and acknowledged-pull gating. No stock/barcode/discount/camera/crop features.
+- D085: Propose localized product-first tabs, local name/status filtering, focused
+  compact forms and a split editor only when available content width fits. Archive
+  requires explicit brand-wide confirmation; dedicated archive preserves stored
+  fields, while saving active=false explicitly includes form edits. Draft/result and
+  observed-refresh correlation are native implementation work, not a new backend API.
+- D086: Provide a local fictional interactive catalog reference plus static captures.
+  Scenario/role/ACK/pull controls stay outside the app frame; picker is an illustration,
+  not gallery/file access. No auth, HTTP, upload, real save or transaction occurs.
+  Keep CATALOG_SCREEN_DESIGNS.md explicit about current-versus-proposed behavior and
+  retrySync's lack of an acknowledged network-refresh result. Native CAT-UI tickets
+  follow separately; other feature groups remain inventory-only.
+
+## Native catalog redesign — 2026-11-15
+
+- D087: Implement CAT-UI-01–04 using product-first localized tabs, cache-only name/
+  active/archive filters, readable rows and a memory-only CatalogEditorSession owned
+  by the activity ViewModel. Compact/large-text/short windows use a focused form,
+  medium windows a bounded dialog, wide available content (>=1100dp) a 480dp editor
+  beside the list. Preserve raw input/scroll on layout/rotation; block another edit
+  while a form is open rather than silently discarding it. Scope changes/logout clear
+  draft context; no SavedState/Room editor/photo queue is added.
+- D088: Retain immutable catalog/photo retry commands and gate edits on their existing
+  lifecycle. Conflict requires an observed newer successful pull marker and explicit
+  form review; requesting WorkManager is not refresh completion. Requery the catalog
+  after committed pull/ACK checkpoints before releasing local wait state, and close
+  a submitted form only for its matching operation and visible newer target record.
+  New corrected/reviewed submissions get new operation UUIDs; retries keep the old one.
+- D089: Confirm archive and photo removal separately. Dedicated archive preserves
+  stored fields; saving active=false explicitly includes current draft changes. Validate
+  integer IDR, Int bounds, required options, active parents and immutable option parent
+  locally without replacing server validation. Photo version/bytes stay separate from
+  product price revision and sales. Missing-photo retry keeps a >=48dp target by removing
+  the decorative icon that previously squeezed the button in a small thumbnail.
+- D090: Clear old-scope display data before awaiting cancelled IO, then guard action/
+  observation updates by scope; slow old requests cannot restore a prior outlet's
+  screen. Existing backend, Room schema, device/auth policy, initial-pull/recovery and
+  sale snapshot/outbox contracts remain unchanged. Use existing pinned dependencies;
+  host regressions do not close real picker/IME/TalkBack/device/hosted acceptance.
+
+- D091: Detail POS P-01–P-06 before changing native presentation. Use a fictional,
+  local browser reference for compact/tablet interactions; it is not a payment,
+  authorization, Room or server simulator suitable for production reuse.
+- D092: Distinguish observed local receipt persistence from confirmed delivery.
+  An uncertain save freezes the original command until scoped readback reconciles
+  it; retry only the same verified unsaved command. Never ask for payment again
+  because observation failed. Keep QRIS confirmation explicitly manual.
+- D093: Receipt delivery labels require a separate scoped read projection from
+  existing outbox/remote proof, not aggregate counts or changes to immutable Receipt.
+  Missing proof stays unknown. REVIEW retains original prices/payment and provides
+  no automatic reprice/resubmit; readiness gates still protect new mutations.
+
+- D094: Implement P-01–P-06 as one native presentation milestone, retaining pinned
+  dependencies and existing sale/auth/sync contracts. Collapse the persistent cart
+  below 900dp available width or at >=150% text; use bounded scrolling modifier
+  selection and focused payment with fixed actions. Keep cash whole integer IDR and
+  manual QRIS confirmation memory-only, reset on method/draft revision.
+- D095: Freeze original authenticated checkout command and draft while its local
+  result is uncertain. Reconcile via read-only scoped Room transaction and original
+  command metadata; show a matching original receipt or allow only an identical
+  verified-unsaved retry. Scope/action/observation generations prevent cancelled old
+  work restoring a prior outlet or consumed cart. No new durable payment queue.
+- D096: Put receipt delivery in CheckoutState's separate read projection, sourced
+  from scoped outbox state or validated current-scope matching feed receipts.
+  Missing proof remains unknown. Do not alter immutable Receipt/sale JSON/schema,
+  infer delivery from aggregate counts, reset REVIEW, reprice or reissue paid sales.
+- D097: Display an authorized retained receipt before checkout-readiness gates, with
+  recovery instructions and disabled next sale. Repository guards remain unchanged.
+  Add closes only on observed success; failed selections remain editable. Native
+  physical-device/hosted/IME/TalkBack/signing acceptance remains separate from host
+  regressions; no device was connected for this iteration's ADB check.
+
+- D098: Detail H-01/H-02 before native history redesign. Filters search only the
+  bounded authorized receipt cache; say “up to 100 cached receipts,” not a complete
+  or globally latest-100 archive. Remote input is capped by feed sequence before
+  merge; no load-more/server-search endpoint or revenue total is invented. Use
+  original-name/public UUID search, Jakarta day boundaries and proven status.
+- D099: History detail is read-only and uses “Struk tersedia di perangkat” for both
+  created and downloaded cached receipts; Receipt has no provenance/name/number field
+  supporting invented origin badges. Missing delivery proof stays unknown; review
+  preserves original prices/payment. Closing detail clears UI selection only, never
+  checkout's last-receipt pointer, pending command, cart or sale/outbox.
+- D100: Preserve same-scope snapshots/filters across refresh and responsive layouts,
+  distinguish local read from observed successful pull, and clear visible state on
+  lock/scope change before late IO completes. Cache eviction clears selection with
+  explanation; it cannot delete a sale. No new Owner/Manager history route, schema,
+  migration, RPC, payment, refund/void or printing scope is introduced by this design.
+
+- D101: Give native history its own scoped HistoryViewModel and in-memory session,
+  independent of POS pending commands and receipt dismissal. Preserve bounded cache
+  selection/order, original-name/UUID search and Jakarta day/status filters. Clear
+  account/outlet/role/lock state before cancelled IO completes; validate backend/device
+  scope after reads and guard late UI callbacks with the session generation.
+- D102: Refresh reads local state and awaits existing bounded pull completion before
+  reporting observed success; timestamp equality is not failure when the owned pull
+  completed. Offline/recovery remains local-only; partial pulls request existing
+  continuation and cannot claim archive completeness. Retain only authorized same-
+  scope snapshots on read/network errors. No new RPC, schema or outbox retry mutation.
+- D103: Use responsive focused/split history and read-only shared receipt content.
+  History availability includes downloaded cache and does not invent device origin.
+  UUID is selectable; Back/Close never changes checkout or shows next-sale/queue
+  actions. Manual QRIS copy refers to bank verification separately from server ACK.
+- D104: Run Android component/Room fixture tests with ComponentTestRunner and a plain
+  Application, so production PosApplication startup cannot enqueue authenticated sync
+  during those tests. This runner does not support Hilt MainActivity/end-to-end auth
+  acceptance; use a separate normal-application setup for those tests. Preserve the
+  connected device's application data; never clear/uninstall to bypass install failure.
+
+- D105: Detail R-01–R-03 / report X-03 before native redesign. Overview and reports
+  share the applied accepted-server snapshot; retain existing count/total/cash/manual
+  QRIS and daily/outlet/top20 snapshot product fields. No profit/trend/bank/inventory
+  metric, complete product-mix claim, new endpoint or chart dependency is introduced.
+- D106: Separate editable filters from applied report identity. Validate actual
+  Jakarta dates and the existing <=365 difference (366 inclusive dates), allow future
+  dates under current contract, keep Manager fixed and Owner choices authorized.
+  Same-query refresh can retain a labeled valid snapshot; changed queries need their
+  exact cache/response. Guard late scope/request/error/finally results and OS callbacks.
+- D107: Capture the original SalesReport/source before CreateDocument, clear prepared
+  intent on cancel/scope change and report success only after provider write/close.
+  Preserve UTF-8/CRLF/integer/formula-safe CSV format. No real download occurs in the
+  browser illustration; native cancellation/provider/partial-file and auth checks
+  remain implementation acceptance, not promises made by the prototype.
+
+- D108: Implement RPT-UI-01–04 using one ViewModel-owned report session for Ringkasan
+  and Laporan. Filters are memory-only drafts until Apply; Cancel performs no IO.
+  Jakarta presets read the clock at selection, strict ISO dates retain the <=365
+  difference bound, Owner choices include authorized inactive history, Manager is
+  fixed, and unresolved outlet IDs are never labeled All. No dependency or schema
+  version changes are needed.
+- D109: Clear scoped report/draft/export state before cancelling old work. Guard
+  report results, errors and finally by scope generation and request generation;
+  recheck current reporting authority around cache/remote/export operations. Retain
+  only the exact-query valid snapshot on refresh failure. Reject duplicate product
+  ID + original-name rows before rendering keyed lists; keep existing financial and
+  exact Long/CSV validation. Offline cache absence is not a zero-sales report.
+- D110: Correlate CreateDocument with an opaque UUID ticket; keep the captured
+  immutable report/source in memory and only the callback ID in saved presentation
+  state. Cancel and launch failure consume prepared intent; a stale callback cannot
+  write a new scope's report. Write/close on IO, recheck authority before/after, and
+  claim success only on completed write under the original scope. Navigation away
+  cancels pending intent; configuration recreation preserves the pending callback.
+  Already-written provider bytes cannot be retracted after authority changes;
+  failed/partial files must be discarded and a new destination selected manually.
+
+- D111: Detail S-01–S-03 before the native staff redesign. Roster/devices and Owner-only
+  <=50 audit rows are for the operational outlet, including for Owner. Keep membership,
+  global profile, device revocation and separate A-07/A-08 approval distinct; no new
+  account/role/password/invitation workflow or roster pagination is introduced.
+- D112: Capture source/target/version and the intended access boolean in confirmation.
+  Member self/Owner/foreign targets and current-device actions retain existing rules.
+  Enabling membership leaves devices revoked; Owner restoration returns pending and
+  requires live membership plus fresh approval. Disconnected revocation remains
+  bounded by the original lease. Reasons use current trimmed 3–240 length semantics.
+- D113: Staff management remains online-only with memory-only scoped state. Native
+  tickets must guard late reads/acks/errors/finally, invalidate changed confirmations
+  and separate mutation acknowledgement from readback. Existing expected-version
+  RPCs have no operation UUID: uncertain responses require refresh/review, not blind
+  replay or inversion of a newly refreshed row. Process/scope loss never restores a
+  destructive intent. Browser simulation is design evidence, not Android/SQL signoff.
+
+- D114: Implement STAFF-UI-01–03 with a ViewModel-owned memory-only StaffSession for
+  tab/target/reason. Capture the immutable original target and source; derive desired
+  access from that capture, then preflight a fresh same-scope roster/version before
+  invoking the existing expected-version RPC. No role/account/password/schema or
+  dependency changes. Offline/scope loss invalidates and clears sensitive state without
+  waiting for cancelled IO.
+- D115: Separate mutation acknowledgement from readback. Lost response or cancellation
+  after dispatch blocks new actions as UNCERTAIN; known ack with readback failure is
+  ACK_REFRESH_FAILED. Refresh observes current state without attributing an uncertain
+  commit to this actor; no automatic replay or inverse toggle. Guard old result/error/
+  finally with generation/request checks and revalidate full authority around IO.
+- D116: Use adaptive member/device/Owner-audit tabs, virtualized rows, a wide-window
+  guidance pane and bounded scrolling confirmations with fixed actions. Preserve
+  existing profile/membership/device distinctions, full identities and audit bound.
+  Integrate A-07/A-08 once in Perangkat with separate read/result state; staff writes
+  and reviewer actions disable one another. Component tests preserve normal app data
+  and skip PosApplication startup sync; they do not establish hosted/Hilt acceptance.
+
+- D117: Detail T-01–T-04/sign-out/recovery X-03 before native settings redesign. Keep
+  access validation, scoped push status, last successful pull and local recovery
+  artifacts distinct. Queue scheduling is not delivery or backup; missing counts
+  are not zero. No reset/import/restore, admin configuration or new settings capability.
+- D118: Native recovery export should capture/validate/freeze the existing <=16 MiB
+  UTF-8 archive under original authority before CreateDocument, instead of current
+  scope-only preparation/capture after picker. This changes capture timing only;
+  preserve original payloads, archive format, exact IDs and integrity checks. Use
+  memory-only bytes/authority, opaque callback ID, cancel/scope/process guards and
+  post-write validation. Provider partial files cannot be retracted; no auto-overwrite.
+- D119: Sign-out gets a scoped confirmation explaining retained local work and loss
+  of local authority, including unknown queue status. Permit explicit sign-out without
+  requiring export; never clear Room or claim remote revocation of all JWTs. Recovery
+  required remains after login/export and directs authorized export/operator review,
+  with no automatic epoch reset or data deletion. Browser fixtures are not native or
+  hosted recovery/Keystore/document-provider acceptance.

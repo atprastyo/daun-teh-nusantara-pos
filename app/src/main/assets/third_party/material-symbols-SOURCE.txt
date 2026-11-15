@@ -1,0 +1,5 @@
+Google Material Symbols Rounded
+https://github.com/google/material-design-icons
+Commit: 10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7
+Only root XML theme tint removed; Compose supplies icon tint.
+Detailed source hashes: docs/MATERIAL_SYMBOLS_SOURCES.md in the project.

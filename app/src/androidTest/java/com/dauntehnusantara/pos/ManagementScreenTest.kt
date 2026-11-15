@@ -31,15 +31,16 @@ class ManagementScreenTest {
         val device=StaffDevice("revoked","cashier","CASHIER",true,false,1)
         compose.setContent { DaunTehTheme { StaffScreen(StaffState(scope,StaffRoster(scope,listOf(peer),listOf(device))),{}, {_,_->}, {_,_->}) } }
         compose.onNodeWithText("Nonaktifkan akses outlet").assertIsNotEnabled()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Pulihkan ke menunggu persetujuan"))
+        compose.onNodeWithText("Perangkat",substring=false).performClick()
+        compose.onNodeWithTag("staff.list").performScrollToNode(hasText("Pulihkan ke menunggu persetujuan"))
         compose.onNodeWithText("Pulihkan ke menunggu persetujuan").assertIsNotEnabled()
     }
     @Test fun accessChangeRequiresConfirmationAndReason() {
         val cashier=StaffMember("cashier","Cashier","cashier@example.invalid","CASHIER",true,true,1)
         compose.setContent { DaunTehTheme { StaffScreen(StaffState(source,StaffRoster(source,listOf(cashier),emptyList())),{}, {_,_->}, {_,_->}) } }
         compose.onNodeWithText("Nonaktifkan akses outlet").performClick()
-        compose.onNodeWithText("Simpan perubahan akses").assertIsNotEnabled()
+        compose.onNodeWithTag("staff.confirm").assertIsNotEnabled()
         compose.onNodeWithText("Alasan perubahan (3–240 karakter)").performTextInput("Reviewed access")
-        compose.onNodeWithText("Simpan perubahan akses").assertIsEnabled()
+        compose.onNodeWithTag("staff.confirm").assertIsEnabled()
     }
 }

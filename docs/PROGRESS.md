@@ -1073,3 +1073,899 @@ and optional monochrome icon recommendations. `git diff --exit-code --
 app/schemas/com.dauntehnusantara.pos.core.database.PosDatabase/1.json` and final
 `git diff --check` passed. Debug APK and minified unsigned release APK are generated;
 no signing configuration, Storage service deployment or live account changes occurred.
+
+## UI guidelines and visual reference — 2026-11-14
+
+Scope: design specification and review artifacts, not an Android screen redesign.
+
+- Added `docs/UI_GUIDELINES.md`: white/leaf-green direction, semantic color pairs,
+  typography/price/total roles, Material Symbols Rounded target mappings, spacing,
+  shapes, button/card/form/navigation patterns, phone/tablet sizing, Indonesian status
+  copy, accessibility and implementation handoff. Clearly distinguishes proposed
+  tokens/assets/component APIs from the current Android implementation.
+- Added self-contained `docs/design/ui-reference.html`: fictional cashier layout,
+  product/filter/cart hierarchy, palette/type/control/icon/status/spacing examples.
+  Browser controls demonstrate local state only; no data submission, external fonts,
+  scripts, new dependency, hosting or network service is used by the reference.
+- Source observations identify repeated Info icons in authenticated navigation,
+  internal English catalog enum labels and weak hierarchy. This was source review,
+  not a new physical-device usability audit. Brand white UI and independent white
+  night-mode launcher logo remain the design baseline. Existing authorization,
+  offline lease, immutable receipts and idempotent retries remain constraints.
+- Linked from README/UI_UX and recorded D071–D073. Existing documentation retained.
+
+Verification executed:
+
+- Relative Markdown/HTML resources, unique IDs, SVG/ARIA references and local paths
+  checked with Python HTMLParser/path validation; all resolved. `node --check` passed
+  for the extracted reference script. Reference size: 21,623 bytes at validation.
+- Nine proposed foreground/background pairs checked using WCAG relative luminance:
+  primary 6.05:1, primary text 17.07:1, supporting text 5.92:1, selected 9.29:1,
+  success 5.71:1, warning 6.72:1, error 5.63:1, information 6.54:1. Each exceeds 4.5:1;
+  input/control outline 3.88:1 exceeds 3:1. Decorative divider is explicitly exempt
+  from serving as the sole control boundary/selection indicator.
+- Rendered and visually inspected in isolated headless Chrome. True viewport sizes
+  390×1800 and 1440×1800 verified through browser emulation (Mac window sizing can
+  otherwise clamp narrow widths). Neither viewport had horizontal overflow.
+- Browser interaction checks passed: all/milk/fruit filtering, selected product and
+  status label, cart open/close with aria-expanded, and secondary-action feedback.
+  Closed the isolated preview afterward. No publication or external app write.
+- `git diff --check` passed. No Gradle/domain/DAO/native test rerun: changes are
+  documentation/reference-only, with no Kotlin, manifest, database or runtime edits.
+
+Exact next iteration: apply shared type/shape/spacing/icon tokens, distinct role-
+filtered navigation icons and a compact context header. Then update catalog/POS,
+checkout/history and management screens incrementally. Validate 200% font scale,
+TalkBack, phone/tablet, keyboard/insets and business-state regressions when applying
+those changes. The existing M7 live/signing/recovery acceptance gates remain open.
+
+## Screen inventory and access-flow designs — 2026-11-15
+
+Completed a documentation/design iteration; Android runtime behavior is unchanged.
+
+- Added `UI_SCREEN_PLAN.md` with 40 distinct design surfaces, role/connectivity gates,
+  existing implementation anchors, three flow maps and an incremental handoff order.
+  Full screens, sheets, inline states and OS boundaries are distinguished; IDs are
+  not new navigation routes. Catalog, POS, reports and management remain inventory-only.
+- Added `AUTH_SCREEN_DESIGNS.md` with detailed phone/tablet access layouts, state/action
+  mapping, copy, acceptance scenarios and ACCESS-01–ACCESS-05 implementation tickets.
+  Covers restore/login, outlet selection, pending approval, locked/offline entry,
+  reviewer requests/confirmation and Android's credential boundary.
+- Added `design/access-flow.html` and phone/tablet PNG previews. Read-only fictional
+  credentials and external scenario controls demonstrate two separate approval actors.
+  No Supabase call, real credential, native OS authentication or real approval occurs.
+- Preserved white/green branding and current authorization constraints, including
+  bounded offline access and the separate initial catalog-pull gate. Documented that
+  HTTP 429 classification and stronger approval retry guarantees are not implemented
+  merely by presenting those design states.
+- Linked the handoff from README/UI_UX/UI_GUIDELINES and recorded D074–D076.
+
+Verification executed:
+
+- Source-reviewed existing Auth state/actions and server enrollment/approval contracts.
+  Graph coverage was best-effort; relevant partially indexed SQL was read directly.
+- Isolated headless Chrome checks passed at 390px phone and 1440px tablet widths:
+  nine state layouts each, no horizontal overflow and valid SVG references.
+- Browser interaction checks passed for password visibility/configuration, outlet
+  selection, pending/reviewer approval, role-specific handoff, credential-prompt
+  cancellation, expiry during the simulated OS prompt and valid offline handoff.
+  No browser runtime exception occurred. Captured local previews and closed Chrome.
+- Final local resource/Markdown link checks passed (41 links), extracted JavaScript
+  passed `node --check`, and `git diff --check` passed.
+- No Gradle or native tests run: this iteration changes only documentation and browser
+  design references. Android accessibility, OS authentication and physical-device
+  acceptance remain unverified by these prototype checks.
+
+Exact next iteration: implement ACCESS-01–ACCESS-05 against the detailed access
+handoff, then F-00/F-01 shared navigation/context. Detail the remaining screen groups
+before their redesign. Existing M7 production/security/signing/recovery gates remain open.
+
+## Native access-flow UI — 2026-11-15
+
+Implemented the first connected UI handoff (ACCESS-01–ACCESS-04); device acceptance
+within ACCESS-05 remains open.
+
+Changed files and decisions:
+
+- `core/designsystem/Theme.kt`: shared guideline palette refinements, named type
+  styles and rounded shapes; white default and explicit dark option remain.
+- `auth/presentation/AccessComponents.kt`, `AccessScreen.kt`, `AuthScreen.kt`:
+  original-color logo, bounded scrolling form, expanded brand pane, large-font
+  single column, persistent field labels, password visibility/IME actions, busy
+  guards, localized read-only outlet roles and distinct access/error states.
+- Password stays memory-only and clears on submit/leaving the form. Email validation
+  uses existing required/@/length constraints; passwords are not trimmed. Debug demo
+  remains debug-only. Device UUID copy never includes tokens or device proof.
+- `DeviceRequestsPanel.kt`: separate reviewer list, unloaded versus successful empty
+  states, phone confirmation sheet/tablet dialog, identity/outlet/role/full UUID,
+  cancellation and in-flight submit/dismiss guards. Existing approve-then-list action
+  stays authoritative; unknown outcomes follow existing fail-closed handling.
+- `Auth.kt` / `AuthRepositoryImpl.kt`: memory-only `deviceRequestsLoaded` and
+  `lockedContext` display metadata plus the original eligible lease deadline. Locked
+  states keep authoritative `membership` null; no new grant/lease/endpoint or persisted
+  schema is introduced. No production deployment, migration or app-data reset.
+- Added four local outline vector icons and Indonesian strings; removed obsolete
+  invitation/activation wording from sign-in errors. Existing role navigation and
+  POS initial-pull/recovery gates are retained.
+- Added `AccessPresentationTest` (Robolectric/Compose) and repository assertions;
+  updated the native invalid-offline test to expect no unlock action. Test dependencies
+  reuse the existing BOM, runner and JUnit versions. The Compose host activity
+  is registered only inside the Robolectric rule, never in the production manifest.
+- Updated README, detailed designs/manual checks, UI_UX, UI_GUIDELINES,
+  IMPLEMENTATION_PLAN and D077–D079. Preserved prior documentation/design artifacts.
+
+Verification notes:
+
+- Initial compile caught an unsupported Material 3 sheet parameter; removed it and
+  retained state/dismissal guards supported by the installed version.
+- Release host tests initially could not resolve the Compose test activity. Merely
+  merging the test manifest did not update release resource-APK activity resolution;
+  register the host activity in Robolectric before ActivityScenario starts instead.
+  This setup remains test-only and leaves the production manifest unchanged.
+- Host tests cover password visibility/unchanged submission/clearing, malformed email,
+  configuration gating, busy outlet selection, pending approval with no bypass,
+  unloaded lists, reviewer busy confirmation, tablet cancellation, bounded tablet
+  fields and 200% text fallback. They do not exercise a real Android credential prompt.
+- Resource XML/local handoff links and `git diff --check` passed.
+- ADB device discovery ran successfully but returned no attached device; no emulator
+  is installed in the configured SDK. Instrumented execution, real IME/rotation,
+  TalkBack, OS unlock cancellation/success and hosted two-actor acceptance remain open.
+
+Final verification executed with Android Studio JBR:
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew build :app:assembleDebugAndroidTest --offline --max-workers=2 --console=plain
+```
+
+- Final command: BUILD SUCCESSFUL (2m 23s). Debug/release APKs and the instrumented
+  test APK generated; release remains unsigned.
+- Debug JVM: 118 passed, zero failures/errors/skips. Release JVM: 109 passed, nine
+  expected existing skips, zero failures/errors. All ten new access Compose tests
+  pass in each variant, including phone sheet and tablet confirmation cancellation.
+- Lint: zero errors, 31 warnings across the project. No warning location is in the
+  new access components/screens/reviewer panel or shared Theme.kt.
+- Verified the production release manifest excludes the Compose host test activity.
+- Artifacts: `app/build/outputs/apk/debug/app-debug.apk`,
+  `app/build/outputs/apk/release/app-release-unsigned.apk` and
+  `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`.
+
+Next UI milestone: F-00/F-01 shared authenticated shell/navigation/context. Later
+screen groups need their own detailed designs. M7 hosted/signing/recovery gates remain open.
+
+## Shared authenticated shell — 2026-11-15
+
+Implemented F-00/F-01 as one presentation iteration; retained the previous access
+redesign and documentation.
+
+Changed files and decisions:
+
+- Added `auth/presentation/AuthenticatedShell.kt` and integrated it in `AuthScreen.kt`.
+  One outlet/role/access header replaces repeated context lines. Navigation has
+  distinct icons and short Indonesian labels; Cashier starts at Kasir, Owner/Manager
+  at Ringkasan. Existing destination callbacks remain connected to MainActivity.
+- Below 600dp use bottom navigation; >=600dp use a scrolling rail. Existing features
+  still receive expanded=true at >=840dp. At >=150% text or <480dp window height,
+  use a labeled, scrolling modal drawer to preserve readable actions. Keep content
+  mounted at the same composition location across navigation-form changes. Long outlet
+  names wrap to two visual lines, retaining their full text in accessibility semantics.
+- Scope presentation selection to account email/brand/outlet/role name. Filter saved
+  selection against the permitted destination set before rendering; unknown/restored
+  management names cannot grant a cashier route. Locked display context cannot render
+  the shell. Existing server authorization and domain gates remain authoritative.
+- Header outlet action reuses AuthViewModel.switchOutlet -> chooseOutlets, disables
+  while offline/busy and explains the online requirement. It never locally reassigns
+  scope, clears sales or enrolls a device by itself. Settings keeps sync/recovery,
+  actual lease deadline, revalidation and sign-out; repeated header context is removed.
+- “Akses offline” / “Akses tervalidasi” describes authorization mode, not live Wi-Fi,
+  initialized catalog, completed receipt sync or backup. Keep auth messages/progress
+  visible and retain POS's initial-pull/recovery gates inside its unchanged feature.
+- Imported twelve official rounded 24px vectors, removing only their AppCompat theme
+  tint so Compose supplies semantic colors. Source commit and upstream/local hashes
+  are in MATERIAL_SYMBOLS_SOURCES.md. Retain the Apache license/source attribution in
+  docs/licenses and app assets for APK distribution. No library versions changed.
+- Added `AuthenticatedShellTest`; source and integration contracts checked using the
+  codebase-memory skill plus direct source review. Added SHELL_SCREEN_DESIGNS.md and
+  updated README/UI_UX/UI_GUIDELINES/UI_SCREEN_PLAN/IMPLEMENTATION_PLAN and D080–D083.
+- No backend/API/Room/auth policy, real transaction or production deployment change.
+  Existing unrelated/uncommitted work and documentation remain preserved.
+
+Verification executed so far:
+
+- Initial resource link caught upstream `colorControlNormal`, absent in this Compose
+  app. Removed only the root vector tint; retained paths, viewport and size. Debug
+  compilation, existing unit tests, Android-test APK compilation and lint then passed.
+- Thirteen initial focused host Compose tests passed: role defaults/destinations, route
+  callbacks, localized context, offline/busy action guards, scope resets, state
+  restoration, 600/840dp layouts, 200% text drawer, short window scrolling, locked
+  state rejection and AuthRoot header -> repository outlet-selection integration.
+  Added a fourteenth regression for typed feature input surviving navigation-form
+  changes; its final result is included in the full-build outcomes below.
+- Local documentation links, vector XML, all recorded local icon hashes, retained
+  license equality and `git diff --check` passed.
+- ADB device discovery succeeded with no devices attached. Physical rotation/IME,
+  TalkBack, wireless reconnect, live outlet revocation and real cashier initial-pull/
+  recovery acceptance remain unexecuted. Host tests are not physical-device acceptance.
+
+Final verification executed using Android Studio JBR:
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew build :app:assembleDebugAndroidTest --offline --max-workers=2 --console=plain
+```
+
+- Final command: BUILD SUCCESSFUL (31m 21s). Debug APK, unsigned release APK and
+  Android instrumented-test APK generated. No instrumented device execution occurred.
+- Debug JVM: 132 passed, zero failures/errors/skips. Release JVM: 123 passed, nine
+  expected existing skips, zero failures/errors. All fourteen shell tests passed in
+  each variant, including the final input-preservation regression. The earlier ten
+  access-flow tests also passed in each variant.
+- Lint: zero errors, 33 warnings. No warning location is in AuthenticatedShell.kt,
+  AuthScreen.kt or the twelve shell icon drawables; retained unused resources and
+  other existing project warnings remain outside this iteration's UI changes.
+- Verified both APK ZIPs contain the retained icon license bytes and pinned source
+  attribution. Local icon hashes/XML/link checks and `git diff --check` passed.
+- Artifacts: `app/build/outputs/apk/debug/app-debug.apk`,
+  `app/build/outputs/apk/release/app-release-unsigned.apk`, and
+  `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`.
+
+Exact next milestone: detail catalog C-01–C-08 screen/form/photo/archive designs and
+acceptance criteria before applying the native catalog redesign. M7 hosted, signing,
+recovery and device acceptance gates remain open.
+
+## Catalog detailed designs — 2026-11-15
+
+Completed the planned C-01–C-08 design handoff. Native catalog behavior is unchanged.
+
+- Added `CATALOG_SCREEN_DESIGNS.md`: adaptive list/editor/form layouts, localized
+  product-first tabs, local search/status filters, exact field/parent/group semantics,
+  photo states, brand-wide archive confirmation and CAT-UI-01–CAT-UI-05 tickets.
+- Mapped requirements to current CatalogEditorState/editable, ViewModel callbacks,
+  CatalogMutation/ack, independent PhotoCommand and server dependency/version rules.
+  Used the codebase-memory skill; relevant partially indexed SQL (596–695) was read
+  directly. Scope-bound auth, shared-brand catalog, immutable paid snapshots, frozen
+  uncertain commands and observed pull completion remain constraints.
+- Explicitly identified implementation gaps: current form closes on save; local
+  filtering/tab order/adaptive editor/archive confirmation are proposed presentation
+  work. retrySync enqueues work rather than acknowledging refresh completion; native
+  draft/result/refresh correlation needs observed state, not invented freshness/API.
+- Added `design/catalog-flow.html`: no-network, fictional phone/tablet state reference,
+  OS picker illustration, external role/outcome/pull controls and read-only display of
+  operational boundaries. No file/gallery read, real credentials, upload or real save.
+  Reuses retained Material Symbols paths with existing source/license attribution.
+- Added browser captures `design/catalog-phone.png` and `design/catalog-tablet.png`.
+  They are fictional browser renders, not Android screenshots. Linked the handoff
+  from README/UI_UX/UI_GUIDELINES/UI_SCREEN_PLAN/IMPLEMENTATION_PLAN; D084–D086 recorded.
+  Preserved prior application work and all documentation.
+
+Verification executed:
+
+- JavaScript extracted and `node --check` passed. Static HTML IDs/label references,
+  relative documentation links and inline script network boundaries checked. An early
+  browser check caught an SVG/search-input ID collision; prefixed symbol IDs and reran.
+- Isolated headless Chrome browser checks passed across 390px phone, 800px constrained
+  tablet and 1440px wide tablet. Eleven states per width (33 layout cases) had no
+  horizontal overflow and all SVG references resolved; no runtime exceptions occurred.
+- Interaction checks passed: four tabs, case-insensitive search, archive/no-match
+  filtering, empty-category setup, whole-IDR/Int overflow validation, group bounds,
+  immutable existing option parent, archive cancel/commit and explicit save+archive,
+  preserving stored fields on dedicated archive, unknown-result same-command retries,
+  conflict/refresh, picker cancellation/keyboard Escape/focus return, independent
+  photo revisions and retained unsaved product text after photo update/removal.
+- Offline/loading/bootstrap/recovery disable mutations; cashier variants show no
+  catalog controls. These are fixture checks, not proof of native/server authorization.
+- Visually inspected final phone list/wide editor captures, copied them into docs and
+  closed the isolated browser. No publishing or external application write.
+- `git diff --check` passed. No Gradle, JVM, DAO, hosted or native/device tests rerun:
+  this iteration modifies documentation, HTML and browser captures only. The prior
+  shell iteration's build results are not presented as new catalog verification.
+
+Exact next milestone: implement CAT-UI-01–CAT-UI-05 in native Compose/ViewModel using
+this handoff, then run appropriate build/domain/Compose checks and report remaining
+physical-device/hosted acceptance. POS and later groups still need detailed designs;
+M7 device/security/signing/recovery gates remain open.
+
+## Native catalog UI — 2026-11-15
+
+Implemented the catalog handoff (CAT-UI-01–04), with host regression coverage and
+instrumented test compilation for CAT-UI-05. Physical-device/hosted acceptance is open.
+
+Changes and decisions:
+
+- `CatalogEditorScreen.kt`: localized product-first scrollable tabs, local name/status
+  filters, clear empty/no-match/bootstrap/offline states, readable rows, formatted
+  integer IDR, brand-wide scope notice and wrapping primary/refresh actions.
+- New `CatalogEditorForm.kt`: focused compact/large-text/short-window forms, bounded
+  medium dialog, 480dp wide editor pane beside the list at >=1100dp available width,
+  scrollable fields and IME-aware pinned actions. Another edit/add is disabled while
+  a form is open; no silent replacement of typed input. Keep existing shell/routes.
+- New `CatalogEditorSession.kt`: raw fields, tab/filter/query, scroll and submission
+  correlation in memory owned by the activity ViewModel. Rotation/layout changes keep
+  that draft; scope changes/logout clear it. No editor/photo state goes to SavedState,
+  Room or a durable admin outbox. Process loss still requires refresh/inspection.
+- Category/product/group/option fields validate whole nonnegative Long IDR and Int
+  bounds, name, parent/required-option constraints and ordered unique assignments.
+  Existing option parent is read-only. Zero price is valid; there is no invented cap,
+  automatic repricing, new stock/discount field or server-rule replacement.
+- Archive confirmation separates stored-field archive from save-and-archive with
+  current edits. Archive cancellation makes no call. Reactivation uses the same
+  existing versioned save. Photo removal has its own confirmation/version; photo
+  changes retain typed product text and do not rewrite prices or paid receipts.
+- `CatalogEditorViewModel.kt`: immutable pending command copies, explicit refresh
+  request/baseline state, observed newer successful pull and post-checkpoint catalog
+  reread, plus matching operation/local target visibility before closing a form.
+  Conflicts preserve the draft for explicit refresh/review; corrected submissions
+  get new operation UUIDs, retries retain the original command.
+- Before waiting for cancelled IO, remove old-scope display state; updates from actions
+  and observation are scope guarded. An uncancellable old request cannot repopulate
+  another outlet's screen. Existing scoped unresolved-work retention remains memory-only.
+- `ProductPhoto.kt`: the missing-image retry button now has its own thumbnail space;
+  a decorative icon no longer consumes its 48dp touch target. Missing photos still do
+  not gate product selection, checkout or receipt access.
+- Added Indonesian strings; new CatalogEditorSessionTest, CatalogEditorViewModelTest
+  and CatalogEditorPresentationTest. Updated existing native CatalogEditorScreenTest
+  and ProductPhotoScreenTest to localized/default-tab and confirmation behavior.
+- Updated README/UI_UX/UI_GUIDELINES/UI_SCREEN_PLAN/IMPLEMENTATION_PLAN,
+  CATALOG_SCREEN_DESIGNS and D087–D090. Preserved earlier work/documentation. No schema,
+  API, dependency version, signing, production deployment or transaction contract change.
+
+Verification before the final full build:
+
+- Initial debug app and instrumented-test APK compiled successfully.
+- The first 25 new catalog tests passed. A subsequent photo-target assertion detected
+  the old 32dp retry button; fixed the thumbnail layout and reran successfully.
+- Full debug JVM suite, Android-test APK compilation and lint passed. Twenty-seven
+  new catalog tests pass (7 form/session, 7 ViewModel, 13 Compose), covering numeric
+  edges/dependencies, unknown retry, observed refresh/conflict review, ACK/pull/local
+  record gating, separate photo removal/retry/version, scope/logout/cancelled IO,
+  localized browsing, archive paths and compact/medium/wide/200% text layouts.
+- Tests also confirm old data clears before slow cancelled IO finishes, drafts survive
+  photo application/layout changes, and missing-image retry is at least 48dp high.
+- Source flow review used codebase-memory plus direct source. Room checkpoint behavior
+  was checked directly; metadata coverage remains best-effort. No backend SQL changed.
+- ADB discovery returned no attached device. Real OS picker/providers, IME/insets,
+  physical rotation/TalkBack and hosted concurrent-device/Storage checks were not run.
+- `git diff --check` passed. Final full debug/release command results follow below.
+
+Exact next milestone: detailed POS P-01–P-06 designs for catalog selection/modifiers,
+cart/payment/local receipt/sync-review states, then their native redesign. Existing
+M7 hosted/device/signing/recovery gates remain open.
+
+Final native catalog verification:
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew build :app:assembleDebugAndroidTest --offline --max-workers=2 --console=plain
+```
+
+- BUILD SUCCESSFUL (27m 34s); debug/release compilation, full JVM suites, lint and
+  instrumented-test APK compilation completed. Release remains unsigned.
+- Debug: 159 passed, zero skipped/failures/errors. Release: 150 passed, nine expected
+  existing skips, zero failures/errors. All 27 new catalog tests passed per variant.
+- Lint: zero errors, 34 warnings across the project; no warning location is in the
+  changed catalog/photo Kotlin files. Retained unused-resource/project warnings remain.
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
+- Unsigned release APK: `app/build/outputs/apk/release/app-release-unsigned.apk`.
+- Native test APK: `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`.
+- `git diff --check` and final local documentation/resource XML checks passed.
+  No real account/sale/photo was submitted by the host tests or build. Device/hosted,
+  signing and recovery acceptance remain separate, unexecuted gates for this iteration.
+
+
+## POS screen design iteration — 2026-11-15
+
+Completed P-01–P-06 detailed handoff in POS_SCREEN_DESIGNS.md and the fictional
+local design/pos-flow.html reference, with phone receipt/review and tablet catalog/
+cart captures. Linked the handoff from README, UI guidance, screen plan and
+implementation plan. No Android source, dependency, schema or backend changes
+were made in this iteration. Existing uncommitted work was preserved.
+
+Source review used codebase-memory search/trace/snippets and clean metadata coverage
+for ten relied-on checkout/POS/sync/test files. Key gaps for native work: correlate
+observed add/save results with scope and draft revision, reconcile uncertain local
+saves, retain known receipts during recovery without enabling new sales, and expose
+a separate scoped receipt-delivery read projection. Aggregate queue status is not
+proof for an individual receipt.
+
+Executed verification:
+
+- `node --check /tmp/pos-flow.js` passed for the extracted reference script.
+- `node /tmp/daunteh-check-pos-flow.mjs` passed against isolated local headless Chrome:
+  selection required/max/quantity limits, failed-add retention, separate cart lines,
+  cash bounds, zero total, checked overflow, explicit QRIS and reset-on-method-change,
+  frozen same-command retry, commit-before-observation readback, one receipt/outbox,
+  unchanged receipts across delivery states, review/auth/unknown retry restrictions,
+  recovery receipt guard, stale cart, 100-line limit and role restrictions.
+- 51 viewport/scenario checks (390/800/1440px, 17 scenarios) passed without document
+  horizontal overflow; zero runtime exceptions. Two PNG captures were generated
+  and visually inspected. These are browser designs, not Android screenshots.
+- Script syntax, local reference links and `git diff --check` were checked.
+
+Gradle/native/Room/hosted/ADB checks were not rerun for this documentation-only
+iteration. Browser fixture outcomes do not validate persistence, server authorization,
+actual payment, process death or physical IME/TalkBack/rotation behavior. Existing
+M7 hosted/device/signing/recovery acceptance remains open.
+
+Exact next milestone: native POS-UI-01–05, as listed in POS_SCREEN_DESIGNS.md.
+
+
+## Native POS presentation iteration — 2026-11-15
+
+Implemented POS-UI-01–04 and POS-UI-05 host regressions from the P-01–P-06 handoff.
+
+Changed files/responsibility:
+
+- `feature/pos/presentation/PosScreen.kt`: name/category filtering, accessible product
+  actions separate from photo retry, adaptive grid/compact focused cart/persistent
+  expanded pane, stale snapshot feedback and selection success correlation.
+- New `PosSelection.kt` / `PosCheckout.kt`: scrolling modifier sheet with fixed Add,
+  explicit optional single-choice None, min/max/quantity/100-line/checked total guards,
+  focused whole-IDR cash/manual QRIS form, frozen unknown-save surface and readable
+  original receipt with scoped delivery/review/revalidation labels.
+- `AuthenticatedPosViewModel.kt`, `AuthenticatedPosRoute.kt`, `PosViewModel.kt`:
+  observed add results, original authenticated command/draft freezing, readback and
+  identical verified-unsaved retry; scope/observation generations reject cancelled old
+  results and consumed-cart resurrection. Recovery permits known receipt viewing but
+  blocks next sale/new writes. Demo remains a separate explicit debug entry.
+- `checkout/domain/Checkout.kt` / `data/AuthenticatedCheckoutRepository.kt`: separate
+  read-only delivery projection and exact original-command reconciliation. Validated
+  feed proof or scoped outbox state supplies labels; absent proof remains unknown.
+  Immutable Receipt/payload and existing atomic transaction/auth guards stay intact.
+- New `AuthenticatedPosViewModelTest.kt` (11 tests) / `PosPresentationTest.kt` (15),
+  four additional `PullSyncTest.kt` Room tests; existing instrumented POS tests use
+  the now-fixed save action directly. Receipt/error/action copy updated in strings.xml.
+- README, UI guidance/screen plan, POS handoff, implementation plan and decisions
+  updated. Existing uncommitted access/shell/catalog/design work was preserved.
+
+Decisions: D094–D097. No dependency/version, schema, migration, backend endpoint,
+production deployment or DB reset was introduced. Manual QRIS flag is memory-only;
+unsaved UI/frozen command input is not a durable payment queue. Durable original
+cart/sale/outbox/receipt remain the restart recovery basis.
+
+Verification so far:
+
+- Initial compilation caught a Material API parameter unsupported by the pinned
+  version; replaced it with existing sheet-state transition confirmation.
+- Focused tests exposed two test expectations (the next-sale label and retrying
+  after a failed add); corrected the action copy and two-attempt test scenario.
+- `./gradlew :app:testDebugUnitTest --tests '*AuthenticatedPosViewModelTest'
+  --tests '*PosPresentationTest' --tests '*PullSyncTest' --offline --max-workers=2
+  --console=plain` passed: 43 tests, no failures/errors/skips. Includes uncertainty
+  before/after commit, exact retry identity, restart/readback scope and revision,
+  cancelled old scope/observation, readiness/stale gates, immutable REVIEW, ACK/feed
+  proof, cash/QRIS guards, optional/multi selection bounds, 100-line/quantity limits,
+  compact and tablet/200% text fallback, and outlet input reset.
+- Android test APK compilation succeeded in the preceding focused run.
+- Full build was interrupted to include the later observation guard, then restarted.
+  The completed full run passed (9m 5s): 189 debug passed; release 180 passed / nine
+  expected skips; zero failures/errors. Final visual polish (search icon, inline cached-
+  refresh retry and neutral grouping) was followed by the final build recorded below.
+- ADB `devices -l` and `mdns services` returned empty lists. No phone/tablet instrumentation,
+  actual IME/TalkBack/rotation, real OS photo cache or hosted sale was exercised.
+- Codebase-memory search/trace/snippets + relied-path metadata coverage and direct
+  source review used. No graph-based completeness claim or SQL inference was made.
+
+Remaining acceptance: real phone/tablet and hosted offline/reconnect/price rejection,
+process kill, accessibility/IME/rotation, original M7 device/signing/recovery gates.
+Exact next milestone: detailed history H-01/H-02 designs before native history redesign.
+
+
+Final native POS verification (final delivered source):
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew build :app:assembleDebugAndroidTest --offline --max-workers=2 --console=plain
+```
+
+- BUILD SUCCESSFUL (4m 11s). Debug/release assembly, full JVM suites, lint and
+  Android-test APK compilation completed. Final log: `app/build/pos-final-build.log`
+  (generated local artifact, not committed).
+- Debug: 189 passed, zero skipped/failures/errors. Release: 180 passed, nine existing
+  expected demo-only skips, zero failures/errors. All 30 added host regressions pass
+  in each variant (11 ViewModel, 15 Compose, four additional Room/pull tests).
+- Lint: zero errors, 41 warnings. These include seven retained POS string resources
+  made unused by the redesign, plus existing project/resource/dependency warnings.
+  No warning location is in the changed POS/checkout Kotlin implementation.
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
+- Unsigned release APK: `app/build/outputs/apk/release/app-release-unsigned.apk`.
+- Instrumented-test APK: `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`.
+- `git diff --check`, strings resource XML parsing and POS handoff/screen-plan local
+  link checks passed. No real credential, sale or backend write was used by these
+  host checks. No Room schema, migration, dependency or backend SQL changed.
+
+Device/hosted/signing/recovery acceptance remains open. ADB and wireless discovery
+returned no device. Exact next milestone: detailed history H-01/H-02 designs, then
+its own native presentation iteration.
+
+
+## History screen design iteration — 2026-11-15
+
+Completed H-01/H-02 detailed design handoff in HISTORY_SCREEN_DESIGNS.md and
+fictional local design/history-flow.html, with tablet list/detail and phone receipt
+review captures. Linked from README, UI guidance, screen plan and implementation
+plan; recorded D098–D100. Existing documentation and uncommitted native work were
+preserved. No Android source, schema, dependency, server or authorization changes
+were made in this documentation iteration.
+
+Source review used codebase-memory search/trace/snippet and clean best-effort
+metadata coverage for eleven relied-on source paths, supplemented by direct reads.
+Verified: cashier-only history navigation; current scoped local/feed merge with UUID
+dedupe/local precedence; local and remote 100-row input limits and final 100 cap;
+remote ordering by feed sequence; immutable Receipt and separate delivery projection;
+shared retry currently lacking an explicit observed refresh lifecycle. The design
+therefore avoids archive completeness/global latest-100 and origin/receipt-number
+claims and provides native HIST-UI-01–04 tickets for filtering, adaptive list/detail,
+refresh/scope/selection handling and regressions.
+
+Executed verification:
+
+- `node --check /tmp/history-flow.js` passed for the extracted reference script.
+- `node /tmp/daunteh-check-history-flow.mjs` passed in isolated local headless Chrome:
+  fixture merge/dedupe/order, UUID/original-name case-insensitive search, AND filters,
+  Jakarta midnight date boundaries, six delivery states and unknown proof, original
+  cash/zero/QRIS manual detail, close/focus restoration, selection eviction after
+  filter/evidence changes, local-read versus observed-pull refresh and error retention,
+  initial/empty/read-error/offline/recovery, role denial and outlet input clearing.
+- 36 viewport/scenario checks passed at 390/800/1440px with no document horizontal
+  overflow; zero runtime exceptions. Two PNG captures were generated and visually
+  inspected. These are fictional browser references, not Android screenshots.
+- A repeated test run initially reused the prior selected fixture; the harness now
+  reloads the page before assertions and the final rerun passed. No application
+  behavior was changed to accommodate that harness setup issue.
+- Static script/HTML IDs/labels, network/storage independence, local documentation
+  links and `git diff --check` were verified.
+
+Gradle/native/Room/ADB/hosted tests were not rerun for this documentation-only
+iteration. The preceding native POS build/test results above remain historical;
+browser checks cannot validate persistence, real authorization, server completeness,
+physical IME/TalkBack/rotation or payment. No real sale/credential/backend was used.
+M7 device/hosted/signing/recovery acceptance remains open.
+
+Exact next milestone: native history HIST-UI-01–04 as listed in HISTORY_SCREEN_DESIGNS.md.
+
+
+## Native history presentation iteration — 2026-11-15
+
+Implemented HIST-UI-01–03 with HIST-UI-04 automated verification underway.
+
+Changed files/responsibility:
+
+- New `feature/history/presentation/HistorySession.kt`: local original-name/UUID,
+  Jakarta day and per-receipt proof selectors; selected receipt, cache eviction and
+  list scroll; stale UI callback generation guard. No complete-archive assumption.
+- New `HistoryViewModel.kt`: isolated cashier scope and read/refresh state, retained
+  same-scope snapshots, post-read device/backend checks, cancellation generations,
+  Clock-driven day rollover, local-only/recovery versus actual bounded pull outcomes.
+- New `HistoryScreen.kt`: accessible local filters, grouped cards with original
+  money/method/status, focused compact detail and expanded list/detail with a
+  large-text/short-window fallback. No new role destination or sale action.
+- MainActivity / AuthenticatedPosRoute connect the independent history route;
+  PosScreen's debug history adapter reuses the presentation. PosCheckout supplies
+  selectable UUID, local-availability banner and suppresses checkout/queue actions
+  for history. Receipt/QRIS wording and history UI strings are localized in strings.xml.
+- New `HistorySessionTest` (8), `HistoryViewModelTest` (11), `HistoryPresentationTest`
+  (9), two new PullSyncTest Room regressions; eight fixture HistoryScreenTest device
+  cases. ComponentTestRunner overrides production startup Application in Android
+  component/Room tests; build.gradle.kts points instrumented tests to this runner.
+- README/design/status/plan/decision documentation updated. Existing uncommitted
+  access/shell/catalog/POS/design work and all documentation were preserved.
+
+Decisions D101–D104. Pinned dependencies, production applicationId, Room schema,
+migrations, server/RLS/RPC contracts, immutable Receipt/payload and checkout rules
+are unchanged. History does not call checkout mutation/dismissal methods. Test runner
+is for fixtures, not Hilt MainActivity/Keystore/login end-to-end acceptance.
+
+Executed verification so far:
+
+- Initial debug Kotlin compilation passed. Focused UI tests required proper lazy-
+  list scrolling and the existing QRIS text assertion; corrected the test setup.
+- Date-rollover test cleanup initially kept the ViewModel ticker alive under virtual
+  time; a thread dump identified test cleanup advancing indefinitely. The run was
+  stopped and tests now clear the ViewModel within each test body/finally, including
+  deferred fake IO cleanup. No production clock behavior was changed for the harness.
+- Focused debug command selecting HistorySessionTest, HistoryViewModelTest,
+  HistoryPresentationTest and PullSyncTest plus assembleDebugAndroidTest passed:
+  47 tests, zero failures/errors/skips (39s). Thirty new host regressions cover
+  filter intersections, UUID/snapshot search, missing proof, Jakarta midnight/year
+  rollover, late UI/IO/scope/device/backend results, actual pull completion with
+  unchanged timestamp, partial/offline/recovery/failure retention, read-only details,
+  compact/tablet/200% text fallback, bounded-cache ordering and unchanged durable
+  draft/receipt pointer/outbox after history reads.
+- Full build and isolated phone component results are recorded below when complete.
+- ADB found a connected Samsung SM-M146B and its wireless service. Device fixtures
+  use no login/account/real receipt, and preserve application data. No DB reset or
+  production deployment is part of this iteration.
+- Codebase-memory search/trace/snippets, relied-path metadata coverage and direct
+  source review were used; no exhaustive graph/security-completeness claim.
+
+Remaining acceptance: normal-application/Hilt/Auth/Keystore/hosted multi-device and
+price rejection, physical tablet/split/IME/TalkBack/rotation and M7 signing/recovery.
+Exact next milestone: detailed R-01–R-03 overview/report/filter designs before native
+implementation, preserving existing accepted-server metrics and X-03 export.
+
+
+Final native history host/build verification:
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew build :app:assembleDebugAndroidTest --offline --max-workers=2 --console=plain
+```
+
+- BUILD SUCCESSFUL (26m 34s): debug/release assembly, full JVM suites, lint and
+  Android-test APK compilation completed. Log: `app/build/history-build.log`
+  (generated local artifact). Release remains unsigned.
+- Debug: 219 passed, zero skipped/failures/errors. Release: 210 passed, nine existing
+  expected demo-only skips, zero failures/errors. All 30 added host regressions pass
+  in both variants (8 selectors/session, 11 ViewModel, 9 Compose, two Room/pull).
+- Lint: zero errors, 45 project warnings. Four additional unused string warnings
+  include retained old history copy and the detail label resource; no warning
+  location is in the new history Kotlin implementation. Existing dependency/SDK/
+  resource warnings remain. No dependency upgrade is included in this UI milestone.
+- APKs: `app/build/outputs/apk/debug/app-debug.apk`,
+  `app/build/outputs/apk/release/app-release-unsigned.apk`,
+  `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`.
+- `git diff --check`, resource XML parsing and history handoff local links passed.
+  No schema/migration, production deployment, real credentials or sale mutation
+  was used by these host checks. Phone component-test outcome follows below.
+
+
+Final corrected build and physical phone component verification:
+
+- Repeated the full build command above after the phone exposed one additional
+  lazy-list test assumption: the refresh-result banner was outside the composed
+  viewport after scrolling to a receipt. Both host and device tests now scroll to
+  the banner and assert it is displayed. No product source change was needed.
+- Final BUILD SUCCESSFUL (1m 59s), log `app/build/history-final-build.log`.
+  Debug: 219 passed; release: 210 passed plus nine expected existing skips;
+  zero failures/errors. Lint remains zero errors / 45 warnings.
+- Installed the verified debug APK and test APK with `adb install -r -t`; both
+  installations succeeded, preserving app data. Wireless ADB briefly disconnected
+  during the long build, then rediscovery found the same Samsung SM-M146B.
+- Ran `adb shell am instrument -w -e class
+  com.dauntehnusantara.pos.HistoryScreenTest
+  com.dauntehnusantara.pos.test/com.dauntehnusantara.pos.ComponentTestRunner`.
+  Final result: **OK (8 tests)** in 17.919s. Log: `app/build/history-device-tests.log`;
+  the initial seven-pass/one-visibility-failure run is retained in
+  `app/build/history-device-tests-initial.log`.
+- Phone cases cover search/filters, focused read-only detail and return, original
+  review/recovery and manual QRIS/missing-proof messages, refresh retention,
+  selected-receipt eviction, and retained/read-error/initial states. Fixtures use
+  synthetic receipts and a plain Application; no login or checkout mutation API
+  is invoked. After completion the fixture process was stopped, without data clear,
+  so the next manual launch uses normal PosApplication/Hilt startup.
+- Final `git diff --check`, resource XML and local handoff links passed.
+
+The current debug APK is installed on the phone. Normal Hilt/MainActivity/login/
+Keystore, hosted offline/reconnect/price rejection, physical tablet/rotation/IME/
+TalkBack and release signing/recovery remain open acceptance gates.
+Exact next milestone: detailed R-01–R-03 overview/report/filter designs.
+
+
+## Overview/report design iteration — 2026-11-15
+
+Completed R-01–R-03 / report X-03 detailed handoff in REPORT_SCREEN_DESIGNS.md,
+fictional design/report-flow.html and phone overview/tablet report captures. Linked
+from README, visual/UX guidance, screen inventory and implementation plan; recorded
+D105–D107. Existing documentation and uncommitted native work were preserved. No
+Android, Room, dependency, server SQL, permission or production deployment changes.
+
+Source review used codebase-memory search/trace/snippets and clean best-effort
+metadata coverage for relied-on Kotlin paths. SQL coverage is partial: inspected
+get_sales_report directly (schema.sql lines 500–537 and execute grants at 597–598),
+not the entire schema/security surface. Confirmed existing accepted-server fields,
+Owner/Manager scope, Jakarta inclusive/end-exclusive dates and <=365 difference,
+product ID + snapshot-name grouping/top20, exact-query cache and captured CSV.
+Current ReportViewModel/Route needs draft/applied ownership, generation guards,
+retained refresh and picker-cancel/result lifecycle; these are explicit RPT tickets.
+
+Executed verification:
+
+- `node --check /tmp/report-flow.js` passed for the extracted reference script.
+- `node /tmp/daunteh-check-report-flow.mjs` passed against isolated local headless
+  Chrome: shared overview/report snapshot, exact integer partitions, snapshot-name
+  product grouping/ranking; invalid calendar/leap/365-difference/366-difference and
+  allowed future dates; preset draft versus Apply/Cancel; owner outlet/inactive
+  choices versus fixed Manager/cashier denial; no-cache versus validated zero;
+  same-query retained failures/TOO_LARGE, offline no fabricated fresh success, stale
+  request scope rejection; captured export despite displayed snapshot change, picker
+  cancel, provider failure/new attempt and scope change clearing prepared intent.
+- 30 viewport/scenario checks passed (390/800/1440px) without document horizontal
+  overflow, zero runtime exceptions. Two fictional PNG captures were generated and
+  visually inspected; they are not Android screenshots.
+- Static HTML/script IDs/labels, no external asset/network/storage APIs, local
+  handoff links and `git diff --check` were verified.
+
+No Gradle/native/Room/ADB/hosted/provider checks were rerun for this documentation-
+only milestone. Browser fixtures do not validate real money, SQL authorization,
+cache persistence, Android destination/write behavior, lease/Hilt or physical
+accessibility/IME/rotation. Earlier native build/device results remain historical;
+M7 hosted/provider/device/signing/recovery gates remain open.
+
+Exact next milestone: native overview/report RPT-UI-01–04 from REPORT_SCREEN_DESIGNS.md.
+
+## Native report presentation — 15 November 2026 (RPT-UI-01–04)
+
+Implemented the R-01–R-03 / X-03 handoff in existing Kotlin/Compose presentation.
+Changed ReportScreen/ReportViewModel and added ReportSession; MainActivity supplies
+Overview versus Reports destination context and AuthenticatedShell exposes a
+role-limited internal navigation callback for Lihat laporan. The session shares
+applied filters/snapshot between those destinations and separates unsubmitted
+filter edits. The bounded sheet uses current Jakarta-clock presets, strict calendar
+validation, <=365 difference, authorized Owner/inactive history choices and fixed
+Manager scope. Adaptive existing metric cards and virtualized detail rows collapse
+for large text. Accepted-server basis, manual QRIS, as-of/cache/no-cache/zero and
+loading/error/retry remain explicit; no new financial field or business mutation.
+
+Exact-query snapshots survive refresh errors; different applied queries clear old
+totals. Scope/session/request generations reject late responses/errors/finally.
+Authority is rechecked around report reads and exports, including device/backend
+scope changes. Immutable captured export tickets correlate picker results; cancel,
+launch failure, navigation away, stale callbacks and provider failures cannot claim
+success. Provider write/close happens on IO; files partially written before an
+error/scope change cannot be retracted. Existing integer/formula-safe UTF-8/CRLF CSV,
+Room cache, Hilt bindings, endpoints, pinned libraries and schema are retained.
+
+Added ReportSessionTest, ReportViewModelTest, ReportPresentationTest and isolated
+ReportScreenTest device fixtures. Updated README, decisions D108–D110, report handoff,
+UI_UX, UI_SCREEN_PLAN and IMPLEMENTATION_PLAN. Structural verification used graph
+search/trace/snippets with clean best-effort coverage metadata for relied-on paths,
+plus direct source review. No SQL, migration or production deployment this iteration.
+
+Verification so far:
+
+- Initial compile identified an unqualified AccessDestination reference; corrected.
+- Initial targeted run: 21 tests, 2 UI assertion failures caused by incorrect fixture
+  label text; corrected to actual resources. Added scope-during-write, launch failure
+  and fixed Manager outlet scenarios.
+- `JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'
+  ./gradlew :app:testDebugUnitTest --tests '*Report*Test' --offline --max-workers=2
+  --console=plain`: passed all 24 tests (4 session, 11 ViewModel, 6 Compose, 3 existing
+  Room cache), no failures/skips.
+- Full `./gradlew build :app:assembleDebugAndroidTest --offline --max-workers=2
+  --console=plain`: BUILD SUCCESSFUL in 9m. Debug 240 passed; release 231 passed and
+  9 expected demo-only skips, no failures/errors. Debug/release and test APKs built.
+  Lint: 0 errors, 46 warnings (one additional unused legacy report_all_outlets label).
+  Log: app/build/report-build.log. The full run includes the strengthened export
+  success/terminal-state assertions, waiting on StateFlow instead of a timing loop.
+- Debug and test APKs installed successfully with `adb install -r -t` on the
+  connected Samsung SM-M146B; app data preserved. Targeted command:
+  `adb -s <connected-device> shell am instrument -w -e class
+  com.dauntehnusantara.pos.ReportScreenTest
+  com.dauntehnusantara.pos.test/com.dauntehnusantara.pos.ComponentTestRunner`:
+  OK (6 tests), 10.383s. Covered draft cancellation, absent snapshot, overview action,
+  outstanding picker, fixed Manager outlet and large-text reachability with fixtures.
+  Log: app/build/report-device-tests.log. Target app force-stopped afterwards so the
+  next manual launch uses normal PosApplication, not the fixture Application.
+- Final `git diff --check` passed. No application data clear/uninstall or real
+  login/sale/access/provider workflow was used to manufacture a test result.
+
+Remaining acceptance: hosted Owner/Manager/RLS/revocation, normal MainActivity/Hilt/
+secure offline lease, real document-provider cancellation/rotation/process recreation/
+failure and partial files, physical tablet/split-window/IME/200% text/TalkBack,
+release signing and M7 recovery gates. Automated fixtures use fake scoped records and
+plain Application without production startup sync; they do not establish those gates.
+
+Exact next milestone: S-01–S-03 staff/access/confirmation detailed design handoff,
+preserving private-brand manual user provisioning and existing role/server limits.
+
+## Staff/access detailed design — 15 November 2026 (S-01–S-03)
+
+Completed one design/handoff milestone. Added STAFF_SCREEN_DESIGNS.md with scoped
+member/device/audit layouts, effect-specific reasoned confirmations, permission and
+profile-state tables, adaptive/accessibility guidance and STAFF-UI-01–04 native
+implementation tickets. Added design/staff-flow.html and fictional phone/tablet PNGs.
+Updated README, UI_UX, UI_SCREEN_PLAN, IMPLEMENTATION_PLAN and decisions D111–D113.
+No Android, Gradle, dependency, Room, backend SQL, permission or deployment changes.
+
+Source review: codebase-memory index/status, staff search (44 results, no remaining
+page), StaffScreen direct callers/callees and domain/VM/parser snippets, plus targeted
+source reads. Relied-on Kotlin files had clean best-effort coverage metadata. SQL
+coverage remains partial: read list_staff/set_staff_access/set_device_access and grants
+at schema.sql 538–598 directly, not the entire security surface. Reused the existing
+store symbol from ic_shell_store.xml; attribution remains MATERIAL_SYMBOLS_SOURCES.md.
+
+Confirmed contracts: roster is the selected operational outlet even for Owner;
+Manager members may include read-only peers but returned devices are live cashiers;
+Owner-only audit returns <=50 selected-outlet events. Membership enable leaves devices
+revoked; Owner restoration requires live target role and returns pending approval.
+Current-device exclusion differs from membership self-target exclusion. Profile and
+membership inactivity are separate. No hardware name/last-seen/complete audit data is
+invented. Approval remains A-07/A-08 with independent load/result state.
+
+Native gaps are explicit tickets: scoped memory/session and late result/error/finally
+guards, stable captured target/version/desired boolean, strict trimmed 3–240 reason,
+acknowledgement distinct from failed readback, conflict refresh/review and no blind
+replay after uncertain response. Existing expected-version RPCs have no operation UUID
+ledger. Cancellation/process loss cannot guarantee rollback. Offline/scope loss clears
+sensitive roster/drafts; a fresh authorized read precedes any new action.
+
+Executed verification:
+
+- `node --check /tmp/staff-flow.js`: passed for extracted reference JavaScript.
+- `node /tmp/daunteh-check-staff-flow.mjs`: passed in isolated local headless Chrome.
+  An initial harness-only selector quoting syntax error was corrected before the
+  browser run. Final checks passed with realistic fictional UUIDs.
+- 63 viewport/role/scenario checks passed at 390/800/1440px for Owner/Manager/Cashier
+  and ready/empty/loading/offline/error/TOO_LARGE/denied, without document horizontal
+  overflow; zero runtime exceptions. Additional short/200% text reachability checked.
+- Interaction assertions passed: whitespace/2/3/240/241 reason limits; cancel without
+  write; duplicate-submit disabling; disable+revoke; enable still revoked; restore
+  pending/unapproved; independently loaded approval examples; role-null/current-device
+  restoration restrictions; manager peer/audit/device restriction; conflict, uncertain
+  commit and ack+read failure requiring refresh; stale scope callback rejection.
+- Two fictional PNGs generated and visually inspected. Static unique document IDs,
+  local links/assets, no network/storage APIs, expected artifacts and `git diff --check`
+  passed. These are browser references, not Android screenshots or hosted evidence.
+
+No Gradle/native/Room/ADB/hosted tests were rerun for this documentation-only milestone.
+The prior native report build/device results remain historical. No real staff accounts,
+passwords, access changes or SQL were used. Normal-app provider/security/lease/device/
+physical tablet/IME/TalkBack, release signing and M7 recovery gates remain open.
+
+Exact next milestone: native STAFF-UI-01–04 presentation implementation from
+STAFF_SCREEN_DESIGNS.md, preserving manual provisioning and current server contracts.
+
+## Native staff/access presentation — 15 November 2026 (STAFF-UI-01–04)
+
+Implemented S-01–S-03 in StaffScreen/StaffViewModel and added StaffSession. Session
+keeps tab/target/reason only in scoped memory, invalidates the generation and clears
+state without waiting for cancelled IO, and rejects obsolete callbacks. ViewModel validates full returned roster scope/identities,
+rechecks current authority around IO, preflights captured target/version before the
+existing expected-version mutation, and guards result/error/finally by generation.
+Captured immutable targets determine intended access; no inverse refreshed-row toggle.
+
+Mutation acknowledgement is separate from roster readback: SAVED requires ack and
+validated readback; ACK_REFRESH_FAILED means refresh only; uncertain response or
+cancellation after dispatch blocks replay until fresh review; CONFLICT requires new
+review. Offline/scope loss hides sensitive staff data and clears drafts, never queues
+an access mutation. Existing manual provisioning, profile/membership/device separation,
+expected-version RPCs and reason validation remain unchanged.
+
+Compose now has Anggota/Perangkat/Owner-only Aktivitas akses tabs, virtualized separated
+rows, localized role names, profile versus membership labels, revoked-first device
+state and selectable full identities. Wide windows use a guidance pane; large text
+uses a single readable list. Bounded dialog/sheet bodies scroll with IME padding and
+fixed action buttons; Cancel restores originating action focus. Existing A-07/A-08
+is composed once in Perangkat with independent load/result state and presentation busy
+gates. MainActivity/AuthScreen/DeviceRequestsPanel wire that gate without changing APIs
+or approvals. No dependency, Room/schema/migration/backend deployment changes.
+
+Added StaffSessionTest, StaffViewModelTest, StaffPresentationTest and isolated
+StaffScreenTest fixtures; updated existing ManagementScreenTest for local tabs and
+confirmation semantics. Updated README, decisions D114–D116, STAFF_SCREEN_DESIGNS,
+UI_SCREEN_PLAN, UI_UX and IMPLEMENTATION_PLAN. Structural review used prior graph
+search/trace/snippets, refreshed index readiness and clean best-effort coverage for
+relied-on Kotlin paths, plus direct reads. No SQL/security-surface audit this iteration.
+
+Executed checks so far:
+
+- `./gradlew :app:compileDebugKotlin --offline --max-workers=2 --console=plain` passed.
+- `./gradlew :app:testDebugUnitTest --tests '*Staff*Test' --offline --max-workers=2
+  --console=plain` passed all 22 then-current tests: 3 session, 12 ViewModel, 7 Compose.
+  Covered reason bounds/untruncated draft, profile/current-device/role-null restrictions,
+  duplicate taps/captured intent, fresh-version conflict, server conflict, ack+read
+  failure, uncertain response/cancellation, offline clearing, old IO, backend change,
+  failed refresh, reviewer blocking, tabs/device priority and 200% tablet text.
+- Added one further old-error/new-outlet/finally regression to the full suite.
+- Full `./gradlew :app:assembleDebugAndroidTest build --offline --max-workers=2
+  --console=plain`: BUILD SUCCESSFUL in 9m 3s using Android Studio JBR via JAVA_HOME.
+  Debug: 263 passed. Release: 254 passed, 9 expected demo-only skips; no failures/errors.
+  Includes all 23 staff regressions (3 session, 13 ViewModel, 7 Compose), including
+  the additional late-old-error/new-outlet/finally case. Debug/release/test APKs built.
+  Lint: 0 errors, 54 warnings; 8 additional warnings are now-unused legacy staff copy
+  resources retained for later cleanup. Log: app/build/staff-build.log.
+- Debug and test APKs installed with `adb install -r -t` on Samsung SM-M146B, preserving
+  app data. Targeted command `adb -s <device> shell am instrument -w -e class
+  com.dauntehnusantara.pos.StaffScreenTest,com.dauntehnusantara.pos.ManagementScreenTest
+  com.dauntehnusantara.pos.test/com.dauntehnusantara.pos.ComponentTestRunner` passed:
+  OK (10 tests), 19.4s. Seven new staff and three existing management fixtures passed.
+  Log: app/build/staff-device-tests.log. App force-stopped afterwards so next manual
+  launch runs normal PosApplication; no data clear/uninstall was used.
+- Final `git diff --check` passed. No real staff/credential/access workflow was used
+  to manufacture automated results.
+
+Normal-app acceptance remains: hosted Owner/Manager/RLS and concurrent operator
+changes, approval + real Keystore/offline revocation, process recreation, physical
+phone/tablet/split-window/IME/TalkBack, release signing and M7 restore/recovery gates.
+Component fixtures use fake records and plain Application without production startup
+sync; they do not validate those end-to-end controls. No real staff access mutations,
+accounts or credentials are needed for the component checks.
+
+Exact next milestone: detail T-01–T-04 settings/recovery/sign-out and existing X-03
+recovery-export screens before their native presentation redesign; retain current
+export/recovery boundaries and add no automatic reset/import/restore capability.

@@ -51,11 +51,17 @@ private fun PhotoContent(path:String?,name:String,modifier:Modifier,access:Photo
     }
     if(image!=null) Image(requireNotNull(image),"Foto $name",modifier.aspectRatio(1f),contentScale=ContentScale.Crop)
     else Surface(modifier.aspectRatio(1f),color=MaterialTheme.colorScheme.surfaceContainerHighest) {
-        Column(Modifier.padding(8.dp),verticalArrangement=Arrangement.Center) {
-            Icon(androidx.compose.ui.res.painterResource(com.dauntehnusantara.pos.R.drawable.ic_product_placeholder),contentDescription=null,modifier=Modifier.size(32.dp),tint=MaterialTheme.colorScheme.primary)
+        Column(Modifier.fillMaxSize().padding(8.dp),verticalArrangement=Arrangement.Center) {
+            // Retry is the meaningful control in a missing-image thumbnail. An extra
+            // icon above it consumed its 48dp touch target in an 80dp catalog card.
             if(loading){CircularProgressIndicator(Modifier.size(20.dp));Text("Memuat foto…",style=MaterialTheme.typography.labelSmall)}
-            else if(path!=null&&access!=null) TextButton(onClick={retry++}){Text("Muat foto")}
-            else Text("Tanpa foto",style=MaterialTheme.typography.labelSmall)
+            else if(path!=null&&access!=null) TextButton(onClick={retry++},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),contentPadding=PaddingValues(0.dp)) {
+                Text("Muat foto",style=MaterialTheme.typography.labelMedium)
+            }
+            else {
+                Icon(androidx.compose.ui.res.painterResource(com.dauntehnusantara.pos.R.drawable.ic_product_placeholder),contentDescription=null,modifier=Modifier.size(32.dp),tint=MaterialTheme.colorScheme.primary)
+                Text("Tanpa foto",style=MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }

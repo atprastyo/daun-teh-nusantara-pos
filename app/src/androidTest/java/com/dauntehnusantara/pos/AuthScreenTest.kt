@@ -57,7 +57,7 @@ class AuthScreenTest {
     @Test fun invalidOfflineLeaseCannotLaunchUnlock() {
         val repository=FakeAuth(AuthState(AuthStage.LOCKED,true,canOffline=false));val model=model(repository)
         compose.setContent { DaunTehTheme { AuthRoot(model) {} } }
-        compose.onNodeWithText("Buka offline dengan kunci perangkat").assertIsNotEnabled()
+        compose.onNodeWithText("Konfirmasi kunci layar").assertDoesNotExist()
     }
     private class FakeAuth(initial:AuthState):AuthRepository {
         override val state=MutableStateFlow(initial)

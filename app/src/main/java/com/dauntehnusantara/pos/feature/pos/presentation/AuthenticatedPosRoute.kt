@@ -14,12 +14,12 @@ import com.dauntehnusantara.pos.core.designsystem.formatIdr
 import com.dauntehnusantara.pos.feature.auth.domain.AccessDestination
 
 @Composable
-fun AuthenticatedPosRoute(model: AuthenticatedPosViewModel, destination: AccessDestination, expanded: Boolean) {
+fun AuthenticatedPosRoute(model: AuthenticatedPosViewModel, destination: AccessDestination, expanded: Boolean, history: @Composable (Boolean) -> Unit) {
     val state by model.state.collectAsStateWithLifecycle()
     when (destination) {
         AccessDestination.POS -> PosScreen(state, PosActions(model::retry, model::add, model::quantity, model::remove,
-            model::pay, model::nextSale, model::clearError), expanded, demoEnabled = true, demo = false)
-        AccessDestination.HISTORY -> HistoryContent(state, model::retry, demo = false)
+            model::pay, model::nextSale, model::clearError, model::reconcile, model::retryLocal, model::retryDelivery), expanded, demoEnabled = true, demo = false)
+        AccessDestination.HISTORY -> history(expanded)
         else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text(stringResource(R.string.catalog_title), style = MaterialTheme.typography.headlineMedium) }
             if (state.loading) item { CircularProgressIndicator() }
