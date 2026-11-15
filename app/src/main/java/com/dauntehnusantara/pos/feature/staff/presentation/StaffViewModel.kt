@@ -12,11 +12,12 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
 data class StaffState(val scope:PullScope?=null,val roster:StaffRoster?=null,val busy:Boolean=false,val offline:Boolean=false,val error:String?=null,val saved:Boolean=false,
-    val generation:Long=0,val blocked:Boolean=false,val outcome:StaffOutcome=StaffOutcome.NONE,val writing:Boolean=false,val outletName:String="")
+    val generation:Long=0,val blocked:Boolean=false,val outcome:StaffOutcome=StaffOutcome.NONE,val writing:Boolean=false,val outletName:String="",val creating:Boolean=false,val createError:String?=null)
 @HiltViewModel
 class StaffViewModel @Inject constructor(private val auth:AuthRepository,private val gateway:ReportingGateway,private val staff:ManageStaff):ViewModel() {
     private val mutable=MutableStateFlow(StaffState());val state=mutable.asStateFlow()
     val session=StaffSession()
+    var pendingCreation:StaffCreation?=null;private set
     private var generation=0L;private var request=0L;private var action:Job?=null
     private val reopen=MutableStateFlow(0L)
     init {viewModelScope.launch {
@@ -37,7 +38,7 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
             }
     }}
     private fun current(token:Long,version:Long?=null)=token==generation&&(version==null||version==request)
-    private fun clear(error:String?){generation++;request++;action?.cancel();session.clear();mutable.value=StaffState(generation=generation,offline=auth.state.value.offline,error=error)}
+    private fun clear(error:String?){pendingCreation=null;generation++;request++;action?.cancel();session.clear();mutable.value=StaffState(generation=generation,offline=auth.state.value.offline,error=error)}
     private suspend fun authorized(source:PullScope,token:Long):Boolean {
         if(!current(token))return false
         if(auth.state.value.offline){clear("OFFLINE");return false}
@@ -55,7 +56,7 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
         return r
     }
     fun reload() {
-        if(state.value.busy||auth.state.value.busy||auth.state.value.offline)return
+        if(state.value.busy||state.value.creating||auth.state.value.busy||auth.state.value.offline)return
         val source=state.value.scope
         if(source==null){reopen.update{it+1};return}
         val token=generation;val version=++request
@@ -72,6 +73,47 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
             }}finally{if(current(token,version))mutable.update{it.copy(busy=false)}}
         }
     }
+    fun openCreation() {
+        val st=state.value
+        if(st.busy||st.blocked||st.offline||auth.state.value.busy||st.scope?.role !in listOf("OWNER","MANAGER")||st.roster==null)return
+        session.cancel();mutable.update{it.copy(creating=true,createError=null)}
+    }
+    fun closeCreation() {
+        if(state.value.busy)return
+        // Keep uncertain operation identity until successful readback or scope loss.
+        mutable.update{it.copy(creating=false)}
+    }
+    fun create(command:StaffCreation) {
+        val st=state.value;val source=st.scope?:return
+        if(!st.creating||st.busy||auth.state.value.busy||st.offline||st.blocked)return
+        val pending=pendingCreation
+        val frozen=if(pending!=null&&st.createError=="INVALID")StaffCreation(pending.operationId,pending.name,pending.email,pending.role,command.password) else pending?:command
+        if(runCatching{frozen.validate(source)}.isFailure){mutable.update{it.copy(createError="INVALID")};return}
+        pendingCreation=frozen
+        val token=generation;val version=++request
+        mutable.update{it.copy(busy=true,writing=true,createError=null)}
+        action=viewModelScope.launch {
+            var acknowledged=false
+            try {
+                if(!authorized(source,token))return@launch
+                staff.create(source,frozen);acknowledged=true
+                if(!current(token,version)||!authorized(source,token))return@launch
+                pendingCreation=null;mutable.update{it.copy(creating=false)}
+                val fresh=validate(staff.load(source),source)
+                if(current(token,version)&&authorized(source,token))mutable.update{it.copy(roster=fresh,saved=true,outcome=StaffOutcome.SAVED)}
+            }catch(e:CancellationException){throw e}
+            catch(e:Exception){if(current(token,version)) {
+                val code=(e as? ManagementFailure)?.code?:"UNAVAILABLE"
+                if(code=="AUTH_REQUIRED")clear(code)
+                else if(authorized(source,token)) {
+                    if(!acknowledged&&code in listOf("NOT_CONFIGURED","RATE_LIMIT"))pendingCreation=null
+                    mutable.update{it.copy(createError=if(acknowledged)null else code,
+                    error=if(acknowledged)code else it.error,blocked=acknowledged,
+                    outcome=if(acknowledged)StaffOutcome.ACK_REFRESH_FAILED else it.outcome)}
+                }
+            }}finally{if(current(token,version))mutable.update{it.copy(busy=false,writing=false)}}
+        }
+    }
     fun confirm(){val draft=session.state.value;draft.target?.let{submit(it,draft.reason)}}
     fun member(m:StaffMember,reason:String){state.value.scope?.let{submit(StaffTarget.Member(it,m),reason)}}
     fun device(d:StaffDevice,reason:String){state.value.scope?.let{submit(StaffTarget.Device(it,d),reason)}}
@@ -81,7 +123,7 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
     }
     private fun submit(target:StaffTarget,reason:String) {
         val st=state.value
-        if(st.busy||auth.state.value.busy||st.blocked||st.offline||st.scope!=target.scope)return
+        if(st.creating||st.busy||auth.state.value.busy||st.blocked||st.offline||st.scope!=target.scope)return
         if(runCatching{StaffRules.reason(reason)}.isFailure){mutable.update{it.copy(error="INVALID")};return}
         if(st.roster?.let{matches(target,it)}!=true){session.cancel();mutable.update{it.copy(error="CONFLICT",blocked=true,outcome=StaffOutcome.CONFLICT)};return}
         val token=generation;val version=++request

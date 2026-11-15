@@ -267,3 +267,18 @@ concurrent operators, real approval/Keystore/offline lease and physical tablet/I
 TalkBack remain acceptance work; component fixtures cannot establish these gates.
 Exact next milestone: detail T-01–T-04 settings/recovery/sign-out and existing X-03
 recovery export screens before their native presentation redesign.
+
+## In-app account creation extension (15 November 2026)
+
+The Anggota section now has Tambah staf for live online Owner/Manager scope. An adaptive
+confirmation form identifies the selected outlet, asks name/email/permitted role and
+masked temporary password/confirmation, and pins cancel/submit actions. Owner choices:
+Pengelola/Kasir; Manager: Kasir only. Manual/public signup and Owner creation are absent.
+Frozen uncertain commands can be checked/retried; explicit password rejection allows
+password correction using the same operation. Success closes the form and refreshes
+the roster; failed readback reports an acknowledged write without repeating creation.
+Scope/offline changes discard credentials. No password is restored after process loss.
+The first-login password screen precedes all outlet/device access. See
+IN_APP_STAFF_PROVISIONING.md for backend setup and acceptance gates. This extension
+supersedes earlier administrator-only creation boundaries; existing access confirmations
+and device approval still apply.

@@ -170,3 +170,11 @@ counts are unavailable, sums use Long, and recovery-required never implies reset
 The provider uses frozen validated archive bytes and correlated callbacks. Sign-out
 retains local work and never requires export. See SETTINGS_SCREEN_DESIGNS.md section 9
 and PROGRESS.md for checks and normal-app/provider/device acceptance still open.
+
+## Staff creation extension (15 November 2026)
+
+Staf → Anggota → Tambah staf opens a scoped, scrollable adaptive form with fixed
+submit/cancel actions, permitted role choices and masked temporary-password confirmation.
+App-created accounts use a dedicated mandatory password-replacement screen before
+outlet selection or device enrollment. See IN_APP_STAFF_PROVISIONING.md and the staff
+screen extension for retry, scope-loss and accessibility acceptance requirements.

@@ -33,6 +33,9 @@ class StaffViewModelTest {
     private var source:PullScope?=PullScope(SaleScope("brand","outlet","device","owner@example.invalid"),"OWNER","https://example.invalid")
     private val cashier=StaffMember("cashier","Rani","rani@example.invalid","CASHIER",true,true,1)
     private var row=cashier
+    private var creations=mutableListOf<StaffCreation>()
+    private var creationFailure:String?=null
+    private var createPause:CompletableDeferred<Unit>?=null
     private var loadCalls=0
     private var writes=0
     private var hold:CompletableDeferred<Unit>?=null
@@ -43,6 +46,11 @@ class StaffViewModelTest {
     private var cancelWrite=false
     private var desired:Boolean?=null
     private val api=object:StaffGateway {
+        override suspend fun create(scope:PullScope,command:StaffCreation) {
+            creations+=command;createPause?.await()
+            creationFailure?.let{throw ManagementFailure(it)}
+            if(failReadback)loadFailure=true
+        }
         override suspend fun roster(scope:PullScope):StaffRoster {
             loadCalls++;val pause=hold;val failed=loadFailure
             if(pause!=null&&!pauseWrite)withContext(NonCancellable){pause.await()}
@@ -71,6 +79,41 @@ class StaffViewModelTest {
     @Before fun before(){Dispatchers.setMain(dispatcher)}
     @After fun after(){store.clear();Dispatchers.resetMain()}
     private fun scenario(block:suspend TestScope.()->Unit)=runTest(dispatcher){try{block()}finally{hold?.complete(Unit);store.clear();runCurrent()}}
+    private fun creation(role:String="CASHIER")=StaffCreation(name="New staff",email="new@example.invalid",role=role,password="temporary-1234")
+    @Test fun creationUsesSingleFrozenCommandForUncertainRetry()=scenario {
+        val vm=model();runCurrent();vm.openCreation();creationFailure="UNAVAILABLE"
+        val original=creation();vm.create(original);vm.create(creation());runCurrent()
+        assertEquals(1,creations.size);assertSame(original,vm.pendingCreation)
+        vm.closeCreation();vm.openCreation();creationFailure=null;vm.create(creation());runCurrent()
+        assertEquals(2,creations.size);assertSame(original,creations.last());assertNull(vm.pendingCreation)
+        assertFalse(vm.state.value.creating);assertEquals(StaffOutcome.SAVED,vm.state.value.outcome)
+    }
+    @Test fun rejectedPasswordCorrectionRetainsReservedOperationAndPublicDetails()=scenario {
+        val vm=model();runCurrent();vm.openCreation();creationFailure="INVALID"
+        val original=creation();vm.create(original);runCurrent();assertSame(original,vm.pendingCreation)
+        creationFailure=null
+        vm.create(StaffCreation(name="Changed name",email="other@example.invalid",role="MANAGER",password="corrected-5678"));runCurrent()
+        val sent=creations.last();assertEquals(original.operationId,sent.operationId);assertEquals(original.email,sent.email)
+        assertEquals(original.role,sent.role);assertEquals("corrected-5678",sent.password)
+    }
+    @Test fun creationAckReadbackFailureDoesNotOfferAnotherCreate()=scenario {
+        val vm=model();runCurrent();vm.openCreation();failReadback=true;vm.create(creation());runCurrent()
+        assertEquals(StaffOutcome.ACK_REFRESH_FAILED,vm.state.value.outcome);assertFalse(vm.state.value.creating)
+        assertNull(vm.pendingCreation);vm.openCreation();assertFalse(vm.state.value.creating)
+    }
+    @Test fun managerCannotCreateManagerAndOfflineDropsSecretCommand()=scenario {
+        source=source!!.copy(role="MANAGER");auth.state.value=auth.state.value.copy(membership=member.copy(role=Role.MANAGER))
+        val vm=model();runCurrent();vm.openCreation();vm.create(creation("MANAGER"));runCurrent()
+        assertTrue(creations.isEmpty());assertEquals("INVALID",vm.state.value.createError)
+        creationFailure="UNAVAILABLE";vm.create(creation());runCurrent();assertNotNull(vm.pendingCreation)
+        auth.state.value=auth.state.value.copy(offline=true);runCurrent()
+        assertNull(vm.pendingCreation);assertFalse(vm.state.value.creating)
+    }
+    @Test fun creationContextLossDiscardsLateResult()=scenario {
+        val vm=model();runCurrent();vm.openCreation();createPause=CompletableDeferred();vm.create(creation());runCurrent()
+        auth.state.value=AuthState(AuthStage.LOGIN,true);runCurrent();createPause!!.complete(Unit);runCurrent()
+        assertNull(vm.pendingCreation);assertNull(vm.state.value.roster);assertFalse(vm.state.value.saved)
+    }
     @Test fun successUsesCapturedDesiredValueAndReadsBack()=scenario {
         val vm=model();runCurrent();vm.member(cashier,"Reviewed shift");vm.member(cashier,"Duplicate tap");runCurrent()
         assertEquals(1,writes);assertEquals(false,desired);assertTrue(vm.state.value.saved);assertEquals(StaffOutcome.SAVED,vm.state.value.outcome)

@@ -14,11 +14,13 @@ object StaffRules {
     fun reason(value:String) { require(value.trim().length in 3..240) }
 }
 interface StaffGateway {
+    suspend fun create(scope:PullScope,command:StaffCreation) { throw com.dauntehnusantara.pos.feature.reports.domain.ManagementFailure("NOT_CONFIGURED") }
     suspend fun roster(scope:PullScope):StaffRoster
     suspend fun memberAccess(scope:PullScope,id:String,active:Boolean,version:Long,reason:String)
     suspend fun deviceAccess(scope:PullScope,id:String,revoked:Boolean,version:Long,reason:String)
 }
 class ManageStaff @Inject constructor(private val gateway:StaffGateway) {
+    suspend fun create(scope:PullScope,command:StaffCreation) { command.validate(scope);gateway.create(scope,command) }
     suspend fun load(scope:PullScope)=gateway.roster(scope)
     suspend fun member(scope:PullScope,m:StaffMember,reason:String) { require(StaffRules.mayChange(scope,m));StaffRules.reason(reason);gateway.memberAccess(scope,m.id,!m.active,m.version,reason.trim()) }
     suspend fun device(scope:PullScope,d:StaffDevice,reason:String) { require(if(d.revoked)StaffRules.mayRestore(scope,d) else StaffRules.mayRevoke(scope,d));StaffRules.reason(reason);gateway.deviceAccess(scope,d.id,!d.revoked,d.version,reason.trim()) }

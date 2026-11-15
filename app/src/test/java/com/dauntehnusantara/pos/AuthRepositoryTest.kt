@@ -47,6 +47,7 @@ class AuthRepositoryTest {
         var pullStatus=200;var pullWrongScope=false
         var invalidRefresh=false
         var wrongAck=false;var pushStatus="ACCEPTED";var pushCode="CATALOG_CHANGED"; var pushCalls=0
+        var passwordRequired=false;var passwordStatus=200;var legacyPasswordRpc=false;var wrongCreationAck=false
         val calls=mutableListOf<String>(); var refreshes=0
         override suspend fun request(path:String,body:String?,token:String?,method:String):String {
             calls+=path
@@ -54,6 +55,16 @@ class AuthRepositoryTest {
             if(denied)throw AuthHttpFailure(403)
             if(protocolFailure)throw IllegalStateException("simulated invalid authorization response")
             return when {
+                path.endsWith("staff_password_change_required") -> {if(legacyPasswordRpc)throw AuthHttpFailure(404);passwordRequired.toString()}
+                path.endsWith("/functions/v1/staff-admin") -> {
+                    if(passwordStatus!=200)throw AuthHttpFailure(passwordStatus)
+                    val args=JSONObject(requireNotNull(body))
+                    if(args.getString("action")=="create") {
+                        require(args.getString("device_id")==issuedDevice&&args.getString("device_secret")=="test-device-secret")
+                        JSONObject().put("code","CREATED").put("status","CREATED").put("operation_id",args.getString("operation_id"))
+                            .put("user_id","11111111-1111-4111-8111-111111111111").put("outlet_id",if(wrongCreationAck)"foreign" else "outlet").put("role",args.getString("role")).toString()
+                    }else{passwordRequired=false;"{\"code\":\"PASSWORD_CHANGED\"}"}
+                }
                 path.startsWith("/auth/v1/token") -> {
                     if(path.contains("refresh_token")){if(invalidRefresh)throw AuthHttpFailure(400);refreshes++}
                     JSONObject().put("access_token","test-access").put("refresh_token","test-refresh-$refreshes").put("expires_at",base/1000+3600)
@@ -110,6 +121,34 @@ class AuthRepositoryTest {
     private fun repo(http:FakeHttp,store:MemoryStore,clock:FakeClock,configuration:BackendConfig=config,photos:com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport=com.dauntehnusantara.pos.feature.catalog.photos.data.UnconfiguredPhotoTransport)=
         AuthRepositoryImpl(AuthApi(http,Clock.fixed(Instant.ofEpochMilli(base),ZoneOffset.UTC),photos),configuration,store,clock,DeviceEnrollmentLookup { _, _ -> null })
     private suspend fun signedIn(repository:AuthRepositoryImpl){repository.signIn("user@example.invalid","test-password-value");repository.selectOutlet("outlet")}
+    @Test fun staffCreationUsesApprovedProofAndValidatesAcknowledgedOutlet():Unit=runBlocking {
+        val http=FakeHttp(base).apply{role=Role.OWNER};val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        val scope=repository.reportingScope(true)!!
+        val command=com.dauntehnusantara.pos.feature.staff.domain.StaffCreation(name="New staff",email="new@example.invalid",role="MANAGER",password="temporary-1234")
+        repository.create(scope,command)
+        http.wrongCreationAck=true
+        try{repository.create(scope,command);fail("must reject foreign outlet acknowledgement")}catch(e:com.dauntehnusantara.pos.feature.reports.domain.ManagementFailure){assertEquals("INVALID_RESPONSE",e.code)}
+    }
+    @Test fun legacyBackendWithoutProvisioningKeepsExistingLogin():Unit=runBlocking {
+        val http=FakeHttp(base).apply{legacyPasswordRpc=true};val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        assertEquals(AuthStage.READY,repository.state.value.stage)
+    }
+    @Test fun temporaryAccountCannotGetOutletLeaseOrOfflineAuthorityBeforePasswordChange():Unit=runBlocking {
+        val http=FakeHttp(base).apply{passwordRequired=true};val repository=repo(http,MemoryStore(),FakeClock(base))
+        repository.signIn("user@example.invalid","temporary-1234")
+        assertEquals(AuthStage.PASSWORD_CHANGE,repository.state.value.stage)
+        assertFalse(repository.state.value.canOffline);assertNull(repository.checkoutScope())
+        assertFalse(http.calls.any{it.endsWith("get_access_context")||it.endsWith("issue_offline_lease")})
+        repository.changeInitialPassword("temporary-1234","personal-5678")
+        assertEquals(AuthStage.LOGIN,repository.state.value.stage);assertFalse(repository.state.value.canOffline)
+    }
+    @Test fun rejectedPasswordKeepsChangeScreenWithoutLease():Unit=runBlocking {
+        val http=FakeHttp(base).apply{passwordRequired=true;passwordStatus=422};val repository=repo(http,MemoryStore(),FakeClock(base))
+        repository.signIn("user@example.invalid","temporary-1234")
+        repository.changeInitialPassword("temporary-1234","personal-5678")
+        assertEquals(AuthStage.PASSWORD_CHANGE,repository.state.value.stage);assertEquals(AuthMessage.INVALID_INPUT,repository.state.value.message)
+        assertFalse(repository.state.value.canOffline)
+    }
     @Test fun deviceRequestEmptySuccessIsDistinctFromUnloadedAndNetworkFailure():Unit=runBlocking {
         val http=FakeHttp(base).apply { role = Role.MANAGER };val repository=repo(http,MemoryStore(),FakeClock(base))
         signedIn(repository)
@@ -193,7 +232,7 @@ class AuthRepositoryTest {
             val repo=repo(http,MemoryStore(),FakeClock(base))
             repo.signIn("user@example.invalid","test-password-value")
             assertEquals(AuthStage.OUTLETS,repo.state.value.stage)
-            assertEquals(listOf("/auth/v1/token?grant_type=password","/rest/v1/rpc/get_access_context"),http.calls)
+            assertEquals(listOf("/auth/v1/token?grant_type=password","/rest/v1/rpc/staff_password_change_required","/rest/v1/rpc/get_access_context"),http.calls)
             repo.selectOutlet("outlet");assertEquals(role,repo.state.value.membership?.role)
             assertEquals(AuthStage.READY,repo.state.value.stage)
         }

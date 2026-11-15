@@ -42,6 +42,7 @@ class AuthViewModel @Inject constructor(private val repository: AuthUseCases, ne
     fun refresh() = launch { repository.refresh() }
     fun switchOutlet() = launch { repository.chooseOutlets() }
     fun offline() = launch { repository.unlockOffline() }
+    fun changeInitialPassword(current:String,password:String) = launch { repository.changeInitialPassword(current,password) }
     fun signOut() = launch { repository.signOut() }
     fun devices() = launch { repository.loadDeviceRequests() }
     fun approve(id: String) = launch { repository.approveDevice(id) }

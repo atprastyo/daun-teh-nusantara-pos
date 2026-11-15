@@ -21,7 +21,7 @@ object OfflineLeaseRules {
         return now.wallMs - lease.anchorWallMs < duration && now.elapsedMs - lease.anchorElapsedMs < duration
     }
 }
-enum class AuthStage { LOADING, LOGIN, OUTLETS, READY, LOCKED }
+enum class AuthStage { LOADING, LOGIN, OUTLETS, READY, LOCKED, PASSWORD_CHANGE }
 enum class AuthMessage { RATE_LIMIT, DEVICE_PENDING, CONFIGURATION, INVALID_INPUT, SIGN_IN_FAILED, UNAVAILABLE, NO_ACCESS, DENIED, OFFLINE_EXPIRED }
 data class DeviceRequest(val deviceId: String, val userId: String, val fullName: String, val email: String, val role: Role)
 data class AuthState(val stage: AuthStage = AuthStage.LOADING, val configured: Boolean = false,
@@ -42,6 +42,7 @@ interface AuthRepository {
     suspend fun enforceLease()
     suspend fun loadDeviceRequests()
     suspend fun approveDevice(id: String)
+    suspend fun changeInitialPassword(current:String,password:String) { throw UnsupportedOperationException() }
     suspend fun signOut()
 }
 enum class AccessDestination { OVERVIEW, POS, HISTORY, CATALOG, REPORTS, STAFF, SETTINGS }
@@ -63,6 +64,7 @@ class AuthUseCases @javax.inject.Inject constructor(private val repository: Auth
     suspend fun enforceLease() = repository.enforceLease()
     suspend fun loadDeviceRequests() = repository.loadDeviceRequests()
     suspend fun approveDevice(id: String) = repository.approveDevice(id)
+    suspend fun changeInitialPassword(current:String,password:String) = repository.changeInitialPassword(current,password)
     suspend fun signOut() = repository.signOut()
 }
 

@@ -29,16 +29,17 @@ fun StaffRoute(model:StaffViewModel,reviewerBusy:Boolean=false,approval:@Composa
     val state by model.state.collectAsStateWithLifecycle()
     val draft by model.session.state.collectAsStateWithLifecycle()
     StaffScreen(state,model::reload,model::member,model::device,
-        approval={approval(!state.busy&&!state.blocked&&draft.target==null)},session=model.session,reviewerBusy=reviewerBusy,onConfirm=model::confirm)
+        approval={approval(!state.busy&&!state.creating&&!state.blocked&&draft.target==null)},session=model.session,reviewerBusy=reviewerBusy,onConfirm=model::confirm,onCreate=model::openCreation)
+    if(state.creating&&!state.offline)state.scope?.let { StaffCreateForm(it,state.outletName,state.busy,state.createError,model.pendingCreation,model::create,model::closeCreation) }
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Unit,device:(StaffDevice,String)->Unit,approval:@Composable ()->Unit={},
-    session:StaffSession?=null,reviewerBusy:Boolean=false,onConfirm:(()->Unit)?=null) {
+    session:StaffSession?=null,reviewerBusy:Boolean=false,onConfirm:(()->Unit)?=null,onCreate:(()->Unit)?=null) {
     val editor=session?:remember(state.scope?.key,state.generation){StaffSession()}
     val draft by editor.state.collectAsState()
     val token=editor.generation
-    val locked=state.busy||state.offline||state.blocked||reviewerBusy
+    val locked=state.creating||state.busy||state.offline||state.blocked||reviewerBusy
     val roster=state.roster?.takeIf{it.scope==state.scope&&!state.offline&&it.scope.role in listOf("OWNER","MANAGER")}
     val tab=if(draft.tab==StaffTab.AUDIT&&state.scope?.role!="OWNER")StaffTab.MEMBERS else draft.tab
     val focus=remember(state.scope?.key,state.generation){mutableMapOf<String,FocusRequester>()}
@@ -70,6 +71,7 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
             }}
             when(tab) {
                 StaffTab.MEMBERS->{
+                    if(onCreate!=null)item{AppPrimaryButton("Tambah staf",onCreate,enabled=!locked,modifier=Modifier.testTag("staff.create.open"))}
                     if(roster.members.isEmpty())item{AppEmptyState(stringResource(R.string.staff_empty))}
                     items(roster.members,key={"member.${it.id}"}){m->StaffRow {
                         Text(m.name,style=MaterialTheme.typography.titleMedium);Text(m.email);Text(staffRole(m.role),style=MaterialTheme.typography.labelLarge)
@@ -144,7 +146,7 @@ private fun staffEffect(target:StaffTarget)=when(target){
 private fun auditLabel(action:String):Int=when(action){"STAFF_PROVISION"->R.string.audit_provision;"STAFF_ENABLE"->R.string.staff_enable;"STAFF_DISABLE"->R.string.staff_disable;"DEVICE_REVOKE"->R.string.staff_revoke_device;"DEVICE_RESTORE_PENDING"->R.string.staff_restore_device;"DEVICE_APPROVE"->R.string.staff_approved;else->R.string.staff_ui_audit_unknown}
 
 @Composable private fun StaffHelp(){Surface(color=MaterialTheme.colorScheme.surfaceContainerLow,shape=MaterialTheme.shapes.large){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-    Text("Akun ditambahkan oleh administrator",style=MaterialTheme.typography.titleMedium)
-    Text("Hubungi administrator untuk akun, peran atau kata sandi. Tidak ada undangan atau pendaftaran di aplikasi.")
+    Text("Tambah akun sesuai peran",style=MaterialTheme.typography.titleMedium)
+    Text("Pemilik dapat membuat Pengelola atau Kasir. Pengelola hanya dapat membuat Kasir pada outlet yang dipilih. Akun Pemilik dan pemulihan kata sandi ditangani administrator.")
     Text("Izin offline perangkat terputus tetap dibatasi masa izin yang sudah ada.",style=MaterialTheme.typography.bodySmall)
 }}}

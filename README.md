@@ -487,3 +487,12 @@ negative/malformed amounts and overflow never silently become a different price.
 
 Cash payment supports quick tender amounts: Rp5.000, Rp10.000, Rp20.000, Rp50.000
 and Rp100.000. Tap to replace the received amount, or use Uang pas/manual input.
+
+## Create staff in the app
+
+After [staff provisioning setup](docs/IN_APP_STAFF_PROVISIONING.md), open Staf →
+Tambah staf for the selected outlet. Owners can create Managers/Cashiers; Managers
+can create Cashiers only. New staff replace the temporary password before POS access
+and still need device approval. Existing email accounts require administrator review.
+The SQL setup and staff-admin Edge Function must be deployed separately; never add
+a service-role key to Android.

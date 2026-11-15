@@ -84,3 +84,11 @@ Staf for authorized owner/manager reviewers. It does not create accounts, assign
 roles or reactivate a globally inactive profile. Enabling an outlet does not restore
 revoked devices; owner-only restoration returns them to pending before fresh approval.
 See BACKUP_RESTORE_RUNBOOK for retained device work and explicit recovery boundaries.
+
+## In-app alternative
+
+After optional [in-app provisioning setup](IN_APP_STAFF_PROVISIONING.md), Owners can
+create Manager/Cashier accounts and Managers can create assigned-outlet Cashiers.
+This guide remains the trusted administrator fallback for existing identities,
+Owner bootstrap and recovery. Do not run assignment scripts to bypass an unfinished
+app-created account's password gate; inspect its reserved operation first.

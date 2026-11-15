@@ -145,3 +145,11 @@ bucket/RLS and `set_product_photo`; existing price/sale tables are not rewritten
 Do not rerun the base schema to enable photos. See
 [product photo guide](../docs/PRODUCT_PHOTOS.md). Install updated clients before
 publishing photo feed rows. No hosted SQL or bucket changes were executed here.
+
+## Optional in-app staff provisioning
+
+See [IN_APP_STAFF_PROVISIONING.md](../docs/IN_APP_STAFF_PROVISIONING.md). Apply
+staff-provisioning.sql once after the initial schema, then deploy functions/staff-admin.
+This supersedes administrator-only account creation for Manager/Cashier roles, while
+Owner bootstrap and recovery remain administrator operations. No deployment is performed
+by building the app. Keep service-role secrets exclusively in the Edge environment.

@@ -90,6 +90,11 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         }
     }
     private suspend fun loadChoices(keepSelection: Boolean) {
+        if(authorized { api.passwordChangeRequired(it) }) {
+            cache=cache.copy(membership=null,device=null,lease=null);save()
+            mutable.value=AuthState(AuthStage.PASSWORD_CHANGE,true,email=cache.session?.email.orEmpty())
+            return
+        }
         val choices = authorized { api.choices(it) }
         if (choices.isEmpty()) {
             cache = cache.copy(membership = null, device = null, lease = null); save()
@@ -255,7 +260,7 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         catch(e:CancellationException){throw e}
         catch(e:AuthHttpFailure){
             if(e.status in listOf(401,403,423))failure(e,false)
-            throw ManagementFailure(when(e.status){409->"CONFLICT";401,403,423->"AUTH_REQUIRED";413->"TOO_LARGE";410->"REBOOTSTRAP_REQUIRED";422->"INVALID";else->"UNAVAILABLE"})
+            throw ManagementFailure(when(e.status){404->"NOT_CONFIGURED";429->"RATE_LIMIT";409->"CONFLICT";401,403,423->"AUTH_REQUIRED";413->"TOO_LARGE";410->"REBOOTSTRAP_REQUIRED";422->"INVALID";else->"UNAVAILABLE"})
         } catch(_:IOException){throw ManagementFailure("UNAVAILABLE")}
         catch(e:ManagementFailure){throw e}
         catch(_:Exception){throw ManagementFailure("INVALID_RESPONSE")}
@@ -311,6 +316,31 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         StaffRules.reason(reason)
         management(scope) { session,device -> api.management(session,device,"set_device_access",JSONObject().put("p_target_id",id)
             .put("p_revoked",revoked).put("p_expected_version",version).put("p_reason",reason.trim())) }
+    }
+    override suspend fun create(scope:PullScope,command:StaffCreation) {
+        command.validate(scope)
+        management(scope) { session,device ->
+            val ack=api.staffAdmin(session,JSONObject().put("action","create").put("operation_id",command.operationId)
+                .put("device_id",device.id).put("device_secret",device.secret).put("email",command.email.trim())
+                .put("full_name",command.name.trim()).put("role",command.role).put("password",command.password))
+            require(ack.getString("operation_id")==command.operationId&&ack.getString("outlet_id")==scope.sale.outletId&&
+                ack.getString("role")==command.role&&ack.getString("status")=="CREATED")
+            UUID.fromString(ack.getString("user_id"))
+        }
+    }
+    override suspend fun changeInitialPassword(current:String,password:String) = action {
+        if(mutable.value.stage!=AuthStage.PASSWORD_CHANGE||!StaffCreationRules.password(password)||current.isEmpty()||current.length>128||current==password)throw AuthInputFailure()
+        try {
+            val ack=authorized { api.staffAdmin(it,JSONObject().put("action","change_password").put("current_password",current).put("password",password)) }
+            require(ack.getString("code")=="PASSWORD_CHANGED")
+            // Require fresh sign-in; no temporary-password session/lease survives this action.
+            val previous=cache.session;clear();mutable.value=AuthState(AuthStage.LOGIN,true)
+            if(previous!=null)runCatching{api.logout(previous)}
+        }catch(e:AuthHttpFailure) {
+            if(e.status==422)mutable.value=mutable.value.copy(message=AuthMessage.INVALID_INPUT)
+            else if(e.status>=500||e.status==409)mutable.value=mutable.value.copy(message=AuthMessage.UNAVAILABLE)
+            else throw e
+        } catch(_:IOException) { mutable.value=mutable.value.copy(message=AuthMessage.UNAVAILABLE) }
     }
     override suspend fun signOut() = mutex.withLock {
         val session = cache.session

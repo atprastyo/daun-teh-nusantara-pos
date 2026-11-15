@@ -2349,3 +2349,53 @@ was not executed. No sale, draft, membership or account/session changes were mad
 Next: sign in directly on the phone with an existing authorized Cashier account to
 verify the cash shortcuts without saving a sale. Host tests and debug build results
 from the cash-shortcut iteration remain valid; this check does not close M7 gates.
+
+## In-app staff account creation (2026-11-15)
+
+Implemented protected Edge staff-admin handler plus optional initial staff-provisioning
+SQL setup: live approved-device/role checks, selected outlet, immutable reserved UUID,
+existing-email refusal, 10/hour actor reservation rate, atomic profile/membership/audit
+finalization and server-wide temporary-password gate. Owner can create Manager/Cashier;
+Manager only Cashier. Added memory-only adaptive Tambah staf form with stable uncertain
+retry, ack/readback distinction, masked credentials and first-password replacement screen.
+Existing device approval, offline lease, manual provisioning and Owner bootstrap remain.
+
+Executed checks:
+
+- Initial `:app:compileDebugKotlin --offline --max-workers=2 --console=plain` passed
+  in 1m58s. Log: app/build/staff-create-compile.log.
+- First targeted Android run: 59 tests, one failure in an old exact-login-call-list
+  assertion. Updated it to include the new read-only password-status check. No
+  production behavior or test was suppressed to pass the assertion.
+- Final targeted `:app:testDebugUnitTest --tests '*Staff*Test' --tests '*AuthRepositoryTest'
+  :app:assembleDebug --offline --max-workers=2 --console=plain` passed in 3m8s:
+  64 tests, zero failures/errors/skips. Covers role/UTF-8 validation, scope loss,
+  duplicate submit, uncertain frozen retry, rejected-password correction, ack/readback
+  failure, proof/ack scope, legacy backend, password gate and compact/large-text forms.
+  Log: app/build/staff-create-tests-final.log. Android Studio JBR via JAVA_HOME.
+- `npm test --prefix supabase`: 64 passed, zero failed/skipped (42.3s). Includes all
+  existing isolated backend suites, five new SQL provisioning tests and seven new
+  mocked Edge tests (JWT/role/proof ordering, Auth marker/retry/conflict/rate/revocation,
+  password gate/reauth/update ordering and lost Auth create response). No live backend.
+  Log: app/build/staff-create-backend-verified.log.
+- Full `:app:assembleDebugAndroidTest build --offline --max-workers=2 --console=plain`
+  completed successfully on the final invocation (52s, 159 tasks up-to-date). First
+  invocation completed the debug suite/lint and compiled release/instrumentation code,
+  but its command session ended before recording the release test result; the final
+  invocation completed release tests. Final XML: debug320 passed, release311 passed +9
+  expected demo-only skips; zero failures/errors. Lint: zero errors/45 existing warnings.
+  Logs: app/build/staff-create-build.log and app/build/staff-create-build-final.log.
+- `git diff --check` passed. Supabase config explicitly keeps staff-admin JWT verification
+  enabled. A convenience config parse using system Python was unavailable because that
+  Python lacks tomllib; no Deno/CLI validation is claimed.
+Deno/Supabase CLI is not installed here; no actual Deno serve or hosted deployment
+was run. No real accounts, memberships, passwords, sales or device state were changed.
+Setup and operational failure handling: IN_APP_STAFF_PROVISIONING.md.
+
+Final handoff: Android, domain, gateway and SQL/Edge source plus setup/runbook are
+complete for this milestone. No APK install/ADB checks were performed for provisioning.
+Exact next milestone: deploy the optional SQL/Edge setup to a disposable hosted project
+and execute controlled two-role/first-login/device-approval acceptance. Applying it to
+the brand's working project requires explicit deployment approval; do not rerun/reset
+schema.sql or create fabricated staff in the working project. No production readiness,
+hosted Auth/Edge integration, Deno runtime or physical accessibility acceptance claimed.

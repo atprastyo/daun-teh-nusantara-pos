@@ -42,6 +42,7 @@ fun AuthRoot(viewModel: AuthViewModel, authenticated: (@Composable (AccessDestin
     }
     Surface(Modifier.fillMaxSize()) {
         if (state.stage == AuthStage.READY) AccessPortal(state, viewModel, authenticated, recovery, settings)
+        else if(state.stage==AuthStage.PASSWORD_CHANGE) InitialPasswordScreen(state,viewModel::changeInitialPassword,viewModel::signOut)
         else LoginScreen(state, viewModel, if (BuildConfig.DEBUG) ({ demoMode = true }) else null)
     }
 }

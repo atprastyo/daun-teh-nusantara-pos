@@ -1,9 +1,9 @@
 # Authentication and authorization
 
-## Login / manual provisioning
+## Login / staff provisioning
 - Disable public self-signup for the POS. Owner is provisioned by trusted admin setup.
-- A trusted administrator manually creates/confirms each Supabase Auth account and assigns its profile and Manager/Cashier outlet membership using the provisioning guide.
-- Staff sign in normally with email/password. There is no invite, activation code or in-app account creation. Auth account creation alone grants no application access.
+- Owner bootstrapping remains trusted administration. With optional staff-provisioning setup, Owners create Manager/Cashier accounts and Managers create Cashiers for the selected assigned outlet through the protected staff-admin Edge Function. Manual administrator provisioning remains available.
+- Staff sign in with email/password, without invitations or public signup. App-created accounts must replace their temporary password before server role access, device enrollment or offline leases. Auth account creation alone grants no application access.
 - Fetch current membership and outlet permissions from server; if multiple outlets, explicitly select one.
 - Never store passwords in application tables or hardcode service-role keys in client.
 
@@ -134,3 +134,13 @@ validates the current scope before/after IO, bounds/decodes images, strips sourc
 and scopes cached bytes to project/account/device/role/outlet under the normal lease.
 There is no public bucket, signed URL in Room, client overwrite/delete policy or
 photo data inside paid receipts. No hosted Storage deployment/acceptance is claimed.
+
+## In-app provisioning revision (15 November 2026)
+
+The optional implementation in [IN_APP_STAFF_PROVISIONING.md](IN_APP_STAFF_PROVISIONING.md)
+supersedes earlier statements that only administrators can create Manager/Cashier accounts.
+Live Owner→Manager/Cashier and Manager→Cashier rules are checked before Auth creation
+and again before atomic profile/membership/audit assignment. Admin keys are Edge-only.
+Existing emails never grant an implicit attach/reset/reactivation. The private ledger
+provides retry identity, rate limiting and the server-enforced initial-password gate.
+No backend deployment or working-brand user creation was performed.

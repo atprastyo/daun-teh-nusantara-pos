@@ -19,6 +19,14 @@ class AuthApi @Inject constructor(private val http: AuthTransport, private val c
     }
     suspend fun signIn(email: String, password: String) = parseSession(http.request("/auth/v1/token?grant_type=password", JSONObject().put("email", email).put("password", password).toString()))
     suspend fun refresh(session: TokenSession) = parseSession(http.request("/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", session.refreshToken).toString()))
+    suspend fun passwordChangeRequired(session:TokenSession):Boolean = try {
+        val raw=http.request("/rest/v1/rpc/staff_password_change_required","{}",session.accessToken).trim()
+        require(raw in listOf("true","false"));raw=="true"
+    } catch(e:com.dauntehnusantara.pos.core.network.AuthHttpFailure) {
+        if(e.status==404)false else throw e // Legacy backend has no provisioned temporary accounts.
+    }
+    suspend fun staffAdmin(session:TokenSession,args:JSONObject):JSONObject =
+        JsonSafety.obj(http.request("/functions/v1/staff-admin",args.toString(),session.accessToken))
     suspend fun choices(session: TokenSession): List<Membership> {
         val rows = JsonSafety.array(http.request("/rest/v1/rpc/get_access_context", "{}", session.accessToken))
         return (0 until rows.length()).map { rows.getJSONObject(it).let { row -> Membership(row.getString("brand_id"), row.getString("brand_name"), row.getString("outlet_id"), row.getString("outlet_name"), Role.valueOf(row.getString("role"))) } }

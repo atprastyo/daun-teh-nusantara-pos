@@ -176,3 +176,13 @@ ledger binds actor/device/request for publication retries. Storage bytes live in
 private JPEG bucket under immutable brand/product/UUID paths, outside sale graphs.
 Initial Room remains v1/14 tables: photo feed rows use the existing versioned catalog
 metadata and cursor transaction. No migration, schema reset or sale rewrite occurs.
+
+## Optional in-app staff account setup (15 November 2026)
+
+staff-provisioning.sql adds private.staff_provision_operations, binding operation UUID,
+actor/device, brand/outlet, target Auth UUID, normalized email, name, role and creation/
+completion/password-replacement timestamps. No password/hash column; it is not exposed
+by RLS or in sync/export. Existing public tables and Room v1 remain unchanged. The
+private.active_user function additionally denies unfinished temporary-password targets.
+Profile/membership/audit finalization is transactional; Auth creation is a separate
+idempotent Edge saga. See IN_APP_STAFF_PROVISIONING.md for failure/recovery semantics.

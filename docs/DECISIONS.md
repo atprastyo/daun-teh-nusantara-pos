@@ -801,3 +801,17 @@ Official Android references checked for M7:
   tender shortcuts. Each replaces the input; it does not add banknotes or submit a
   payment. Retain exact-total/manual entry, existing insufficient-cash validation and
   change calculation. Wrapping 48dp buttons remain cash-only and disabled while saving.
+
+- D132: Add online in-app Owner→Manager/Cashier and assigned-outlet Manager→Cashier
+  provisioning through staff-admin Edge Function, with live role/approved-device checks
+  before Auth creation and final assignment. Selected outlet is explicit; Owner bootstrap
+  stays trusted. No existing email attachment, password reset, role change or invitation.
+- D133: Reserve a private operation and target Auth UUID, bind email/name/role/actor/device,
+  cap new reservations at 10/hour/actor, verify protected Auth operation metadata and
+  atomically assign profile/membership/audit. Retry never changes the original password
+  or reactivates a completed account. Partial Auth/DB failures stay fail-closed and
+  require same-command retry or administrator review after process loss.
+- D134: Gate new accounts at private.active_user until temporary password replacement
+  via verified/re-authenticated Edge action, then require fresh sign-in and normal device
+  approval. Credentials are scoped memory-only and redacted; no client admin key, Room
+  change, migrations or deployment. Existing manual accounts are unaffected.

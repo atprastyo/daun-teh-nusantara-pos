@@ -225,3 +225,11 @@ mapping and unchanged domain validation. No business/schema/auth/dependency chan
 See UI_COMPONENTS.md and PROGRESS.md for contracts, verification and limits. Next:
 incremental adoption in remaining specialized screens only where contracts match;
 normal-device/IME/accessibility acceptance resumes only at the user's request.
+
+## In-app staff provisioning iteration (2026-11-15)
+
+Implement protected Auth creation, private idempotency/rate/password-gate setup,
+role-scoped selected-outlet form, initial-password screen and isolated regressions.
+No Room migration, working-brand account creation or deployment. Next milestone:
+controlled hosted acceptance in a disposable project, then separately authorized
+working-project deployment. See IN_APP_STAFF_PROVISIONING.md.

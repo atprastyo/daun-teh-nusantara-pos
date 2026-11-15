@@ -39,6 +39,7 @@ fun AccessScreen(state: AuthState, signIn: (String, String) -> Unit, select: (St
                 AccessHeading(stringResource(R.string.access_restoring), stringResource(R.string.access_restoring_body))
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             }
+            AuthStage.PASSWORD_CHANGE -> Unit // Dedicated memory-only password screen in AuthRoot.
             AuthStage.LOGIN -> LoginForm(state, signIn, onDemo)
             AuthStage.OUTLETS -> {
                 AccessHeading(stringResource(R.string.auth_select_outlet), stringResource(R.string.access_outlet_help))
