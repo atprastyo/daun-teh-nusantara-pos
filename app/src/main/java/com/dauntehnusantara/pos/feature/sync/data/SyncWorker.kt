@@ -31,8 +31,8 @@ class WorkSyncScheduler @Inject constructor(@param:ApplicationContext private va
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS).build())
     }
     override fun ensurePeriodic() {
-        work.enqueueUniquePeriodicWork("push-sales-sweep", ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).setConstraints(constraints)
+        work.enqueueUniquePeriodicWork("push-sales-sweep", ExistingPeriodicWorkPolicy.UPDATE,
+            PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS).setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS).build())
     }
 }

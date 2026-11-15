@@ -196,3 +196,23 @@ verifier and four parser tests. The user confirmed a working-brand backend; auth
 read-only checks await sign-in on the device. No live transaction/access/restore test,
 signing, data clearing or backend deployment. Next: complete the read-only authenticated
 navigation/cancel matrix, then arrange controlled hosted/provider/release gates.
+
+## Signed-in normal-app follow-up (2026-11-15)
+
+Observed management navigation and real confirmation/JSON-picker cancellation. Fixed
+same-context auth revalidation removing the shell: keep READY/busy only after current
+choices confirm identical context; real role/permission changes still clear authority.
+Three regressions and full build passed (295 debug, 286 release +9 expected skips).
+Manual validation and >70s Settings observation passed on the updated phone. Further
+report/staff checks await an idle phone; controlled completed-file/other-role/offline/
+concurrency/restore/signing acceptance remains. See M7_DEVICE_ACCEPTANCE.md.
+
+## Hourly background sweep (2026-11-15)
+
+User-selected periodic WorkManager interval is now one hour. UPDATE applies the
+new specification to the existing unique sweep on startup. A real WorkManager
+persistence regression verifies the old 15-minute entry updates in place; push/pull
+regressions and local debug assembly are recorded in PROGRESS.md. No device checks
+or install while the user's device-check pause is active. Access-validation frequency
+and event-driven sync remain separate. Next: install when appropriate and resume only
+explicitly authorized device acceptance; release/signing/hosted gates remain open.

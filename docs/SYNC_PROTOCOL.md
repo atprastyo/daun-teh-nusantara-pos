@@ -60,7 +60,7 @@ for review rather than claiming success. No automatic repricing or reissue.
 Room states: PENDING, RETRY, AUTH_REQUIRED, REVIEW, SYNCED; demo stays PENDING_DEMO.
 Attempts and next due time persist before IO. Cancellation/process death cannot
 strand an IN_FLIGHT flag because no such state is used. Connected unique KEEP one-time
-work plus a 15-minute periodic/startup sweep recover commit/enqueue gaps; OS scheduling
+work plus an hourly periodic sweep and startup nudges recover commit/enqueue gaps; OS scheduling
 is best effort. Worker processes 20 rows per pass, scoped to the encrypted session's
 original account, outlet and enrolled device, refreshing expired tokens privately.
 Manual retry resets due times only for deliverable rows, never REVIEW/SYNCED, and replaces a backoff-delayed worker so the request can run immediately when connected.

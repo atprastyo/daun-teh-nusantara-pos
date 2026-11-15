@@ -2153,3 +2153,111 @@ using weaker fixture/readiness evidence.
 Exact next step: once signed in on the phone, complete the read-only authenticated
 screen and cancellation matrix in M7_DEVICE_ACCEPTANCE.md; use a controlled acceptance
 setup for live money/access/recovery tests and operator-approved signing/release gates.
+
+## Signed-in M7 follow-up and refresh fix — 15 November 2026
+
+The user signed in directly on the Infinix. Continued the working-project pass with
+read-only navigation/cancellation, no test sale/catalog/staff/device/restore or actual
+logout. Credentials stayed on the device. Filtered UI inspection logged only fixed
+labels/coordinates/booleans, never account/business content or screenshots.
+
+Normal app observations:
+
+- Opened Ringkasan, Katalog, Laporan, Staf and Setelan. Owner-only audit tab was
+  visible in this session; no other role's navigation/authorization is claimed.
+- Sign-out confirmation opened and Cancel retained the session. Recovery explanation
+  opened and Cancel did not prepare/write an artifact. These were normal app actions,
+  not plain-Application component fixtures.
+- Real authorized JSON capture opened Android DocumentsUI; Back cancelled it without
+  choosing a destination. No completion message appeared, export re-enabled and
+  Settings remained visible. No private export file was saved by the test. Logs:
+  app/build/m7-normal-navigation.jsonl and app/build/m7-normal-cancellations.log.
+- Found periodic navigation reset. AuthViewModel refreshes every60s; loadChoices
+  emitted OUTLETS even for unchanged confirmed context, removing the shell and risking
+  pending export loss during foreground validation. Fixed AuthRepositoryImpl to retain
+  READY/busy only after live choices confirm same brand/outlet/role/account/enrolled
+  user. Real scope/role change, device denial and existing failure policies remain.
+- Updated debug APK installed with `adb install -r -t`, data/session preserved.
+  Normal launch restored the signed-in session without credentials. Initial UI lookup
+  ran before restore finished and was retried after READY; no login bypass was used.
+- On the fixed app, sign-out and explanation Cancel passed again. JSON picker Cancel
+  retained Settings; explicit online validation retained Settings. Settings stayed
+  visible for >70s across the nominal periodic interval. No performance budget implied.
+- Report-filter/staff follow-up was interrupted when foreground left POS. The process
+  remained alive, crash buffer had no app crash record, and a later package check
+  confirmed another foreground app. Do not count those interrupted assertions as
+  a pass or an app crash. No further UI taps were sent; the temporary helper was
+  tightened to require the POS package before a tap. Resume when the phone is idle.
+
+Executed fix verification:
+
+- AuthRepositoryTest: 27 passed, including 3 new regressions for READY/busy during
+  same-context lease validation, clearing old context before role-change validation,
+  and confirmed device denial still locking access.
+- `JAVA_HOME='<Android Studio JBR>' ./gradlew :app:assembleDebugAndroidTest build
+  --offline --max-workers=2 --console=plain`: BUILD SUCCESSFUL in 5m22s. Debug295
+  passed; release286 passed +9 expected demo-only skips, no failures/errors. Lint0
+  errors/45 warnings. All APKs built; app/build/m7-refresh-build.log.
+- Reran the artifact verifier and build-tools36.0.0 ZIP16 KB check for the changed
+  unsigned release: eight native libraries passed ELF checks. New debug APK signature
+  verifies (v2, one signer). Updated APK/mapping SHA-256 values and limits recorded in
+  M7_DEVICE_ACCEPTANCE.md / generated app/build/m7-artifact-check.json. Release still
+  unsigned; current phone still4 KB, not 16 KB runtime evidence.
+
+Changed AuthRepositoryImpl/AuthRepositoryTest and updated M7 acceptance/security/release
+records, README, implementation plan and D126. Existing schema, dependencies, offline
+month policy and server permissions retained. Graph best-effort coverage clean for
+relied-on auth/test paths; direct source review confirmed the refresh/periodic path.
+No deployment, data clearing, credential extraction or live mutation test. Remaining
+controlled provider writes/failures, other roles, offline/OS credentials/process death,
+concurrency/restore, signing/API26/tablet/16 KB/TalkBack gates stay open.
+
+Exact next step: resume interrupted read-only filter/staff checks on an idle phone;
+use a controlled acceptance setup for completed private exports and write/offline/
+other-role/recovery tests. Production release remains unapproved.
+
+## Hourly background sync sweep — 15 November 2026
+
+Changed WorkSyncScheduler.ensurePeriodic from 15 minutes to 1 hour and KEEP to UPDATE,
+preserving the push-sales-sweep unique name. UPDATE makes existing persisted entries
+adopt the new specification at normal startup without interrupting an active run.
+Connected-network constraint and 30-second exponential backoff remain. Startup,
+event-driven/manual nudges and separate 60-second access validation are unchanged.
+No dependency, Room migration, server/schema or authorization changes.
+
+Read installed WorkManager2.10.2 source for UPDATE semantics. Graph lookup/snippet/
+exact trace and best-effort coverage used for SyncWorker.kt; direct source verified
+scheduling. Added WorkSyncSchedulerTest using real WorkManager persistence with no
+schedulers so no sync/network worker executes. It seeds the old 15-minute unique work,
+checks interval/network/backoff update and stable identity/no duplicate after repeat.
+Updated SYNC_PROTOCOL, README, implementation plan and D127.
+
+Executed `./gradlew :app:testDebugUnitTest --tests '*WorkSyncSchedulerTest'
+--tests '*PushSyncTest' --tests '*PullSyncTest' --offline --max-workers=2
+--console=plain`: BUILD SUCCESSFUL, all 28 tests passed (1 schedule update, 8 push,
+19 pull), no failures/skips. Log: app/build/hourly-sync-tests.log.
+Local `./gradlew :app:assembleDebug --offline --max-workers=2 --console=plain` passed
+in 3s. Log: app/build/hourly-sync-build.log. Final `git diff --check` passed. No full release/lint suite rerun for
+this bounded scheduler change; previous full-build evidence remains historical.
+No ADB, installation, device taps or working-project operations were performed;
+device checks remain paused at the user's explicit request. Next: install the updated
+APK when appropriate, then resume device checks only when requested. Production
+signing/hosted/provider/offline and other M7 acceptance gates remain open.
+
+## Solid launcher background — 15 November 2026
+
+Updated mipmap-anydpi/ic_launcher.xml background from transparent to fixed Android
+white. Removed drawable-night/ic_launcher_foreground.xml so both themes resolve the
+original green foreground; this avoids a white mark on the new white backdrop.
+Original transparent brand_logo bitmap, foreground inset, manifest normal/round icon
+references and in-app branding/theme remain. No bitmap regeneration or dependency,
+schema/permission changes. Updated README and D128.
+
+Local `./gradlew :app:assembleDebug --offline --max-workers=2 --console=plain`:
+BUILD SUCCESSFUL in 6s; app/build/solid-launcher-build.log. Static XML/background/
+foreground/day-night fallback checks and `git diff --check` passed.
+This is a resource-only change; no new implementation-mirroring test
+or full unit/release suite. No ADB, device install or launcher manipulation while
+phone checks are paused. Physical Samsung/Infinix launcher appearance remains to
+verify after installation. Current debug artifact supersedes earlier local debug
+fingerprints; historical M7 runtime/signing acceptance is not extended by this build.

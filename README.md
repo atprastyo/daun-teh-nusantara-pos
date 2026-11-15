@@ -464,3 +464,15 @@ startup, artifact hashes, ELF/ZIP checks and open sign-in/provider/signing gates
 Read-only artifact verification is repeatable with
 `python3 scripts/verify_android_artifacts.py`; use `--help` for mapping/zipalign options.
 The working-brand project is not used for fabricated sales or access/restore tests.
+
+Normal-app acceptance also found and fixed periodic validation resetting navigation.
+Unchanged confirmed access now keeps the current screen while validation is busy;
+changed roles/denials still clear the old context. Latest results and remaining
+controlled-device gates are in [M7_DEVICE_ACCEPTANCE.md](docs/M7_DEVICE_ACCEPTANCE.md).
+
+Periodic background push/pull sync runs hourly (Android scheduling is best effort).
+Existing periodic entries update on startup. Event-driven, startup and manual sync
+nudges remain available; access validation has its own separate 60-second interval.
+
+The launcher icon uses a fixed white background with the green brand mark in both
+light and dark modes. The in-app logo/theme remains independent of launcher styling.

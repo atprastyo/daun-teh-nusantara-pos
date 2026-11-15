@@ -18,19 +18,19 @@ this pass. Keep retained data intact. Sign-in credentials belong on the phone on
 - Normal PosApplication schedules its existing WorkManager startup/periodic work.
   This pass does not create test transactions; it does not claim that ordinary
   startup background traffic was disabled.
-- App remains installed and its data was not cleared/uninstalled. Authenticated
-  checks are awaiting the user signing in directly on this device. No password is
-  requested in chat, read from storage or supplied by the agent.
+- The user signed in directly on the device. The updated debug APK restored that
+  authenticated session after an in-place update; no password was requested in chat,
+  read from storage or supplied by the agent. App data was not cleared/uninstalled.
 
 ## Acceptance matrix
 
 | Check | Result in this pass | Remaining evidence |
 | --- | --- | --- |
-| Normal debug Hilt startup / sign-in screen | Observed on API 36 | Authenticated navigation/session still pending |
-| Login and role-filtered destinations | Awaiting device sign-in | Observe actual role routes; no access mutations |
-| Catalog/POS/history/report/staff/settings navigation | Awaiting device sign-in | Read-only only on working project |
-| Export explanation and sign-out confirmation Cancel | Awaiting device sign-in | No real logout or exported private file needed for cancellation checks |
-| System document picker Cancel | Awaiting device sign-in | Real provider launch/cancel only; file contents/write failure separate |
+| Normal debug Hilt startup / sign-in screen | Observed on API36; session restored after update | Signed/minified and other API devices remain |
+| Login and role-filtered destinations | User signed in; Owner navigation observed | Other roles/denials need controlled actors |
+| Catalog/POS/history/report/staff/settings navigation | Five management destinations opened read-only | POS/history are not destinations for this Owner session |
+| Export explanation and sign-out confirmation Cancel | Passed in normal app | Actual sign-out/retained-data re-login remains controlled acceptance |
+| System document picker Cancel | Recovery JSON picker opened and cancelled; export re-enabled, Settings retained | CSV picker, completed files and provider/write failure remain separate |
 | Offline lease / OS credential / reboot / expiry | Not run | Controlled dev account/device; never send device PIN in chat |
 | Lost ACK / sale durability / two-device sync | Not run live | Disposable backend and original IDs; no fake sales on working brand |
 | Staff/device changes / concurrent catalog edits | Not run live | Disposable approved actors/devices and explicit scenarios |
@@ -44,9 +44,10 @@ MainActivity/Hilt/provider/auth acceptance. Historical debug 292 / release 283 +
 expected skips and lint 0 errors/45 warnings are in PROGRESS.md; Gradle was not rerun
 for this read-only readiness review and Python tooling addition.
 
-## Current artifact evidence
+## Initial artifact evidence — before the refresh fix
 
-The current artifacts were inspected, not rebuilt or deployed in this pass:
+The initial readiness artifacts below were inspected before the normal-app refresh
+fix. Updated current fingerprints are recorded in the follow-up section below:
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
@@ -90,10 +91,63 @@ management/restore and optional photo controls. Log: app/build/m7-backend-tests.
 These are not hosted concurrency/GoTrue/Storage/provider tests and used no working
 project credentials or network backend. No server schema or test data deployed.
 
+## Signed-in follow-up and normal-app finding
+
+The working Owner session exposed Ringkasan/Katalog/Laporan/Staf/Setelan and the
+Owner audit tab. Those five destinations were opened read-only; no fabricated sale,
+record edit, staff/device change or actual logout was submitted. Real sign-out and
+recovery-explanation Cancel passed. The actual Android DocumentsUI picker opened for
+authorized recovery capture, then Back cancelled it: no destination was chosen, no
+export-completion message appeared, export re-enabled and Settings remained open.
+No private archive or screenshot was saved by the test.
+
+Observed periodic navigation reset: AuthRepository.loadChoices emitted OUTLETS during
+same-context refresh. Fixed it to retain READY/busy only after newly fetched membership
+confirms the same brand/outlet/role/account/enrolled user. Role changes and denials
+still remove the old context. Three regressions passed within 27 AuthRepository tests.
+On the updated phone, explicit online validation retained Settings; it also remained
+open for more than 70 seconds across the nominal 60-second refresh interval.
+
+Follow-up report-filter/staff checks were interrupted when the phone moved away
+from POS. A read-only package check later confirmed another foreground app; the POS
+process remained alive and the crash buffer had no app crash record. These attempts
+are not counted as passed filter/subsection checks or an app crash. UI input stopped;
+the temporary helper now requires the POS package before any tap. Resume those cases
+only when the phone is available. No credential/business text or screenshots logged;
+only fixed recognized labels/coordinates, package checks and boolean assertions.
+
+Full fix verification: `./gradlew :app:assembleDebugAndroidTest build --offline
+--max-workers=2 --console=plain` passed in 5m22s: debug295 passed, release286 passed
+plus9 expected demo-only skips, lint0 errors/45 warnings. Debug/test/release APKs built;
+the new debug APK was installed with `adb install -r -t`, preserving the session/data.
+Log: app/build/m7-refresh-build.log. This adds normal-app evidence; earlier component
+fixtures are still not evidence of real provider/auth acceptance.
+
+Current artifact fingerprints after the fix:
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Debug APK | 14230585 | `d0e64379137c49917df34459f16c8d3a8b12f6c273601990679ecd6d3089778f` |
+| Unsigned release APK | 2185915 | `704bb4d0962fde28b08725d99c50b033ff28170c24357900e37c8dfe2ef7059e` |
+| Release mapping.txt | 42006998 | `6aec08b309f127c2a768355e03f6470b678c255269949a3ef725bc34e7d58881` |
+
+The artifact verifier/zipalign were rerun for the changed release APK: eight ELF load
+alignment checks and ZIP16 KB passed. New debug signature verifies (v2, one signer).
+The release remains unsigned; alignment is still not 16 KB-device runtime acceptance.
+
 ## Next gate
 
-Continue read-only authenticated screen/cancellation checks once sign-in is complete
-on the phone. Record actual observed outcomes here. Keep live money/access/restore
-scenarios and completed exports off the working project until there is an appropriate
-controlled acceptance setup. Production checklist items remain unchecked unless their
-specific required evidence exists; signing, hosted and physical-device gates are open.
+Use a controlled acceptance environment for completed private exports/provider failures,
+actual sign-out/re-login, other roles, offline/OS credential/process-death, test sales,
+concurrent actors and restore scenarios. Keep working-project business records intact.
+Signed build, hosted concurrency/restore, API26/tablet/16 KB runtime, TalkBack and
+operator backup/signing gates remain open. No production approval is implied by these
+bounded normal-app results.
+
+## Subsequent scheduling change
+
+The user subsequently selected a one-hour periodic background sync sweep. Source and
+local debug build include that change; no phone install/check was performed while
+device checks were paused. The normal-app results and fingerprints above identify
+the earlier refresh-fix build, not an acceptance run of the hourly build. See PROGRESS
+for its local checks; refresh artifact hashes before the next release acceptance.

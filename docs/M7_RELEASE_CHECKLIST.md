@@ -98,3 +98,15 @@ lint 0 errors/45 warnings; 9 component fixtures passed on the phone. Those are h
 build/component evidence, not newly executed normal-app auth/provider acceptance.
 The release APK remains unsigned. No required production gate above is closed by
 read-only artifact checks, component fixtures or the local PGlite suite alone.
+
+### Signed-in follow-up and refresh fix — 15 November 2026
+
+The user signed in directly. Read-only management navigation, normal sign-out/export
+explanation Cancel and actual JSON document-picker Cancel were observed. A same-context
+refresh bug that recreated the shell was fixed; manual validation and a >70s Settings
+observation retained the destination afterwards. Full build: 295 debug passed, 286
+release passed +9 expected skips, lint0 errors/45 warnings. Updated artifact fingerprints
+and exact evidence/limits are in M7_DEVICE_ACCEPTANCE.md. Further filter/staff follow-up
+was interrupted by phone use and is not counted. These bounded results do not close
+completed-file/provider-failure, other-role, signed/minified, offline/restore or physical
+accessibility/runtime gates. No business test records or access changes were submitted.

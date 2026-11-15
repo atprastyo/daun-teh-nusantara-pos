@@ -1,4 +1,0 @@
-<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="20%">
-    <bitmap android:src="@drawable/brand_logo" android:gravity="fill" android:filter="true"
-        android:tint="@android:color/white" android:tintMode="src_in" />
-</inset>

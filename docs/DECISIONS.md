@@ -772,3 +772,16 @@ Official Android references checked for M7:
   Preserve READY with busy only after newly fetched choices confirm identical brand,
   outlet, role, account and enrolled user. Changed scope/role or confirmed denial
   continues to clear old authority; live lease validation and offline policy remain.
+
+- D127: Set the WorkManager periodic background push/pull sweep to one hour, per user.
+  Keep the existing unique work name and use ExistingPeriodicWorkPolicy.UPDATE so
+  persisted 15-minute requests adopt the new interval in place on the next startup,
+  without cancelling an active run or creating another sweep. Verified semantics in
+  installed WorkManager2.10.2 source. Network/backoff, event/manual/startup nudges and
+  the separate 60-second access-validation policy remain. No dependency/schema change.
+
+- D128: Use a fixed opaque white adaptive-launcher background and the original green
+  foreground in both day/night configurations for consistent launcher treatment.
+  Remove the launcher-only white night tint so the mark remains visible on white.
+  Keep the transparent brand bitmap and in-app branding/theme untouched. Verify local
+  resource packaging; device checks/install remain paused.
