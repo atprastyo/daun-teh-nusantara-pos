@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import com.dauntehnusantara.pos.core.designsystem.components.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.heading
@@ -46,7 +47,7 @@ fun ReportRoute(model:ReportViewModel,expanded:Boolean,overview:Boolean=false) {
             try { picker.launch(ticket.filename) } catch(_:Exception){model.failExportLaunch(ticket.id);launchedId=null}
         }
     },session=model.session,overview=overview,pickerOutstanding=launchedId!=null,
-        onPreset=model::preset,onOpenReport={navigate(com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.REPORTS)})
+        onPreset=model::preset,onQuickPreset=model::quickPreset,onOpenReport={navigate(com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.REPORTS)})
 }
 @Composable
 fun ManagementError(code:String?) {
@@ -58,20 +59,34 @@ fun ManagementError(code:String?) {
 @Composable
 fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,String?)->Unit,retry:()->Unit,export:()->Unit,
     session:ReportSession?=null,overview:Boolean=false,pickerOutstanding:Boolean=false,
-    onPreset:((ReportPreset)->Unit)?=null,onOpenReport:()->Unit={}) {
+    onPreset:((ReportPreset)->Unit)?=null,onQuickPreset:((ReportPreset)->Unit)?=null,onOpenReport:()->Unit={}) {
     if(state.scope!=null&&!state.allowed){ManagementError("AUTH_REQUIRED");return}
     val local=remember(state.scope?.key,state.generation){ReportSession().also { holder->state.query?.let(holder::applied) }}
     val editor=session?:local
     val draft by editor.state.collectAsState()
     val applied=state.query
     val locked=state.busy||state.exportPhase!=ReportExportPhase.NONE||pickerOutstanding
+    var showDailyTable by remember(applied?.key){mutableStateOf(false)}
+    var showProductTable by remember(applied?.key){mutableStateOf(false)}
     val choices=state.choices.ifEmpty{state.report?.choices.orEmpty()}
     val outletLabel=reportOutletLabel(state.outlet,choices,state.scope?.sale?.outletId,state.outletName)
-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(if(expanded)28.dp else 16.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().testTag("report.page"),contentPadding=PaddingValues(if(expanded)28.dp else 16.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
         item {AppScreenHeader(if(overview)"Ringkasan" else stringResource(R.string.report_title),description=stringResource(R.string.report_basis))}
         item {OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Text("Outlet laporan · $outletLabel",style=MaterialTheme.typography.titleMedium)
             Text("${state.from} — ${state.to} · Asia/Jakarta")
+            FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                ReportPreset.entries.forEach { preset ->
+                    OutlinedButton(onClick={
+                        if(onQuickPreset!=null)onQuickPreset(preset) else {
+                            val dates=reportPreset(java.time.Clock.systemUTC(),preset)
+                            load(dates.first,dates.second,applied?.outletId)
+                        }
+                    },enabled=applied!=null&&!locked&&!draft.editing) {
+                        Text(stringResource(when(preset){ReportPreset.TODAY->R.string.report_quick_today;ReportPreset.WEEK->R.string.report_quick_week;ReportPreset.MONTH->R.string.report_quick_month}))
+                    }
+                }
+            }
             OutlinedButton(onClick={applied?.let(editor::open)},enabled=applied!=null&&!locked){Text("Ubah filter")}
         }}}
         item {ManagementError(state.error);if(state.busy||state.initializing)LinearProgressIndicator(Modifier.fillMaxWidth())}
@@ -79,16 +94,20 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
         if(report!=null&&report.query==applied) {
             item {Text(stringResource(if(state.cached)R.string.report_cached else R.string.report_fresh,formatJakarta(report.asOfMs)),style=MaterialTheme.typography.bodySmall)}
             item {ReportMetrics(report)}
+            item {ReportOverviewCharts(report)}
             if(report.summary.count==0L)item{AppEmptyState(stringResource(R.string.report_empty))}
             if(overview)item {Button(onClick=onOpenReport){Text("Lihat laporan")}}
             else {
                 item {Text("Subtotal ${formatIdr(report.summary.subtotal)} · Diskon ${formatIdr(report.summary.discount)}",style=MaterialTheme.typography.bodyMedium)}
-                if(report.days.isNotEmpty())item{Text(stringResource(R.string.report_daily),modifier=Modifier.semantics{heading()},style=MaterialTheme.typography.titleLarge)}
-                items(report.days,key={"day.${it.date}"}){ReportRow(it.date.toString(),it.count,formatIdr(it.total))}
+                if(report.days.isNotEmpty())item{OutlinedButton(onClick={showDailyTable=!showDailyTable}){Text(stringResource(if(showDailyTable)R.string.report_hide_days else R.string.report_show_days))}}
+                if(showDailyTable)items(report.days,key={"day.${it.date}"}){ReportRow(it.date.toString(),it.count,formatIdr(it.total))}
                 if(report.outlets.isNotEmpty())item{Text(stringResource(R.string.report_outlets),modifier=Modifier.semantics{heading()},style=MaterialTheme.typography.titleLarge)}
                 items(report.outlets,key={"outlet.${it.id}"}){ReportRow(it.name,it.count,formatIdr(it.total))}
-                if(report.products.isNotEmpty())item{Text(stringResource(R.string.report_products),modifier=Modifier.semantics{heading()},style=MaterialTheme.typography.titleLarge)}
-                items(report.products,key={"product.${it.id.length}:${it.id}${it.name}"}){ReportRow(it.name+" · "+it.id,it.quantity,formatIdr(it.gross),units=true)}
+                if(report.products.isNotEmpty()) {
+                    item{ProductSalesChart(report)}
+                    item{OutlinedButton(onClick={showProductTable=!showProductTable}){Text(stringResource(if(showProductTable)R.string.report_hide_products else R.string.report_show_products))}}
+                    if(showProductTable)items(report.products,key={"product.${it.id.length}:${it.id}${it.name}"}){ReportRow(it.name+" · "+it.id,it.quantity,formatIdr(it.gross),units=true)}
+                }
                 item{OutlinedButton(onClick=export,enabled=!locked&&!draft.editing&&!editor.dirty(report.query)){Text(stringResource(R.string.report_export))}}
             }
         } else if(!state.busy&&!state.initializing)item {Text("Belum ada snapshot untuk filter ini. Coba lagi saat terhubung.")}
@@ -104,7 +123,7 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
             Column(Modifier.fillMaxWidth().heightIn(max=600.dp).imePadding().padding(horizontal=20.dp)) {
                 Text("Filter laporan",style=MaterialTheme.typography.titleLarge)
                 Column(Modifier.weight(1f,false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    ReportPreset.entries.forEach { preset->TextButton(onClick={editor.guard(token){
+                    ReportPreset.entries.forEach { preset->OutlinedButton(onClick={editor.guard(token){
                         if(onPreset!=null)onPreset(preset) else editor.preset(java.time.Clock.systemUTC(),preset)
                     }}){Text(when(preset){ReportPreset.TODAY->"Hari ini";ReportPreset.WEEK->"7 hari terakhir";ReportPreset.MONTH->"Bulan ini"})} }
                     AppTextField(draft.from,{value->editor.guard(token){editor.from(value.take(10))}},stringResource(R.string.report_from),Modifier.fillMaxWidth())
@@ -123,7 +142,7 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
                     if(valid==null||!known)Text("Periksa tanggal dan outlet laporan.",color=MaterialTheme.colorScheme.error)
                 }
                 Row(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                    TextButton(onClick={editor.guard(token){editor.cancel(applied)}}){Text("Batal")}
+                    OutlinedButton(onClick={editor.guard(token){editor.cancel(applied)}}){Text("Batal")}
                     Button(onClick={editor.guard(token){if(valid!=null&&known){load(draft.from,draft.to,draft.outlet);editor.applied(valid)}}},enabled=valid!=null&&known&&!locked){Text(stringResource(R.string.report_apply))}
                 }
             }
@@ -137,7 +156,10 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
         val columns=if(maxWidth>=1050.dp&&font<1.5f)4 else if(maxWidth>=540.dp&&font<1.5f)2 else 1
         Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {metrics.chunked(columns).forEach { row->
             Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){row.forEach{(label,value)->
-                ElevatedCard(Modifier.weight(1f)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(label,style=MaterialTheme.typography.labelLarge);Text(value,style=MaterialTheme.typography.headlineSmall)}}
+                ElevatedCard(Modifier.weight(1f),colors=CardDefaults.elevatedCardColors(
+                    containerColor=MaterialTheme.colorScheme.primaryContainer,
+                    contentColor=MaterialTheme.colorScheme.onPrimaryContainer,
+                )){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(label,style=MaterialTheme.typography.labelLarge);Text(value,style=MaterialTheme.typography.headlineSmall)}}
             }}
         }}
     }

@@ -59,6 +59,16 @@ class ReportViewModelTest {
     @Before fun before(){Dispatchers.setMain(dispatcher)}
     @After fun after(){store.clear();Dispatchers.resetMain()}
     private fun scenario(block:suspend TestScope.()->Unit)=runTest(dispatcher){try{block()}finally{hold?.complete(Unit);store.clear();runCurrent()}}
+    @Test fun quickPeriodUsesJakartaDatesAndPreservesManagerOutlet()=scenario {
+        auth.state.value=auth.state.value.copy(membership=member.copy(role=Role.MANAGER))
+        source=source!!.copy(role="MANAGER")
+        val vm=model();runCurrent();vm.quickPreset(ReportPreset.WEEK);runCurrent()
+        assertEquals("2026-11-09",vm.state.value.from);assertEquals("2026-11-15",vm.state.value.to)
+        assertEquals("outlet",vm.state.value.outlet)
+        val calls=refreshes
+        vm.session.open(vm.state.value.query!!);vm.quickPreset(ReportPreset.TODAY);runCurrent()
+        assertEquals(calls,refreshes)
+    }
     @Test fun sameQueryFailureRetainsSnapshotButChangedQueryDoesNot()=scenario {
         val vm=model();runCurrent();val original=vm.state.value.report;failure="UNAVAILABLE"
         vm.retry();runCurrent();assertEquals(original,vm.state.value.report);assertTrue(vm.state.value.cached)

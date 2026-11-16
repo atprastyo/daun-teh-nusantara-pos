@@ -265,3 +265,31 @@ flows before their native redesign; keep manual account provisioning and role li
    dark/light and 200% text. Verify fields scroll with Apply/Cancel reachable,
    headings and rows are readable, and TalkBack traverses context/filter/metrics/
    details/actions without duplicate operational context.
+
+## Accepted-data charts and quick filters (16 November 2026)
+
+This approved presentation iteration supersedes the previous no-chart handoff for
+existing returned fields. Overview/report both show the payment value split and
+daily categorical bars. Daily controls switch Rupiah/Transaksi; bars expose full
+date/count/Long IDR through semantics and a selected-value label. Horizontal scrolling
+handles long periods. Only returned dates appear, explicitly labeled as categorical:
+no filled missing dates, interpolation, synthetic growth, hourly or profit series.
+
+Detailed reports add five product bars ranked by gross or units within the returned
+<=20 ID/name snapshot groups. The help text states this boundary and modifier/gross
+meaning; no complete product-mix pie is implied. Expandable daily/product tables
+retain exact rows and product UUIDs, preserving original snapshot separation. Outlet
+rows and CSV content remain unchanged. Payment split labels exact cash/manual QRIS
+amounts and rounded one-decimal percentages; zero totals show an em dash, not NaN or
+100%. Graph proportions alone use floating point; financial displays remain Long.
+
+Quick Today/7 days/Month buttons use the ViewModel's Jakarta clock and retain the
+applied outlet. They apply through the normal scoped/cache-first load path and are
+disabled during requests/export/pickers or custom draft editing. Custom draft filter
+Apply/Cancel and source/as-of/cache indicators remain. Native custom-date picker,
+comparison periods, AOV metric and outlet chart are deferred beyond this iteration.
+Daily/payment panels sit side by side at >=900dp available width and font scale
+below 1.5; otherwise they stack. Payment labels include matching color markers and
+exact values, so color alone is never required. Chart mode/day selection and table
+expansion are presentation-only memory state, not authorization or sale state.
+No third-party chart library, RPC, Room schema or CSV format change is introduced.

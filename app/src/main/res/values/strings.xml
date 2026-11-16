@@ -128,9 +128,7 @@
     <string name="report_sales">Jumlah penjualan</string>
     <string name="report_total">Penerimaan penjualan</string>
     <string name="report_empty">Belum ada penjualan diterima server pada periode ini.</string>
-    <string name="report_daily">Per hari</string>
     <string name="report_outlets">Per outlet</string>
-    <string name="report_products">20 produk teratas · nama dan harga saat penjualan</string>
     <string name="report_export">Ekspor laporan CSV</string>
     <string name="manage_conflict">Data berubah. Muat ulang sebelum mencoba perubahan lagi.</string>
     <string name="manage_offline">Perubahan staf dan laporan baru memerlukan validasi online. Snapshot laporan yang tersimpan tetap tersedia.</string>
@@ -378,4 +376,21 @@
     <string name="printer_forget">Lepaskan pilihan printer</string>
     <string name="printer_confirm">Pastikan perangkat yang dipilih adalah printer Bluetooth Classic dengan layanan Serial Port. Model belum diverifikasi. Kirim teks tes fiktif 58 mm? Tidak ada transaksi dibuat. Jika tes sebelumnya terputus, periksa kertas agar tidak mencetak ulang tanpa sengaja.</string>
     <string name="printer_send_test">Kirim teks tes</string>
+    <string name="report_chart_daily">Tren penjualan harian</string>
+    <string name="report_chart_rupiah">Rupiah</string>
+    <string name="report_chart_transactions">Transaksi</string>
+    <string name="report_chart_units">Unit</string>
+    <string name="report_chart_scale">Skala 0–%1$s</string>
+    <string name="report_chart_days_help">Ketuk batang untuk nilai lengkap. Geser untuk tanggal lainnya. Hanya tanggal yang dikembalikan server ditampilkan; jarak antarbatang bukan jarak waktu.</string>
+    <string name="report_chart_products">Produk teratas</string>
+    <string name="report_chart_products_help">Diurutkan dari hingga 20 kelompok produk berdasarkan snapshot nama. Pilihan Unit hanya membandingkan kelompok yang tersedia. Nilai termasuk modifier; bukan laba atau seluruh komposisi produk.</string>
+    <string name="report_chart_payment">Pembayaran tercatat</string>
+    <string name="report_chart_payment_help">Berdasarkan nilai penjualan diterima server. QRIS manual bukan konfirmasi pencairan bank. Persentase dibulatkan ke satu desimal.</string>
+    <string name="report_quick_today">Hari ini</string>
+    <string name="report_quick_week">7 hari terakhir</string>
+    <string name="report_quick_month">Bulan ini</string>
+    <string name="report_show_days">Lihat tabel harian</string>
+    <string name="report_hide_days">Tutup tabel harian</string>
+    <string name="report_show_products">Lihat semua produk tersedia</string>
+    <string name="report_hide_products">Tutup tabel produk</string>
 </resources>

@@ -104,6 +104,13 @@ class ReportViewModel @Inject constructor(private val auth:AuthRepository,privat
         }
     }
     fun applyDraft(){val s=state.value.scope?:return;val d=session.state.value;if(session.query(s)==null)return;load(d.from,d.to,d.outlet)}
+    fun quickPreset(value:ReportPreset) {
+        val current=state.value
+        val q=current.query?:return
+        if(!current.allowed||current.busy||current.exportPhase!=ReportExportPhase.NONE||session.state.value.editing)return
+        val dates=reportPreset(clock,value)
+        load(dates.first,dates.second,q.outletId)
+    }
     fun preset(value:ReportPreset)=session.preset(clock,value)
     fun retry(){if(state.value.scope==null)reopen.update{it+1}else state.value.query?.let{load(it.from.toString(),it.to.toString(),it.outletId)}}
     fun prepareExport():ReportExportTicket? {

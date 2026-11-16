@@ -902,3 +902,20 @@ Official Android references checked for M7:
   Manager history uses existing outlet-wide read authorization and labels it clearly;
   Cashier stays own-only. Existing checkout/submit paths already support Managers,
   so no backend/schema change or privilege expansion is needed.
+
+- D149 (2026-11-16): Add native Compose charts over the existing validated accepted-
+  server snapshot: categorical daily bars with exact selection, top-five bars within
+  returned product groups, and cash/manual-QRIS value split. Retain exact tables/CSV,
+  current scope/cache/as-of truth, zero handling and Long financial values. Expose
+  Jakarta quick periods through the existing scoped load path without changing outlet.
+  No missing-date interpolation, global unit ranking, growth/profit/hourly metric,
+  new dependency, Room/RPC change or live-data operation.
+
+- D150 (2026-11-16): Use primaryContainer/onPrimaryContainer for report metric cards
+  in both themes. Light mode gains a visible pale-green container with dark-green
+  labels/values; dark mode uses the matching dark-green container and light content.
+  Keep existing elevation, spacing, typography and adaptive metric layout.
+
+- D151 (2026-11-16): Replace report TextButtons with OutlinedButtons for daily/product
+  table toggles, sheet period presets and Cancel. Retain callbacks, labels and layout
+  placement while making each action boundary visible.

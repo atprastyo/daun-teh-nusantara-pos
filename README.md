@@ -553,3 +553,8 @@ Multiline reasons and validation messages grow naturally; see docs/UI_COMPONENTS
 Managers can now open **Kasir** and **Riwayat** for their selected assigned outlet.
 Ringkasan remains the default; sales retain the actual Manager identity and approved
 device. History shows available outlet receipts under existing Manager permissions.
+
+Reports now include daily sales bars, top-product bars, cash/manual-QRIS proportions
+and quick period filters. Exact daily/product tables expand below the charts; CSV
+export remains unchanged. Charts use accepted server snapshots, excluding pending
+offline sales. Product Unit mode ranks only returned snapshot groups.

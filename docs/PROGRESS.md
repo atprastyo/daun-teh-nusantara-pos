@@ -2698,3 +2698,56 @@ lint zero errors, 45 existing warnings. Log `app/build/manager-cashier.log`.
 No APK installation, ADB, live approval, sale or working-project write performed.
 Next: updated-phone Manager navigation/read-only history checks, then controlled
 authorized transaction/offline acceptance; existing M7 gates remain open.
+
+## Report charts and quick periods (2026-11-16)
+
+Added native daily categorical bars with Rupiah/Transaksi mode and accessible exact
+selection, top-five returned-group product bars with Rupiah/Unit mode, and payment
+value split/rounded percentages with safe zero handling. Added immediate Jakarta
+Today/7-day/Month filters preserving applied outlet and export/draft gates. Retained
+existing validated snapshot/source/as-of/cache, outlet rows, expandable exact daily/
+product tables and unchanged CSV. No RPC, dependency, Room, permission or real-data
+change. Deferred custom date picker/AOV/comparison/outlet graph to another iteration.
+
+New tests cover Long limits/zero ratios, percentages, renamed snapshot grouping,
+product ranking bounds, day selection/no invented missing day, zero payment state,
+tablet product mode and Manager quick-filter scope. Initial compile caught a local
+selection variable shadowing the semantics property; renamed it and corrected the
+property assignment. First full run executed 382 tests with one new chart-test failure:
+the substring assertion used exact matching; corrected it (displayed amount was exact).
+Added a full-screen quick-filter/table expansion regression and adaptive side-by-side
+panels with labeled payment markers. Final `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug --offline
+--max-workers=2 --console=plain` passed in 2m52s: 383 debug tests passed, no failures/
+errors/skips. Lint zero errors, 47 warnings, including two obsolete heading strings made unused
+by the new sections. Removed those after confirming no source/test references;
+final `:app:assembleDebug :app:lintDebug --offline --max-workers=2 --console=plain`
+resource/assembly/lint recheck passed in 2m39s, zero errors and 45 existing warnings.
+Log: `app/build/report-charts-resources-final.log`. No financial/UI behavior changed
+in this last removal of unreferenced resources. Full test log:
+`app/build/report-charts-verified.log`; `git diff --check` passed. No release tests,
+physical preview,
+APK installation or working-project activity. Next: phone/tablet chart/large-text/
+TalkBack acceptance on updated APK, then optional report refinements as separate scope.
+
+## Tinted report metric cards (2026-11-16)
+
+ReportMetrics ElevatedCards now explicitly pair theme primaryContainer with
+onPrimaryContainer. This gives light mode colored metric grouping and matching
+readable label/value colors, with theme-matched dark mode. Existing chart work is
+preserved. No data/behavior/schema change. `:app:assembleDebug :app:testDebugUnitTest --tests '*ReportPresentationTest'
+--offline --max-workers=2 --console=plain` passed in 50s: six existing report UI
+tests, no failures/errors/skips. Log `app/build/report-card-colors.log`. Calculated
+contrast of existing theme token pairs: light9.29:1, dark7.10:1. `git diff --check`
+passed; no new tests for this color-only change. Full suite/lint not repeated;
+physical preview/install not performed. Next: physical light/dark preview.
+
+## Outlined report secondary actions (2026-11-16)
+
+Changed the four report TextButton call sites to OutlinedButton: daily/product table
+toggles, period presets and filter cancellation. Behavior/placement and existing
+metric/chart changes retained. `:app:assembleDebug :app:testDebugUnitTest
+--tests '*ReportPresentationTest' --tests '*ReportChartsTest' --offline --max-workers=2
+--console=plain` passed in 45s: 10 existing report UI tests, zero failures/errors.
+Log `app/build/report-outlined-buttons.log`; `git diff --check` passed. No new tests
+for this visual-only change; full suite/lint and physical preview/install not repeated.
+Next: physical report light/dark/layout preview.
