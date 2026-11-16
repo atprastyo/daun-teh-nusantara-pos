@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dauntehnusantara.pos.BuildConfig
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.core.designsystem.*
+import com.dauntehnusantara.pos.core.designsystem.components.AppTextField
 import com.dauntehnusantara.pos.feature.catalog.domain.*
 import com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhoto
 import com.dauntehnusantara.pos.feature.checkout.domain.*
@@ -116,7 +117,7 @@ private fun PosContent(state: PosUiState, actions: PosActions, expanded: Boolean
                             }
                             PosErrorText(state.error)
                             if(state.error!=null)TextButton(onClick=actions.clearError){Text(stringResource(R.string.pos_dismiss_error))}
-                            OutlinedTextField(query,{query=it},label={Text("Cari minuman")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("pos.search"),
+                            AppTextField(query,{query=it},label="Cari minuman",modifier=Modifier.fillMaxWidth().testTag("pos.search"),
                                 leadingIcon={Icon(Icons.Default.Search,contentDescription=null)})
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                                 FilterChip(selected=categoryId==null,onClick={categoryId=null},label={Text("Semua")})

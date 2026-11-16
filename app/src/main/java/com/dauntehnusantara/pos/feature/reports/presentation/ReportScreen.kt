@@ -107,8 +107,8 @@ fun ReportScreen(state:ReportState,expanded:Boolean=false,load:(String,String,St
                     ReportPreset.entries.forEach { preset->TextButton(onClick={editor.guard(token){
                         if(onPreset!=null)onPreset(preset) else editor.preset(java.time.Clock.systemUTC(),preset)
                     }}){Text(when(preset){ReportPreset.TODAY->"Hari ini";ReportPreset.WEEK->"7 hari terakhir";ReportPreset.MONTH->"Bulan ini"})} }
-                    OutlinedTextField(draft.from,{value->editor.guard(token){editor.from(value.take(10))}},Modifier.fillMaxWidth(),label={Text(stringResource(R.string.report_from))},singleLine=true)
-                    OutlinedTextField(draft.to,{value->editor.guard(token){editor.to(value.take(10))}},Modifier.fillMaxWidth(),label={Text(stringResource(R.string.report_to))},singleLine=true)
+                    AppTextField(draft.from,{value->editor.guard(token){editor.from(value.take(10))}},stringResource(R.string.report_from),Modifier.fillMaxWidth())
+                    AppTextField(draft.to,{value->editor.guard(token){editor.to(value.take(10))}},stringResource(R.string.report_to),Modifier.fillMaxWidth())
                     Text("YYYY-MM-DD · Maksimal 366 tanggal · Asia/Jakarta",style=MaterialTheme.typography.bodySmall)
                     if(state.scope?.role=="OWNER") {
                         var open by remember { mutableStateOf(false) }

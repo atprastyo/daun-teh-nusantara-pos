@@ -137,7 +137,7 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
                     Text(when(currentTarget){is StaffTarget.Member->if(currentTarget.value.active)"Akses outlet aktif → nonaktif" else "Akses outlet nonaktif → aktif"
                         is StaffTarget.Device->if(currentTarget.value.revoked)"Dicabut → menunggu persetujuan" else "Akses perangkat → dicabut"})
                     Text(staffEffect(currentTarget))
-                    OutlinedTextField(draft.reason,{value->editor.guard(token){editor.reason(value)}},Modifier.fillMaxWidth().testTag("staff.reason"),enabled=!state.busy,label={Text(stringResource(R.string.staff_reason))})
+                    AppTextField(draft.reason,{value->editor.guard(token){editor.reason(value)}},stringResource(R.string.staff_reason),Modifier.fillMaxWidth().testTag("staff.reason"),enabled=!state.busy,singleLine=false)
                     Text("3–240 karakter setelah spasi tepi dihapus. Alasan dicatat; hindari kata sandi atau rahasia.",style=MaterialTheme.typography.bodySmall)
                     if(draft.reason.trim().length !in 3..240)Text("Periksa panjang alasan.",color=MaterialTheme.colorScheme.error)
         }

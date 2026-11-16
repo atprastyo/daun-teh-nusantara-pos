@@ -1,5 +1,8 @@
 package com.dauntehnusantara.pos.core.designsystem.components
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -45,9 +48,13 @@ object IdrInputTransformation:VisualTransformation {
 fun AppTextField(value:String,onValueChange:(String)->Unit,label:String,modifier:Modifier=Modifier,
     enabled:Boolean=true,isError:Boolean=false,supportingText:String?=null,
     keyboardOptions:KeyboardOptions=KeyboardOptions.Default,visualTransformation:VisualTransformation=VisualTransformation.None,
-    prefix:(@Composable ()->Unit)?=null) {
-    OutlinedTextField(value,onValueChange,modifier,label={Text(label)},enabled=enabled,isError=isError,
-        supportingText=supportingText?.let{{Text(it)}},singleLine=true,keyboardOptions=keyboardOptions,
+    prefix:(@Composable ()->Unit)?=null,
+    leadingIcon:(@Composable ()->Unit)?=null,trailingIcon:(@Composable ()->Unit)?=null,
+    keyboardActions:KeyboardActions=KeyboardActions.Default,singleLine:Boolean=true,
+    minLines:Int=1,maxLines:Int=if(singleLine)1 else Int.MAX_VALUE) {
+    OutlinedTextField(value,onValueChange,modifier.heightIn(min=56.dp),label={Text(label)},enabled=enabled,isError=isError,
+        supportingText=supportingText?.let{{Text(it)}},singleLine=singleLine,minLines=minLines,maxLines=maxLines,keyboardOptions=keyboardOptions,
+        keyboardActions=keyboardActions,textStyle=MaterialTheme.typography.bodyLarge,leadingIcon=leadingIcon,trailingIcon=trailingIcon,
         visualTransformation=visualTransformation,prefix=prefix,shape=MaterialTheme.shapes.medium)
 }
 @Composable

@@ -2663,3 +2663,20 @@ ASCII/control safety and compact/tablet confirmation UI). Lint: zero errors and
 passed. Release and physical Bluetooth/permission/paper acceptance were not run.
 Next: pair/test the real printer and verify 58 mm readability/protocol, then PRINT-02
 renderer and PRINT-03 durable receipt attempt/integration in a separate iteration.
+
+## Consistent input sizing (2026-11-16)
+
+Unified login/password, search, date filter and staff reason inputs through the shared
+AppTextField used by catalog/staff/money/quantity forms. It explicitly uses login's
+bodyLarge typography, theme medium shape, minimum56dp and default Material padding.
+Added leading/trailing icons, IME callbacks and multiline parameters without changing
+existing data/validation/formatting. Staff reasons remain multiline; supporting text
+and large fonts can grow naturally. Added geometry comparisons to login under inherited
+heading styles and multiline/large-font regressions. Initial compile caught a missing
+shared-field import in history; corrected it. Final `:app:testDebugUnitTest
+:app:assembleDebug :app:lintDebug --offline --max-workers=2 --console=plain` passed in
+3m24s: 374 tests passed (including 3 new sizing tests), no failures/errors/skips.
+Lint: zero errors, 45 existing warnings. Log `app/build/form-field-consistency-final.log`.
+`git diff --check` passed. No backend, Room, business-rule or device changes. Release
+and physical keyboard/IME/OEM preview were not run. Next: physical form/keyboard/
+font-scale preview on the updated APK.

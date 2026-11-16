@@ -546,3 +546,6 @@ struk**. Pair in Android settings, load paired devices, select the printer and c
 **Cetak tes**. The generic 58 mm model is unverified; no sale receipt is printed yet.
 See [BLUETOOTH_PRINTING_PLAN.md](docs/BLUETOOTH_PRINTING_PLAN.md) for setup, compatibility
 limits and remaining receipt implementation milestones.
+
+Form inputs share the login field sizing, including money, search and date fields.
+Multiline reasons and validation messages grow naturally; see docs/UI_COMPONENTS.md.

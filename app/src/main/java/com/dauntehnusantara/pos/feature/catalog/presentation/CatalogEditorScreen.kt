@@ -102,7 +102,7 @@ private fun CatalogList(state: CatalogEditorState, ui: CatalogEditorUi, rows: Li
                     kinds.forEach { kind -> Tab(selected = ui.kind == kind, onClick = { session.tab(kind) }, enabled = ui.draft == null,
                         text = { Text(stringResource(kind.label())) }) }
                 }
-                OutlinedTextField(ui.query, session::search, label = { Text(stringResource(R.string.catalog_ui_search)) }, singleLine = true,
+                AppTextField(ui.query, session::search, label = stringResource(R.string.catalog_ui_search),
                     leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth())
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CatalogFilter.entries.forEach { filter -> FilterChip(selected = ui.filter == filter,

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.core.designsystem.*
+import com.dauntehnusantara.pos.core.designsystem.components.AppTextField
 import com.dauntehnusantara.pos.feature.checkout.domain.*
 import com.dauntehnusantara.pos.feature.pos.presentation.ReceiptContent
 import java.time.Instant
@@ -92,7 +93,7 @@ private fun HistoryList(state:HistoryState,filters:HistoryFilters,rows:List<Rece
         item(key="notices") { HistoryNotices(state) }
         item(key="cache") { HistoryNotice(stringResource(R.string.history_ui_cache)) }
         item(key="search") {
-            OutlinedTextField(filters.query,{value->session.guard(token){session.search(value)}},label={Text(stringResource(R.string.history_ui_search))},singleLine=true,enabled=!state.loading,
+            AppTextField(filters.query,{value->session.guard(token){session.search(value)}},label=stringResource(R.string.history_ui_search),enabled=!state.loading,
                 leadingIcon={Icon(Icons.Default.Search,null)},modifier=Modifier.fillMaxWidth().testTag("history.search"))
         }
         item(key="filters") {

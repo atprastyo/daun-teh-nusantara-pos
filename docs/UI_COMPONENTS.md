@@ -90,3 +90,18 @@ are recorded in PROGRESS.md.
 No Room, server, sync policy, payment rules, authorization or sale snapshot changes.
 Device checks/install remain paused by user request. Physical keyboards/IME/TalkBack,
 OEM appearance and normal-app provider/auth acceptance remain separate M7 checks.
+
+## Form sizing aligned to login (16 November 2026)
+
+AppTextField is the single outlined input implementation, including login, password
+change, staff creation/reasons, catalog, money/quantity, date filters and searches.
+Use the login baseline: Material 3 default internal padding/label transitions,
+56dp minimum (not fixed) height, theme bodyLarge input text (16sp/24sp line height)
+and medium rounded shape (12dp). Parent heading typography must not enlarge inputs.
+MoneyInputField inherits the same styling while retaining its strict IDR mapping.
+
+Use leadingIcon/trailingIcon and keyboardActions slots for searches/password/IME;
+do not fork field styling. Multiline fields explicitly set singleLine=false and can
+grow. Supporting/error text occupies additional space below the outline; accessibility
+font scaling can increase height. Do not force the entire input/error block to 56dp.
+Form widths retain existing adaptive layout constraints, not one fixed phone width.

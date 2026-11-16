@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
+import com.dauntehnusantara.pos.core.designsystem.components.AppTextField
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.core.designsystem.formatJakarta
 import com.dauntehnusantara.pos.feature.auth.domain.*
@@ -117,22 +118,22 @@ private fun LoginForm(state: AuthState, signIn: (String, String) -> Unit, onDemo
     AccessHeading(stringResource(R.string.auth_sign_in), stringResource(R.string.access_login_help))
     if (!state.configured) AccessStatus(stringResource(R.string.auth_configure))
     if (state.message != AuthMessage.CONFIGURATION) AuthMessageText(state.message)
-    OutlinedTextField(email, { if (it.length <= 254) { email = it; invalidEmail = false } }, enabled = !state.busy,
+    AppTextField(email, { if (it.length <= 254) { email = it; invalidEmail = false } }, enabled = !state.busy,
         singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
         isError = invalidEmail,
-        supportingText = if (invalidEmail) ({ Text(stringResource(R.string.access_email_invalid)) }) else null,
-        label = { Text(stringResource(R.string.auth_email)) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
-    OutlinedTextField(password, { if (it.length <= 128) password = it }, enabled = !state.busy,
+        supportingText = if (invalidEmail) stringResource(R.string.access_email_invalid) else null,
+        label = stringResource(R.string.auth_email), modifier = Modifier.fillMaxWidth())
+    AppTextField(password, { if (it.length <= 128) password = it }, enabled = !state.busy,
         singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { submit() }), label = { Text(stringResource(R.string.auth_password)) },
+        keyboardActions = KeyboardActions(onDone = { submit() }), label = stringResource(R.string.auth_password),
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = {
             IconButton(onClick = { visible = !visible }, enabled = !state.busy) {
                 Icon(painterResource(if (visible) R.drawable.ic_access_eye_off else R.drawable.ic_access_eye),
                     stringResource(if (visible) R.string.access_hide_password else R.string.access_show_password))
             }
-        }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
+        }, modifier = Modifier.fillMaxWidth())
     AccessAction(stringResource(if (state.busy) R.string.access_checking_account else R.string.auth_sign_in), canSubmit, state.busy, submit)
     Text(stringResource(R.string.access_password_help), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (onDemo != null) {

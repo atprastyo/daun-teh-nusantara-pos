@@ -890,3 +890,9 @@ Official Android references checked for M7:
   bounded serialized transport, cancellation-close and explicit unknown outcomes.
   Do not add live receipt actions, ESC/POS commands, Room changes or a sales journal
   until model/profile and physical test are verified. No auto-retry/background print.
+
+- D147 (2026-11-16): Align every input with the login outlined-field baseline using
+  AppTextField: Material default padding, min56dp, bodyLarge16sp/24sp, medium12dp shape.
+  Add icon/IME/multiline slots and migrate remaining raw fields, including login.
+  Preserve formatting, validation, keyboard actions, multiline growth and font scaling;
+  no fixed height for supporting errors. No business/backend/schema changes.
