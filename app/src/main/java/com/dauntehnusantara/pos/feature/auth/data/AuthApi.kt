@@ -44,9 +44,23 @@ class AuthApi @Inject constructor(private val http: AuthTransport, private val c
         require(result.expiresAtMs >= result.issuedAtMs && result.expiresAtMs - result.issuedAtMs <= OfflineLeaseRules.MAX_DURATION_MS)
         return result
     }
+    suspend fun reportDeviceName(session:TokenSession,device:EnrolledDevice) {
+        http.request("/rest/v1/rpc/set_device_label",JSONObject().put("p_device_id",device.id).put("p_device_secret",device.secret)
+            .put("p_manufacturer",DeviceName.part(android.os.Build.MANUFACTURER)).put("p_model",DeviceName.part(android.os.Build.MODEL)).toString(),session.accessToken)
+    }
+    suspend fun deviceNames(session:TokenSession,outlet:String):Map<String,String> = try {
+        val rows=JsonSafety.array(http.request("/rest/v1/rpc/get_device_labels",JSONObject().put("p_outlet_id",outlet).toString(),session.accessToken))
+        buildMap {
+            for(i in 0 until rows.length()) {
+                val row=rows.getJSONObject(i)
+                DeviceName.clean(if(row.isNull("device_name"))null else row.getString("device_name"))?.let{put(row.getString("device_id"),it)}
+            }
+        }
+    }catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){emptyMap()} // Optional display data never grants or blocks access.
     suspend fun deviceRequests(session: TokenSession, outlet: String): List<DeviceRequest> {
         val rows = JsonSafety.array(http.request("/rest/v1/rpc/list_device_requests", JSONObject().put("p_outlet_id", outlet).toString(), session.accessToken))
-        return (0 until rows.length()).map { rows.getJSONObject(it).let { row -> DeviceRequest(row.getString("device_id"), row.getString("user_id"), row.getString("full_name"), row.getString("email"), Role.valueOf(row.getString("role"))) } }
+        val names=deviceNames(session,outlet)
+        return (0 until rows.length()).map { rows.getJSONObject(it).let { row -> DeviceRequest(row.getString("device_id"), row.getString("user_id"), row.getString("full_name"), row.getString("email"), Role.valueOf(row.getString("role")),names[row.getString("device_id")]) } }
     }
     suspend fun approveDevice(session: TokenSession, id: String) {
         http.request("/rest/v1/rpc/approve_device", JSONObject().put("p_device_id", id).toString(), session.accessToken)

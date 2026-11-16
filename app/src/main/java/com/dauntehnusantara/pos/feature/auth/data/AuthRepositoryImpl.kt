@@ -35,10 +35,12 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     override val state = mutable.asStateFlow()
     private val mutex = Mutex()
     private var cache = AuthCache(config.url)
+    private val labelAttempts=mutableSetOf<String>()
     private suspend fun save() = withContext(Dispatchers.IO) { store.write(cache.encode()) }
     private fun offlineValid() = cache.device?.userId == cache.session?.userId && cache.device?.outletId == cache.membership?.outletId &&
         OfflineLeaseRules.valid(cache.lease, cache.session?.userId, cache.membership, cache.device?.id, clock.read())
     private suspend fun clear() {
+        labelAttempts.clear()
         cache = AuthCache(config.url)
         withContext(Dispatchers.IO) { store.clear() }
     }
@@ -124,6 +126,9 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         }
         val anchor = clock.read() // Anchor before network round trip: latency cannot extend the lease.
         val selectedDevice = requireNotNull(device)
+        if(labelAttempts.add(selectedDevice.id)) {
+            try{authorized{api.reportDeviceName(it,selectedDevice)}}catch(e:CancellationException){throw e}catch(_:Exception){/* Optional label; authority is checked by lease below. */}
+        }
         val lease = authorized { api.lease(it, selectedDevice, membership, anchor) }
         cache = cache.copy(lease = lease); save()
         mutable.value = AuthState(AuthStage.READY, true, choices = mutable.value.choices, membership = membership,
@@ -305,7 +310,9 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
             .put("p_to_date",query.to.toString()).put("p_outlet_id",query.outletId?:JSONObject.NULL))),query)
     }
     override suspend fun roster(scope:PullScope):StaffRoster = management(scope) { session,device ->
-        StaffJson.read(JsonSafety.obj(api.management(session,device,"list_staff",JSONObject())),scope)
+        val roster=StaffJson.read(JsonSafety.obj(api.management(session,device,"list_staff",JSONObject())),scope)
+        val names=api.deviceNames(session,scope.sale.outletId)
+        roster.copy(devices=roster.devices.map{it.copy(deviceName=names[it.id])})
     }
     override suspend fun memberAccess(scope:PullScope,id:String,active:Boolean,version:Long,reason:String) {
         StaffRules.reason(reason)

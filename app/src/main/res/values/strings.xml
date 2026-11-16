@@ -208,9 +208,7 @@
     <string name="shell_access_offline">Akses offline</string>
     <string name="shell_access_validated">Akses tervalidasi</string>
     <string name="shell_switch_online">Hubungkan kembali untuk memilih outlet lain.</string>
-    <string name="shell_navigation">Menu aplikasi</string>
     <string name="shell_open_menu">Buka menu navigasi</string>
-    <string name="shell_close_menu">Tutup menu</string>
     <string name="catalog_ui_title">Katalog</string>
     <string name="catalog_ui_shared">Perubahan berlaku untuk seluruh outlet Daun Teh Nusantara. Pengeditan memerlukan koneksi online.</string>
     <string name="catalog_ui_products">Produk</string>
@@ -357,4 +355,6 @@
     <string name="settings_theme_dark">Gelap</string>
     <string name="settings_theme_read_error">Tema tersimpan belum dapat dibaca. Tampilan sementara tetap digunakan; coba lagi.</string>
     <string name="settings_theme_write_error">Tema belum dapat disimpan. Pilihan sebelumnya tetap digunakan; pilih kembali untuk mencoba lagi.</string>
+    <string name="device_name_unknown">Nama perangkat belum tersedia</string>
+    <string name="device_name_hint">Nama dilaporkan oleh perangkat. Cocokkan ID perangkat dengan staf sebelum melanjutkan.</string>
 </resources>

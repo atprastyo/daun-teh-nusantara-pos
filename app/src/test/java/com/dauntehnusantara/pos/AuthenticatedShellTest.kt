@@ -105,12 +105,14 @@ class AuthenticatedShellTest {
         compose.onNodeWithText("Tutup informasi akses").performClick()
         compose.onNodeWithText("feature.POS.false").assertIsDisplayed()
     }
-    @Test fun outletSwitchIsBesideNameAndBeforeStatus() {
+    @Test fun outletTitleIsTheSwitchTargetAndBeforeStatus() {
         show(state(Role.OWNER))
         val name=compose.onNodeWithTag("shell.outlet.name",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
-        val button=compose.onNodeWithTag("shell.outlet.switch").fetchSemanticsNode().boundsInRoot
+        val button=compose.onNodeWithTag("shell.outlet.selector").fetchSemanticsNode().boundsInRoot
         val status=compose.onNodeWithTag("shell.access").fetchSemanticsNode().boundsInRoot
-        assertTrue(button.left>=name.right);assertTrue(button.left-name.right<40f)
+        assertTrue(button.left<=name.left&&button.right>=name.right)
+        compose.onNodeWithTag("shell.outlet.selector").assertHasClickAction()
+        compose.onNodeWithTag("shell.outlet.switch").assertDoesNotExist()
         assertTrue(button.right<=status.left)
     }
     @Test fun themeRecompositionPreservesDestinationAndInProgressField() {
@@ -126,6 +128,27 @@ class AuthenticatedShellTest {
         compose.runOnIdle{dark=true}
         compose.onNodeWithText("destination.HISTORY").assertIsDisplayed()
         compose.onNodeWithText("Draf tema").assertTextContains("retained")
+    }
+    @Test fun drawerOmitsExtraWordingAndOutsideTapClosesWithoutNavigation() {
+        show(state(Role.OWNER));openMenu()
+        compose.onNodeWithText("Menu aplikasi").assertDoesNotExist()
+        compose.onNodeWithText("Tutup menu").assertDoesNotExist()
+        val bounds=compose.onRoot().fetchSemanticsNode().boundsInRoot
+        compose.onRoot().performTouchInput{click(androidx.compose.ui.geometry.Offset(bounds.width-2f,bounds.height/2f))}
+        compose.onNodeWithText("feature.OVERVIEW.false").assertIsDisplayed()
+        nav("Kasir").assertIsNotDisplayed()
+    }
+    @Test fun backClosesDrawerWithoutChangingDestination() {
+        var pressBack:()->Unit={}
+        compose.setContent {
+            val dispatcher=androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+            SideEffect{pressBack={dispatcher.onBackPressed()}}
+            DaunTehTheme{AuthenticatedShell(state(Role.OWNER),{}){d,e->Text("feature.${d.name}.$e")}}
+        }
+        openMenu()
+        compose.runOnIdle{pressBack()}
+        compose.onNodeWithText("feature.OVERVIEW.false").assertIsDisplayed()
+        nav("Kasir").assertIsNotDisplayed()
     }
     @Test fun headerSwitchInvokesExistingActionAndDoesNotLocallyChangeOutlet() {
         var switches = 0

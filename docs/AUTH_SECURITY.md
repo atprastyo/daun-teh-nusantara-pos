@@ -163,3 +163,10 @@ limits fail closed; disabled memberships and pending reservations count. Shared 
 serialization and membership/reservation triggers enforce caps across actors and admin
 assignment, separately from the hourly throttle. See STAFF_LIMITS.md for setup and
 remaining hosted concurrency/Edge acceptance.
+
+## Device display labels (16 November 2026)
+
+Manufacturer/model labels assist staff review but are not attestation. Approval still
+uses the original UUID, live roles/outlet and device proof. Separate optional metadata
+updates cannot rotate credentials, approve devices, change versions or extend leases.
+No IMEI/serial/Android ID or additional Android permissions. See DEVICE_NAMES.md.

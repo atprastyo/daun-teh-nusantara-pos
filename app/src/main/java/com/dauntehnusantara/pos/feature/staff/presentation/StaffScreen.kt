@@ -47,7 +47,7 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
     LaunchedEffect(draft.target,restoreFocus){if(draft.target==null&&restoreFocus!=null){withFrameNanos{};runCatching{focus[restoreFocus]?.requestFocus()};restoreFocus=null}}
     val currentTarget=draft.target?.takeIf{target->target.scope==state.scope&&roster!=null&&when(target){
         is StaffTarget.Member->roster.members.any{it==target.value}
-        is StaffTarget.Device->roster.devices.any{it==target.value}
+        is StaffTarget.Device->roster.devices.any{it.copy(deviceName=null)==target.value.copy(deviceName=null)}
     }}
     LaunchedEffect(currentTarget,state.offline){if(currentTarget==null||state.offline)editor.cancel()}
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -89,6 +89,7 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
                     if(roster.devices.isEmpty())item{AppEmptyState("Belum ada perangkat yang dikembalikan.")}
                     items(roster.devices,key={"device.${it.id}"}){d->StaffRow {
                         Text(roster.members.find{it.id==d.userId}?.name?:d.userId,style=MaterialTheme.typography.titleMedium)
+                        Text(com.dauntehnusantara.pos.feature.auth.domain.DeviceName.clean(d.deviceName)?:stringResource(R.string.device_name_unknown),style=MaterialTheme.typography.titleMedium)
                         AppIdentity(d.id)
                         Text(staffRole(d.role),style=MaterialTheme.typography.labelLarge)
                         if(d.id==roster.scope.sale.deviceId)Text("Perangkat ini")
@@ -128,6 +129,10 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
         }) {
                     when(currentTarget){is StaffTarget.Member->{Text(currentTarget.value.name);Text(currentTarget.value.email);SelectionContainer{Text(currentTarget.value.id)};Text(staffRole(currentTarget.value.role))}
                         is StaffTarget.Device->{Text(roster?.members?.find{it.id==currentTarget.value.userId}?.name?:currentTarget.value.userId);SelectionContainer{Text(currentTarget.value.id)};Text(staffRole(currentTarget.value.role))}}
+                    if(currentTarget is StaffTarget.Device) {
+                        Text(com.dauntehnusantara.pos.feature.auth.domain.DeviceName.clean(currentTarget.value.deviceName)?:stringResource(R.string.device_name_unknown))
+                        Text(stringResource(R.string.device_name_hint),style=MaterialTheme.typography.bodySmall)
+                    }
                     Text(state.outletName.ifBlank{state.scope?.sale?.outletId.orEmpty()})
                     Text(when(currentTarget){is StaffTarget.Member->if(currentTarget.value.active)"Akses outlet aktif → nonaktif" else "Akses outlet nonaktif → aktif"
                         is StaffTarget.Device->if(currentTarget.value.revoked)"Dicabut → menunggu persetujuan" else "Akses perangkat → dicabut"})

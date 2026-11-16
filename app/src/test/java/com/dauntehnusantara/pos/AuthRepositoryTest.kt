@@ -47,6 +47,7 @@ class AuthRepositoryTest {
         var pullStatus=200;var pullWrongScope=false
         var invalidRefresh=false
         var wrongAck=false;var pushStatus="ACCEPTED";var pushCode="CATALOG_CHANGED"; var pushCalls=0
+        var labelWrites=0;var labelFailure=false
         var passwordRequired=false;var passwordStatus=200;var creationCode:String?=null;var legacyPasswordRpc=false;var wrongCreationAck=false
         val calls=mutableListOf<String>(); var refreshes=0
         override suspend fun request(path:String,body:String?,token:String?,method:String):String {
@@ -55,6 +56,12 @@ class AuthRepositoryTest {
             if(denied)throw AuthHttpFailure(403)
             if(protocolFailure)throw IllegalStateException("simulated invalid authorization response")
             return when {
+                path.endsWith("set_device_label") -> {
+                    labelWrites++;if(labelFailure)throw AuthHttpFailure(404)
+                    val args=JSONObject(requireNotNull(body));require(args.getString("p_device_id")==issuedDevice&&args.getString("p_device_secret")=="test-device-secret")
+                    require(args.has("p_manufacturer")&&args.has("p_model"));"null"
+                }
+                path.endsWith("get_device_labels") -> "[]"
                 path.endsWith("staff_password_change_required") -> {if(legacyPasswordRpc)throw AuthHttpFailure(404);passwordRequired.toString()}
                 path.endsWith("/functions/v1/staff-admin") -> {
                     if(passwordStatus!=200)throw AuthHttpFailure(passwordStatus,creationCode)
@@ -130,6 +137,12 @@ class AuthRepositoryTest {
             try{repository.create(scope,command);fail("must report quota rejection")}catch(e:com.dauntehnusantara.pos.feature.reports.domain.ManagementFailure){assertEquals(code,e.code)}
             assertEquals(AuthStage.READY,repository.state.value.stage)
         }
+    }
+    @Test fun deviceLabelReportsOnceWithoutReenrollmentAndOldServerDoesNotBlockLogin():Unit=runBlocking {
+        val http=FakeHttp(base).apply{labelFailure=true};val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        assertEquals(AuthStage.READY,repository.state.value.stage);assertEquals(1,http.labelWrites)
+        val enrolls=http.calls.count{it.endsWith("enroll_device")}
+        repository.refresh();assertEquals(1,http.labelWrites);assertEquals(enrolls,http.calls.count{it.endsWith("enroll_device")})
     }
     @Test fun staffCreationUsesApprovedProofAndValidatesAcknowledgedOutlet():Unit=runBlocking {
         val http=FakeHttp(base).apply{role=Role.OWNER};val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)

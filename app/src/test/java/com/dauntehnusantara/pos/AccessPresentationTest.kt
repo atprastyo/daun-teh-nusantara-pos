@@ -117,14 +117,16 @@ class AccessPresentationTest {
     }
 
     @Test fun reviewerRequiresConfirmationAndDisablesRepeatSubmission() {
-        val request = DeviceRequest("device-id", "user", "Nama Staf", "staff@example.invalid", Role.CASHIER)
+        val request = DeviceRequest("device-id", "user", "Nama Staf", "staff@example.invalid", Role.CASHIER,deviceName="Samsung SM-M146B")
         var state by mutableStateOf(AuthState(AuthStage.READY, true, membership = membership,
             deviceRequests = listOf(request), deviceRequestsLoaded = true))
         var approvals = 0
         compose.setContent { DaunTehTheme {
             DeviceRequestsPanel(state, {}, { approvals++; state = state.copy(busy = true) })
         } }
+        compose.onNodeWithTag("device.request.name.device-id").assertTextEquals("Samsung SM-M146B")
         compose.onNodeWithText("Tinjau").performClick()
+        compose.onNodeWithTag("device.approval.name").assertTextEquals("Samsung SM-M146B")
         compose.runOnIdle { assertEquals(0, approvals) }
         compose.onNodeWithText("Setujui perangkat ini").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, approvals) }
@@ -146,6 +148,7 @@ class AccessPresentationTest {
         } }
         compose.onNodeWithText("Tinjau").performClick()
         compose.onNodeWithText("Setujui perangkat?").assertIsDisplayed()
+        compose.onNodeWithTag("device.approval.name").assertTextEquals("Nama perangkat belum tersedia")
         compose.onNodeWithText("Batal").performScrollTo().performClick()
         compose.onNodeWithText("Setujui perangkat?").assertDoesNotExist()
         compose.runOnIdle { assertEquals(0, approvals) }

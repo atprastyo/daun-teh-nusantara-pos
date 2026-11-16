@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -51,6 +52,7 @@ fun DeviceRequestsPanel(state: AuthState, load: () -> Unit, approve: (String) ->
                     Text(request.fullName, style = MaterialTheme.typography.titleMedium)
                     Text(request.email, style = MaterialTheme.typography.bodyMedium)
                     Text(stringResource(request.role.label()), color = MaterialTheme.colorScheme.primary)
+                    Text(DeviceName.clean(request.deviceName)?:stringResource(R.string.device_name_unknown),Modifier.testTag("device.request.name.${request.deviceId}"),style=MaterialTheme.typography.titleMedium)
                     DeviceIdentity(request.deviceId)
                     TextButton(onClick = { selectedId = request.deviceId; completed = false }, enabled = interactionEnabled && !state.offline && !state.busy && state.deviceRequestsLoaded) {
                         Text(stringResource(R.string.access_review))
@@ -69,6 +71,8 @@ fun DeviceRequestsPanel(state: AuthState, load: () -> Unit, approve: (String) ->
                     Text(selected.fullName, style = MaterialTheme.typography.titleMedium)
                     Text(selected.email)
                     Text("${membership.outletName} · ${stringResource(selected.role.label())}")
+                    Text(DeviceName.clean(selected.deviceName)?:stringResource(R.string.device_name_unknown),Modifier.testTag("device.approval.name"),style=MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.device_name_hint),style=MaterialTheme.typography.bodySmall)
                     DeviceIdentity(selected.deviceId)
                     AccessAction(stringResource(if (submitted) R.string.access_approving else R.string.auth_approve_device),
                         interactionEnabled && !state.busy && !submitted && state.deviceRequestsLoaded, submitted) {

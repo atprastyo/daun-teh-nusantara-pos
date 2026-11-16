@@ -4,7 +4,7 @@ import com.dauntehnusantara.pos.feature.sync.domain.PullScope
 import javax.inject.Inject
 
 data class StaffMember(val id:String,val name:String,val email:String,val role:String,val active:Boolean,val profileActive:Boolean,val version:Long)
-data class StaffDevice(val id:String,val userId:String,val role:String?,val revoked:Boolean,val approved:Boolean,val version:Long)
+data class StaffDevice(val id:String,val userId:String,val role:String?,val revoked:Boolean,val approved:Boolean,val version:Long,val deviceName:String?=null)
 data class StaffAudit(val id:String,val actorId:String,val targetId:String?,val action:String,val createdAtMs:Long,val reason:String?)
 data class StaffRoster(val scope:PullScope,val members:List<StaffMember>,val devices:List<StaffDevice>,val audit:List<StaffAudit> = emptyList(),val capacity:StaffCapacity?=null)
 object StaffRules {

@@ -256,3 +256,11 @@ Implement adjacent outlet switch, green app bar and device-local Light/Dark pref
 using existing DataStore/Hilt. Verify actual persistence/reopen, failure/retry, settings,
 scoped navigation/input retention, full build and lint. No backend or Room change.
 Next: physical Light/Dark/system-bar/IME/accessibility preview on an idle phone.
+
+## Device-name approval iteration (2026-11-16)
+
+Add optional manufacturer/model reporting and scoped reads, with named pending review
+and staff directory/confirmation displays, legacy fallback and isolated permission/UI
+regressions. No reenrollment, Room migration, hardware identifiers or live deployment.
+Next: apply optional SQL in an approved environment and verify two-actor real-device
+approval/model display without changing existing working-brand permissions.

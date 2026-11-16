@@ -162,3 +162,11 @@ counts or Super Admin app user. Deploy updated staff-admin and refresh the staff
 See [STAFF_LIMITS.md](../docs/STAFF_LIMITS.md) for counting, reservation/retry semantics
 and required independent-connection hosted acceptance. Never reset the main schema
 or use fabricated working-brand accounts to test limits.
+
+## Device display names
+
+Apply device-labels.sql once after the main schema, then update/restart staff apps and
+refresh review lists. No Edge redeploy or device/secret/approval reset is needed.
+See [DEVICE_NAMES.md](../docs/DEVICE_NAMES.md). Only owner-secret proof can write a
+device label; reviewers read authorized outlet/role-scoped names. Do not trust labels
+as authorization or collect hardware identifiers.

@@ -851,3 +851,16 @@ Official Android references checked for M7:
   root without activity recreation or changing navigation keys. Keep selection through
   logout/restart, expose read/write failure and retry, update system-bar icon contrast,
   and use white in-app branding on dark surfaces. No auth, backend or Room changes.
+
+- D141 (2026-11-16): Add manufacturer/model display metadata through a separate
+  device_labels table and narrow own-secret/report + role/outlet-read RPCs. Display in
+  pending/review/directory/access confirmations with UUID and fallback; no hardware
+  identifiers, extra permissions, auth-version/approval mutation or Room changes.
+  Report once per selected device/session and tolerate old/missing label APIs. Labels
+  are untrusted display information, excluded from authorization-target comparisons.
+
+- D142 (2026-11-16): Remove redundant drawer heading/close button; retain brand/account
+  header and destination list. Close through destination selection, outside tap, swipe
+  or Back. Replace the swap icon with the entire outlet title/role section as an
+  accessible Button target (at least 48dp), labeled Pilih outlet lain with current
+  outlet/role state. Preserve offline/busy guards, existing callback and access indicator.

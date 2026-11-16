@@ -75,3 +75,11 @@ Outlet switch is adjacent to the title/role block, before the trailing access in
 Green backgrounds use contrasting Light/Dark tokens; disabled offline/busy behavior
 remains. Appearance updates the existing composition rather than resetting selected
 routes or in-progress inputs. Saved device preference also applies to access screens.
+
+## Drawer and outlet selector cleanup (16 November 2026)
+
+Brand/account header leads straight into destination items; remove Menu aplikasi and
+Tutup menu. Selection/outside tap/swipe/Back close the drawer. The outlet name/role
+section is now the switch target, labeled Pilih outlet lain for accessibility, with
+current outlet and role state. It has at least 48dp height and disables offline or
+while validating. No separate swap icon. Green header/access-status details remain.

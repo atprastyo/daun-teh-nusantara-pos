@@ -30,7 +30,7 @@ class StaffPresentationTest {
     private val source=PullScope(SaleScope("brand","outlet","device","owner"),"OWNER","https://example.invalid")
     private val cashier=StaffMember("cashier","Rani","rani@example.invalid","CASHIER",true,true,1)
     private val peer=cashier.copy(id="manager",name="Bima",role="MANAGER")
-    private val revoked=StaffDevice("revoked","cashier","CASHIER",true,true,1)
+    private val revoked=StaffDevice("revoked","cashier","CASHIER",true,true,1,deviceName="Samsung SM-M146B")
     private fun ready()=StaffState(source,StaffRoster(source,listOf(cashier),listOf(revoked)))
     private fun list()=compose.onNodeWithTag("staff.list")
     @Test fun reasonBoundsCancelAndEffectSpecificConfirmation() {
@@ -55,6 +55,7 @@ class StaffPresentationTest {
     @Test fun revokedWinsOverApprovedAndUnknownRoleCannotRestore() {
         compose.setContent{DaunTehTheme{StaffScreen(ready().copy(roster=StaffRoster(source,emptyList(),listOf(revoked.copy(role=null)))),{}, {_,_->}, {_,_->})}}
         compose.onNodeWithText("Perangkat",substring=false).performClick()
+        compose.onNodeWithText("Samsung SM-M146B").assertExists()
         compose.onNodeWithText("Perangkat dicabut").assertExists();compose.onNodeWithText("Perangkat disetujui").assertDoesNotExist()
         compose.onNodeWithText("Pulihkan ke menunggu persetujuan").assertIsNotEnabled()
     }

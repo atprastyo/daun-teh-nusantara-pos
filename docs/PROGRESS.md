@@ -2524,3 +2524,46 @@ compiled; no instrumentation/device execution claimed. Log app/build/appearance-
 Android Studio JBR via JAVA_HOME. Final `git diff --check` passed.
 Remaining: physical Light/Dark/system-bar/IME/TalkBack acceptance on an idle phone;
 no install or device interaction was performed. No ADB or working-brand operations in this iteration.
+
+## Device names in staff approval (2026-11-16)
+
+Added optional device-labels.sql with separate RLS metadata and own-user/secret report
+RPC, live reviewer outlet/role read scope, bounded manufacturer/model and no device
+version/credential/approval writes. Android reports once per selected device/session
+and joins names into pending approvals and staff directory/confirmations, with unknown
+fallback and control-character sanitization. Device-label changes do not alter the
+authorization-target equality check. No Room/API signature migration or permissions.
+Initial Kotlin compile passed (50s); 3 isolated SQL tests passed (6.3s), including
+pending reporting without approval/version change and scoped denial.
+Targeted `:app:testDebugUnitTest --tests '*DeviceNameTest' --tests '*AuthRepositoryTest'
+--tests '*AccessPresentationTest' --tests '*Staff*Test' :app:assembleDebug --offline
+--max-workers=2 --console=plain` passed in 1m28s: 87 tests, zero failures/skips. Subsequent
+explicit named/fallback approval and staff label assertions are included in the full
+build. Log app/build/device-name-tests.log; Android Studio JBR via JAVA_HOME.
+Initial parallel `npm test --prefix supabase` had four photo-fixture before-hook 25P02
+errors (70/74 passed); a diagnostic rerun passed with no production SQL changes.
+The original unmodified suites then passed sequentially with
+`node --test --test-concurrency=1 supabase/tests/*.test.mjs`: 74/74 passed, no skips
+(86.9s). Log app/build/device-name-backend-final.log. Temporary diagnostic file removed.
+Full `:app:assembleDebugAndroidTest build --offline --max-workers=2 --console=plain`
+passed in 7m47s: debug346 passed, release337 passed +9 expected demo-only skips,
+zero failures/errors. Lint zero errors/45 existing warnings. Instrumentation APK
+compiled; no device instrumentation run claimed. Log app/build/device-name-build.log.
+After adding the schema-cache NOTIFY, the final device-label SQL suite passed again:
+3/3 (13.7s), log app/build/device-name-sql-final.log. Final `git diff --check` passed.
+Exact next step: apply optional device-labels.sql to the approved environment, update
+and restart reporter/reviewer apps, then perform controlled two-actor name/approval
+acceptance. No backend application, APK install or real approval was performed. No working project deployment,
+real approvals/accounts/sales or ADB operations in this iteration. Setup: DEVICE_NAMES.md.
+
+## Drawer wording and outlet selector cleanup (2026-11-16)
+
+Removed Menu aplikasi and Tutup menu plus their unused resources and swap vector.
+The outlet title/role section now invokes the existing outlet selection callback as
+an accessible 48dp-minimum Button, with current outlet/role state description. Existing
+offline/validating restrictions remain; green header and access indicator are unchanged.
+Drawer retains brand/account identity and navigation, with destination/outside/swipe/
+Back dismissal. Added explicit Back handling and outside/Back regression checks.
+Targeted shell tests/debug assembly/lint running; final results below. No backend,
+business-state, permission or device changes. Next: idle-device drawer/selector
+TalkBack and touch acceptance with existing outlet selection cancellation.

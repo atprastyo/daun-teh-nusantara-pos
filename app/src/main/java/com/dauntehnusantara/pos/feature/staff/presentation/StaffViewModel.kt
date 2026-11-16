@@ -121,7 +121,7 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
     fun device(d:StaffDevice,reason:String){state.value.scope?.let{submit(StaffTarget.Device(it,d),reason)}}
     private fun matches(target:StaffTarget,r:StaffRoster)=r.scope==target.scope&&when(target){
         is StaffTarget.Member->r.members.any{it==target.value}&&staffCanChange(r.scope,target.value)
-        is StaffTarget.Device->r.devices.any{it==target.value}&&staffCanChange(r.scope,target.value)
+        is StaffTarget.Device->r.devices.any{it.copy(deviceName=null)==target.value.copy(deviceName=null)}&&staffCanChange(r.scope,target.value)
     }
     private fun submit(target:StaffTarget,reason:String) {
         val st=state.value

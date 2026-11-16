@@ -194,3 +194,10 @@ cashier_limit,revision), with read-only role-scoped RLS and trusted-admin writes
 Usage is the distinct union of role/outlet memberships (including inactive) and pending
 provision target UUIDs. Trigger guards serialize slot increases using the limits row;
 reservation conversion does not count twice. Existing Room/schema version is unchanged.
+
+## Device display metadata (16 November 2026)
+
+Optional device-labels.sql adds public.device_labels(device_id PK/FK,manufacturer,
+model,updated_at). Direct client access is revoked and RLS enabled; narrow RPCs require
+own enrolled user/secret for reporting and live Owner/Manager outlet/target-role scope
+for reads. No existing devices columns, access versions, snapshots or Room schema change.

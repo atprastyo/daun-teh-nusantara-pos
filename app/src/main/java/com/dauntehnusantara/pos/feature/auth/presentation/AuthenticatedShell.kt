@@ -4,6 +4,9 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.luminance
@@ -47,6 +50,7 @@ fun AuthenticatedShell(state: AuthState, switchOutlet: () -> Unit,
             val menu = compact && destinations.size > 5 || LocalDensity.current.fontScale >= 1.5f || maxHeight < 480.dp
             val drawer = rememberDrawerState(DrawerValue.Closed)
             val scope = rememberCoroutineScope()
+            BackHandler(enabled=menu&&drawer.isOpen){scope.launch{drawer.close()}}
             val shell: @Composable () -> Unit = {
                 Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
                     if (compact && !menu) NavigationBar(Modifier.testTag("shell.bottom"), containerColor = MaterialTheme.colorScheme.surface) {
@@ -87,14 +91,12 @@ fun AuthenticatedShell(state: AuthState, switchOutlet: () -> Unit,
                     Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         DrawerIdentity(state)
                         HorizontalDivider()
-                        Text(stringResource(R.string.shell_navigation), Modifier.padding(16.dp).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
                         destinations.forEach { destination ->
                             NavigationDrawerItem(label = { Text(stringResource(destination.shellLabel())) },
                                 selected = selected == destination, icon = { DestinationIcon(destination) },
                                 onClick = { selectedName = destination.name; scope.launch { drawer.close() } },
                                 colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer))
                         }
-                        TextButton(onClick = { scope.launch { drawer.close() } }) { Text(stringResource(R.string.shell_close_menu)) }
                     }
                 }
             }, content = shell)
@@ -131,14 +133,14 @@ private fun ShellContextHeader(state: AuthState, switchOutlet: () -> Unit, openM
             verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             if(openMenu!=null)IconButton(onClick=openMenu){Icon(painterResource(R.drawable.ic_shell_menu),stringResource(R.string.shell_open_menu))}
             else Icon(painterResource(R.drawable.ic_shell_store),null)
-            Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                Column(Modifier.weight(1f,false),verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                    Text(membership.outletName,Modifier.testTag("shell.outlet.name"),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
-                    Text(stringResource(membership.role.label()),style=MaterialTheme.typography.labelLarge,color=foreground.copy(alpha=0.85f))
-                }
-                IconButton(onClick=switchOutlet,enabled=!state.offline&&!state.busy,modifier=Modifier.testTag("shell.outlet.switch")){
-                    Icon(painterResource(R.drawable.ic_shell_switch_outlet),stringResource(R.string.auth_switch_outlet))
-                }
+            val switchLabel=stringResource(R.string.auth_switch_outlet)
+            val roleLabel=stringResource(membership.role.label())
+            Column(Modifier.weight(1f).heightIn(min=48.dp).testTag("shell.outlet.selector")
+                .clickable(enabled=!state.offline&&!state.busy,onClickLabel=switchLabel,role=androidx.compose.ui.semantics.Role.Button,onClick=switchOutlet)
+                .semantics{contentDescription=switchLabel;stateDescription="${membership.outletName} · $roleLabel"},
+                verticalArrangement=Arrangement.Center) {
+                Text(membership.outletName,Modifier.testTag("shell.outlet.name"),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
+                Text(roleLabel,style=MaterialTheme.typography.labelLarge,color=foreground.copy(alpha=0.85f))
             }
             AccessIndicator(state)
         }

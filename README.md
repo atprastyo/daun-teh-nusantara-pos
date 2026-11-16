@@ -522,3 +522,11 @@ app bar uses a compact access-status icon; tap it for validation/offline details
 Change appearance in **Setelan → Tampilan → Terang / Gelap**. The preference is saved
 on the device, works offline and also applies to sign-in after logout. Light remains
 the default. The green app bar keeps the outlet switch beside the outlet title.
+
+Device names now appear in staff device lists and approval reviews. Apply the optional
+[device-name setup](docs/DEVICE_NAMES.md), then restart/validate the updated staff app
+and refresh the reviewer list. Existing devices need no reenrollment; unknown labels
+keep the device ID fallback. Names are display-only, not hardware identity proof.
+
+Tap the outlet name/role in the app bar to change outlets when online. The drawer
+closes by destination selection, outside tap, swipe or Back, without extra menu wording.
