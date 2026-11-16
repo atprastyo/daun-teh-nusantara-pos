@@ -358,4 +358,24 @@
     <string name="device_name_unknown">Nama perangkat belum tersedia</string>
     <string name="device_name_hint">Nama dilaporkan oleh perangkat. Cocokkan ID perangkat dengan staf sebelum melanjutkan.</string>
     <string name="press_back_again_to_exit">Tekan kembali sekali lagi untuk keluar</string>
+    <string name="printer_title">Printer struk</string>
+    <string name="printer_profile">Kertas 58 mm · Bluetooth Classic</string>
+    <string name="printer_provisional">Profil belum diverifikasi. Tes teks saja; belum mendukung cetak struk penjualan.</string>
+    <string name="printer_none">Belum ada printer dipilih untuk akun dan outlet ini.</string>
+    <string name="printer_permission">Izinkan Perangkat di sekitar untuk mengakses printer. Jika ditolak permanen, buka izin aplikasi.</string>
+    <string name="printer_app_settings">Buka izin aplikasi</string>
+    <string name="printer_settings_failed">Pengaturan perangkat tidak dapat dibuka.</string>
+    <string name="printer_off">Bluetooth mati. Aktifkan melalui pengaturan Bluetooth.</string>
+    <string name="printer_unavailable">Bluetooth tidak tersedia pada perangkat ini.</string>
+    <string name="printer_error">Pengaturan atau akses printer gagal. Muat ulang daftar dan coba lagi.</string>
+    <string name="printer_sent">Data tes dikirim ke printer. Periksa hasil cetak; keluarnya kertas belum terkonfirmasi.</string>
+    <string name="printer_unknown">Hasil cetak belum dapat dipastikan. Periksa printer sebelum mengirim tes lagi.</string>
+    <string name="printer_failed">Tes belum terkirim. Periksa daya, jarak, pasangan dan kompatibilitas printer.</string>
+    <string name="printer_list">Muat printer berpasangan</string>
+    <string name="printer_bluetooth_settings">Buka pengaturan Bluetooth</string>
+    <string name="printer_empty">Tidak ada perangkat Bluetooth Classic berpasangan. Pasangkan printer melalui pengaturan Android.</string>
+    <string name="printer_test">Cetak tes</string>
+    <string name="printer_forget">Lepaskan pilihan printer</string>
+    <string name="printer_confirm">Pastikan perangkat yang dipilih adalah printer Bluetooth Classic dengan layanan Serial Port. Model belum diverifikasi. Kirim teks tes fiktif 58 mm? Tidak ada transaksi dibuat. Jika tes sebelumnya terputus, periksa kertas agar tidak mencetak ulang tanpa sengaja.</string>
+    <string name="printer_send_test">Kirim teks tes</string>
 </resources>

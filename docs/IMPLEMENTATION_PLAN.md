@@ -264,3 +264,11 @@ and staff directory/confirmation displays, legacy fallback and isolated permissi
 regressions. No reenrollment, Room migration, hardware identifiers or live deployment.
 Next: apply optional SQL in an approved environment and verify two-actor real-device
 approval/model display without changing existing working-brand permissions.
+
+## Bluetooth printing planning iteration (2026-11-16)
+
+The user requested the previously deferred printing scope and confirmed 58 mm paper.
+See BLUETOOTH_PRINTING_PLAN.md for PRINT-00–04, UI contracts, authorization, immutable
+receipt rendering, Android permissions and uncertain-output handling. No runtime
+implementation in this iteration. Next: confirm printer model/protocol, then implement
+paired selection/test printing against a verified profile before receipt integration.

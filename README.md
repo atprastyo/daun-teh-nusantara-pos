@@ -540,3 +540,9 @@ and offline access. No SQL deployment or device-table reset is required. See
 
 At the root screen, press Back twice within two seconds to exit. The first press
 shows a reminder; drawers, dialogs and details keep their normal Back behavior.
+
+Printer setup and a fictional text-test probe are available under **Setelan → Printer
+struk**. Pair in Android settings, load paired devices, select the printer and confirm
+**Cetak tes**. The generic 58 mm model is unverified; no sale receipt is printed yet.
+See [BLUETOOTH_PRINTING_PLAN.md](docs/BLUETOOTH_PRINTING_PLAN.md) for setup, compatibility
+limits and remaining receipt implementation milestones.

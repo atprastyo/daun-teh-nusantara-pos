@@ -877,3 +877,16 @@ Official Android references checked for M7:
   Compose callbacks. First root Back shows a localized Toast; a second within two
   seconds finishes the Activity. Use monotonic elapsed time and reset on Stop.
   Navigation/detail/drawer/dialog handlers retain priority. No sign-out/data reset.
+
+- D145 (2026-11-16): Plan Bluetooth receipts for confirmed 58 mm paper. Model/protocol
+  confirmation gates transport/encoder choice. First release uses paired-device
+  setup and manual receipt/copy actions, independent of checkout/sync; unknown physical
+  output requires explicit copy, never automatic resend. See BLUETOOTH_PRINTING_PLAN.md.
+
+- D146 (2026-11-16): Begin printing with scoped paired-device settings and a fictional
+  plain-ASCII SPP test only. User's generic 58 mm device has no confirmed model; mark
+  compatibility unverified and confirm before sending. Use existing DataStore/Hilt
+  and native secure RFCOMM, optional Bluetooth hardware, CONNECT permission on demand,
+  bounded serialized transport, cancellation-close and explicit unknown outcomes.
+  Do not add live receipt actions, ESC/POS commands, Room changes or a sales journal
+  until model/profile and physical test are verified. No auto-retry/background print.

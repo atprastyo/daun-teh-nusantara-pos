@@ -2620,3 +2620,46 @@ lint zero errors, 45 existing warnings. Log: `app/build/double-back-exit.log`.
 `git diff --check` passed. No device installation or backend changes; release and
 physical Back gesture/keyboard acceptance not run.
 Next: physical Back-button/gesture acceptance with open drawer, detail and root.
+
+## Bluetooth receipt plan (2026-11-16)
+
+Created BLUETOOTH_PRINTING_PLAN.md based on current Receipt/ReceiptContent, history
+and settings routes, manifest/toolchain and official Android Bluetooth documentation.
+58 mm paper confirmed; model/protocol/printable width remain unresolved. Planned
+paired-device settings, manual checkout/history printing, immutable snapshot renderer,
+scoped transport, bounded attempt journal and explicit uncertain-output recovery.
+No library/version, runtime code, backend/Room change or device action introduced.
+Documentation review and diff whitespace check only; Gradle tests not run for this
+plan-only change. Next milestone: PRINT-00 hardware compatibility confirmation, then
+settings/test-print slice. Physical printer acceptance is required before compatibility
+or successful paper output can be claimed.
+
+## Printer setup and provisional text test (2026-11-16)
+
+Implemented feature/printing domain/repository, DataStore selection per backend/user/
+outlet, Hilt wiring, Settings card/permission/pairing/settings-launch recovery and
+confirmed fictional 58 mm plain-ASCII test. Native secure RFCOMM uses SIG SerialPort
+service; no reflection, insecure fallback, discovery/location permissions or new
+library. Bluetooth is optional. A serialized IO sender closes on cancellation/deadline
+and distinguishes pre-output failure from possibly partial/unknown output. Scope
+changes cancel work and stale outcomes are generation-guarded; no automatic resend.
+
+Generic thermal description does not verify model/protocol. UI clearly marks this
+provisional; no receipt/sale payload, checkout integration, backend/Room change,
+production record, physical printer operation or APK installation. Persistent receipt
+print-attempt journal and receipt renderer/actions remain later milestones after
+physical compatibility confirmation. Initial compile found a nonexistent cancel
+resource; corrected to existing access_cancel. Initial full test run passed 371 but
+lint identified 3 paired-device permission diagnostics and one KTX warning; added
+explicit SecurityException mapping and used existing KTX URI conversion. No lint
+suppression/baseline was added.
+
+Final `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug --offline
+--max-workers=2 --console=plain` passed in 3m10s: 371 tests, no failures/errors/skips,
+including 13 new printer tests (real DataStore reopen/isolation, duplicate taps,
+authorization/scope cancellation, permission retry, timeout/partial-write/cancellation,
+ASCII/control safety and compact/tablet confirmation UI). Lint: zero errors and
+45 existing warnings. Log `app/build/printer-setup-verified.log`. `git diff --check`
+passed. Release and physical Bluetooth/permission/paper acceptance were not run.
+Next: pair/test the real printer and verify 58 mm readability/protocol, then PRINT-02
+renderer and PRINT-03 durable receipt attempt/integration in a separate iteration.

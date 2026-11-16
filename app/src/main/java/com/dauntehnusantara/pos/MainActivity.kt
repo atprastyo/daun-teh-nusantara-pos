@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
+    private val printerViewModel:com.dauntehnusantara.pos.feature.printing.presentation.PrinterViewModel by viewModels()
     private val appearanceViewModel:com.dauntehnusantara.pos.feature.settings.presentation.AppearanceViewModel by viewModels()
     private val productPhotosViewModel: com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhotosViewModel by viewModels()
     private val catalogEditorViewModel: com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorViewModel by viewModels()
@@ -91,7 +92,7 @@ class MainActivity : ComponentActivity() {
                         com.dauntehnusantara.pos.feature.history.presentation.HistoryRoute(historyViewModel,historyExpanded)
                     }
                 }
-            }, settings = { com.dauntehnusantara.pos.feature.settings.presentation.SettingsRoute(settingsViewModel,syncStatusViewModel,appearance,appearanceViewModel::change,appearanceViewModel::retry) }) {
+            }, settings = { com.dauntehnusantara.pos.feature.settings.presentation.SettingsRoute(settingsViewModel,syncStatusViewModel,appearance,appearanceViewModel::change,appearanceViewModel::retry,printerModel=printerViewModel) }) {
                 PosApp(viewModel,catalogViewModel,posViewModel)
             }
         } } }
