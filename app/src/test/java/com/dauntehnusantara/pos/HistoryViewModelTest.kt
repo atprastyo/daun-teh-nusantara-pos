@@ -134,11 +134,13 @@ class HistoryViewModelTest {
         vm.refresh();runCurrent();assertTrue(vm.state.value.scopeKey.contains("another-device"))
         project="https://other.invalid";pullStatus.value=pullStatus.value.copy(seq=5);runCurrent();assertTrue(vm.state.value.receipts.isEmpty());assertFalse(vm.state.value.allowed)
     }
-    @Test fun ownerCanOpenSelectedOutletHistoryButManagerStillCannot()=historyTest {
+    @Test fun ownerAndManagerCanOpenSelectedOutletHistoryAndDemotionRestoresOwnScope()=historyTest {
         auth.state.value=auth.state.value.copy(membership=member.copy(role=Role.OWNER));val vm=model();runCurrent();assertTrue(vm.state.value.allowed);assertTrue(vm.state.value.outletWide);assertEquals(1,factoryCalls)
         assertEquals(listOf(original),vm.state.value.receipts)
-        auth.state.value=auth.state.value.copy(membership=member.copy(role=Role.MANAGER));runCurrent();assertFalse(vm.state.value.allowed);assertEquals(1,factoryCalls)
-        assertTrue(vm.state.value.receipts.isEmpty());assertFalse(vm.state.value.outletWide)
+        auth.state.value=auth.state.value.copy(membership=member.copy(role=Role.MANAGER));runCurrent();assertTrue(vm.state.value.allowed);assertEquals(2,factoryCalls)
+        assertTrue(vm.state.value.outletWide);assertEquals(listOf(original),vm.state.value.receipts)
+        auth.state.value=auth.state.value.copy(membership=member);runCurrent()
+        assertTrue(vm.state.value.allowed);assertFalse(vm.state.value.outletWide);assertEquals(3,factoryCalls)
     }
     @Test fun dayRolloverReconcilesTodaySelectionAtJakartaMidnight()=historyTest {
         val vm=model();runCurrent();vm.session.day(HistoryDay.TODAY);vm.session.select(original.id)

@@ -176,3 +176,24 @@ test('owner cashier keeps actual identity, idempotency and approved owner-device
  await admin(`update public.devices set revoked_at=now() where id='${ownerDevice}'`);
  await assert.rejects(submit(p,'proof',owner),/Device denied/);
 });
+
+test('manager cashier retains identity, approval, selected outlet and idempotency',async()=>{
+ const manager=id(70),managerDevice=id(71);
+ await admin(`insert into auth.users values('${manager}','manager-cashier@example.invalid',now());
+ insert into public.user_profiles(id) values('${manager}');
+ insert into public.outlet_members(user_id,outlet_id,role) values('${manager}','${outlet}','MANAGER');
+ insert into public.devices(id,outlet_id,enrolled_by,secret_hash,approved_at,approved_role)
+ values('${managerDevice}','${outlet}','${manager}',encode(sha256(convert_to('proof','UTF8')),'hex'),now(),'CASHIER');`);
+ const p=payload();p.device_id=managerDevice;p.cashier_user_id=manager;
+ await assert.rejects(submit(p,'proof',manager),/approval/);
+ await admin(`update public.devices set approved_role='MANAGER' where id='${managerDevice}'`);
+ const ack=await submit(p,'proof',manager);assert.equal(ack.status,'ACCEPTED');assert.deepEqual(await submit(p,'proof',manager),ack);
+ const row=(await admin(`select cashier_user_id,outlet_id from public.sales where id='${p.sale_id}'`))[0].rows[0];
+ assert.equal(row.cashier_user_id,manager);assert.equal(row.outlet_id,outlet);
+ assert.equal((await admin(`select count(*)::int n from public.sales where id='${p.sale_id}'`))[0].rows[0].n,1);
+ const history=await allChanges(managerDevice,'MANAGER',manager);assert.ok(history.rows.some(c=>c.entity_id===p.sale_id));
+ await assert.rejects(submit({...p,cashier_user_id:user},'proof',manager),/Scope denied/);
+ await assert.rejects(submit({...p,outlet_id:id(999)},'proof',manager),/Scope denied/);
+ await admin(`update public.devices set revoked_at=now() where id='${managerDevice}'`);
+ await assert.rejects(submit(p,'proof',manager),/Device denied/);
+});

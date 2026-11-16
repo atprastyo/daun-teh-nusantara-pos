@@ -34,14 +34,14 @@ class HistoryViewModel @Inject constructor(private val auth: AuthRepository, pri
                 mutable.value=HistoryState(scopeKey="locked-$generation",today=historyToday(clock),offline=auth.state.value.offline,loading=false)
             }.collectLatest { context ->
                 val token=generation
-                if(context.first==AuthStage.READY && context.second?.role in listOf(Role.CASHIER,Role.OWNER)) {
+                if(context.first==AuthStage.READY && context.second?.role in listOf(Role.CASHIER,Role.OWNER,Role.MANAGER)) {
                     mutable.update{it.copy(loading=true)}
                     try {
                         val s=gateway.pullScope()
                         if(s!=null && s.role==context.second?.role?.name && s.sale.brandId==context.second?.brandId && s.sale.outletId==context.second?.outletId && generation==token &&
                             auth.state.value.let{Triple(it.stage,it.membership,it.email)}==context) {
                             scope=s; repository=factory.open(s)
-                            mutable.value=HistoryState(scopeKey="${s.key}|$token",allowed=true,outletWide=s.role==Role.OWNER.name,today=historyToday(clock),offline=auth.state.value.offline)
+                            mutable.value=HistoryState(scopeKey="${s.key}|$token",allowed=true,outletWide=s.role in listOf(Role.OWNER.name,Role.MANAGER.name),today=historyToday(clock),offline=auth.state.value.offline)
                             observe(s,requireNotNull(repository))
                         } else if(generation==token)mutable.update{it.copy(loading=false,loadFailed=true)}
                     } catch(e:CancellationException){throw e}

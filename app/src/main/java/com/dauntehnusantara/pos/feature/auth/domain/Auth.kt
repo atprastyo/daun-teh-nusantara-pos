@@ -50,7 +50,7 @@ object RoleNavigation {
     fun destinations(role: Role): List<AccessDestination> = when (role) {
         Role.CASHIER -> listOf(AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.SETTINGS)
         Role.OWNER -> listOf(AccessDestination.OVERVIEW, AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.CATALOG, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
-        Role.MANAGER -> listOf(AccessDestination.OVERVIEW, AccessDestination.CATALOG, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
+        Role.MANAGER -> listOf(AccessDestination.OVERVIEW, AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.CATALOG, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
     }
 }
 

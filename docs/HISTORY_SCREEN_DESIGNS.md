@@ -264,3 +264,11 @@ repository authorization permits these outlet receipts; no brand-wide archive or
 complete latest-100 claim is introduced. Cashiers retain own-only history, Manager
 navigation stays unchanged, and history cannot dismiss a pending checkout receipt.
 Earlier Owner history-route exclusions are superseded by this extension.
+
+## Manager selected-outlet history revision (16 November 2026)
+
+Manager now also opens Riwayat through the shared shell. Like Owner, its subtitle
+identifies selected-outlet history; reads stay within that assigned outlet and use
+existing repository permissions. Cashier remains own-only. This supersedes the prior
+Manager management-only navigation exclusion; filtering/detail/delivery limitations
+and read-only history behavior remain unchanged.

@@ -95,14 +95,16 @@ class PullSyncTest {
     }
     @After fun after() { clients.forEach { it.db.close();context.deleteDatabase(it.name) } }
     private suspend fun fails(block:suspend()->Unit) { try { block();fail("Expected rejected page") } catch(_:PullFailure) {} catch(_:IllegalArgumentException) {} }
-    @Test fun ownerCheckoutKeepsActualIdentityAndPendingSaleAcrossRestart():Unit=runBlocking {
-        val a=client(role="OWNER")
-        // Owner must still finish initial catalog catch-up before writes.
+    @Test fun ownerCheckoutKeepsActualIdentityAndPendingSaleAcrossRestart():Unit=runBlocking { managementCheckout("OWNER") }
+    @Test fun managerCheckoutKeepsActualIdentityAndPendingSaleAcrossRestart():Unit=runBlocking { managementCheckout("MANAGER") }
+    private suspend fun managementCheckout(role:String) {
+        val a=client(role=role)
+        // Management operators must still finish initial catalog catch-up before writes.
         val uninitialized=a.checkout.observe().first().draft
         val line=CheckoutRules.line(com.dauntehnusantara.pos.feature.catalog.domain.Catalog(
             categories=listOf(com.dauntehnusantara.pos.feature.catalog.domain.Category(com.dauntehnusantara.pos.feature.catalog.domain.RecordInfo(id=category,brandId=brand,name="Tea"))),
             products=listOf(com.dauntehnusantara.pos.feature.catalog.domain.Product(com.dauntehnusantara.pos.feature.catalog.domain.RecordInfo(id=product,brandId=brand,name="Original"),category,6000))),product,emptyList(),1)
-        try{a.checkout.add(uninitialized,line);fail("Uninitialized owner must not sell")}catch(_:IllegalStateException){}
+        try{a.checkout.add(uninitialized,line);fail("Uninitialized operator must not sell")}catch(_:IllegalStateException){}
         a.pull.sync();val paid=a.sell()
         assertEquals(user,paid.cashierId);assertEquals(outlet,paid.outletId);assertEquals(a.gateway.context.sale.deviceId,paid.deviceId)
         val row=requireNotNull(a.db.checkoutDao().outbox(paid.operationId))

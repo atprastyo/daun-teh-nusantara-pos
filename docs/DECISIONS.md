@@ -896,3 +896,9 @@ Official Android references checked for M7:
   Add icon/IME/multiline slots and migrate remaining raw fields, including login.
   Preserve formatting, validation, keyboard actions, multiline growth and font scaling;
   no fixed height for supporting errors. No business/backend/schema changes.
+
+- D148 (2026-11-16): Expose Kasir/Riwayat to Manager with Overview default. Preserve
+  actual Manager user/role, approved role-bound device and assigned selected outlet.
+  Manager history uses existing outlet-wide read authorization and labels it clearly;
+  Cashier stays own-only. Existing checkout/submit paths already support Managers,
+  so no backend/schema change or privilege expansion is needed.

@@ -13,7 +13,9 @@ This is a newly requested scope beyond the original MVP printing exclusion.
 - Manual Cetak struk on the committed checkout receipt. Cetak salinan on authorized
   history detail; copies clearly say SALINAN. Automatic checkout printing is deferred.
 - Owner and Cashier print receipts their existing receipt-read scope permits.
-  Manager currently has no receipt history/POS navigation: do not add access implicitly.
+  Manager cashier/history access was explicitly added in the later Manager cashier
+  iteration; its receipt-read scope is the selected assigned outlet. Printer
+  implementation must reuse that scope, not introduce additional read permissions.
   All authenticated roles may configure/test the local printer using a fictional test
   slip; configuration never grants receipt access.
 - Printing works without internet under valid existing offline authorization.

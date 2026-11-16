@@ -194,3 +194,15 @@ Do not reset/delete the working project's device table to resolve repeated promp
 Approve the UUID shown on the current pending screen for the matching outlet/role.
 Use existing reasoned, versioned device revocation for obsolete duplicate records;
 records referenced by immutable receipts must remain for audit and recovery.
+
+## Manager cashier access (16 November 2026)
+
+Manager navigation now includes Kasir and Riwayat, with Ringkasan retained as the
+default. Managers sell under their actual user UUID and Role.MANAGER using their
+approved Manager-bound device in the selected assigned outlet. They do not acquire
+Owner privileges or impersonate Cashiers. Initial catalog sync, offline leases,
+immutable sale/outbox identity, strict price review and live RPC checks remain.
+History shows available authorized receipts for that selected outlet, matching the
+existing Manager repository/server read policy; Cashier history remains own-only.
+This supersedes earlier notes that Manager navigation is unchanged/management-only.
+No server schema/function deployment or membership change is required.

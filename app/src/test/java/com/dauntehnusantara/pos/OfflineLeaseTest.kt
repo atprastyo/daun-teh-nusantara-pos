@@ -46,7 +46,8 @@ class OfflineLeaseTest {
         assertEquals(AccessDestination.OVERVIEW,RoleNavigation.destinations(Role.OWNER).first())
         assertTrue(AccessDestination.POS in RoleNavigation.destinations(Role.OWNER))
         assertTrue(AccessDestination.HISTORY in RoleNavigation.destinations(Role.OWNER))
-        assertFalse(AccessDestination.POS in RoleNavigation.destinations(Role.MANAGER))
-        assertFalse(AccessDestination.HISTORY in RoleNavigation.destinations(Role.MANAGER))
+        assertTrue(AccessDestination.POS in RoleNavigation.destinations(Role.MANAGER))
+        assertEquals(AccessDestination.OVERVIEW,RoleNavigation.destinations(Role.MANAGER).first())
+        assertTrue(AccessDestination.HISTORY in RoleNavigation.destinations(Role.MANAGER))
     }
 }

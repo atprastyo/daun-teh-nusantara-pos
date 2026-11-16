@@ -549,3 +549,7 @@ limits and remaining receipt implementation milestones.
 
 Form inputs share the login field sizing, including money, search and date fields.
 Multiline reasons and validation messages grow naturally; see docs/UI_COMPONENTS.md.
+
+Managers can now open **Kasir** and **Riwayat** for their selected assigned outlet.
+Ringkasan remains the default; sales retain the actual Manager identity and approved
+device. History shows available outlet receipts under existing Manager permissions.

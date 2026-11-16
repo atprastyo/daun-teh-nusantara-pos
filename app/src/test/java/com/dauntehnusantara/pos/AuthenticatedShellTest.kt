@@ -155,6 +155,17 @@ class AuthenticatedShellTest {
         compose.runOnIdle{assertEquals(0,featureBack)}
         nav("Kasir").assertIsNotDisplayed()
     }
+    @Test fun managerStartsAtOverviewAndCanOpenCashierAndHistoryWithActualRole() {
+        show(state(Role.MANAGER))
+        compose.onNodeWithText("feature.OVERVIEW.false").assertIsDisplayed()
+        openMenu();nav("Kasir").performClick()
+        compose.onNodeWithText("feature.POS.false").assertIsDisplayed()
+        headerText("Pengelola").assertIsDisplayed()
+        openMenu();nav("Riwayat").performClick()
+        compose.onNodeWithText("feature.HISTORY.false").assertIsDisplayed()
+        headerText("Pengelola").assertIsDisplayed()
+    }
+
     @Test fun headerSwitchInvokesExistingActionAndDoesNotLocallyChangeOutlet() {
         var switches = 0
         show(state(Role.MANAGER), { switches++ })

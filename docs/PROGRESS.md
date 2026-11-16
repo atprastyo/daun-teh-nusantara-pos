@@ -2680,3 +2680,21 @@ Lint: zero errors, 45 existing warnings. Log `app/build/form-field-consistency-f
 `git diff --check` passed. No backend, Room, business-rule or device changes. Release
 and physical keyboard/IME/OEM preview were not run. Next: physical form/keyboard/
 font-scale preview on the updated APK.
+
+## Manager cashier access (2026-11-16)
+
+Added Manager Kasir/Riwayat navigation with Overview default and enabled scoped
+history with the existing selected-outlet-wide Manager read policy/subtitle. Shared
+checkout/repository/server already support actual Manager identity and device proof.
+No role impersonation, membership edit, Room/schema/backend change or live deployment.
+Regressions cover compact navigation/role header, history role transitions, real Room
+checkout/outbox identity/restart and unchanged server approval/idempotency/outlet guards.
+Isolated `node --test tests/push.test.mjs` (supabase directory) passed 17/17 in 5.0s;
+log `app/build/manager-cashier-backend.log`. Final Android command
+`:app:testDebugUnitTest :app:assembleDebug :app:lintDebug --offline --max-workers=2
+--console=plain` passed in 3m10s: 376 debug tests passed, no failures/errors/skips;
+lint zero errors, 45 existing warnings. Log `app/build/manager-cashier.log`.
+`git diff --check` passed. Release tests and physical/hosted acceptance were not run.
+No APK installation, ADB, live approval, sale or working-project write performed.
+Next: updated-phone Manager navigation/read-only history checks, then controlled
+authorized transaction/offline acceptance; existing M7 gates remain open.

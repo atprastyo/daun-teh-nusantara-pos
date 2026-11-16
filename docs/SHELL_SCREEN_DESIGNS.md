@@ -83,3 +83,10 @@ Tutup menu. Selection/outside tap/swipe/Back close the drawer. The outlet name/r
 section is now the switch target, labeled Pilih outlet lain for accessibility, with
 current outlet and role state. It has at least 48dp height and disables offline or
 while validating. No separate swap icon. Green header/access-status details remain.
+
+## Manager cashier navigation (16 November 2026)
+
+Manager destinations: Ringkasan (default), Kasir, Riwayat, Katalog, Laporan, Staf,
+Setelan. Seven compact destinations use the existing drawer, with rail on suitable
+larger screens. Header continues to show Pengelola and the actual selected outlet;
+no separate login, identity switch or privilege toggle occurs on entering Kasir.
