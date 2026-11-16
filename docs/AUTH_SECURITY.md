@@ -40,7 +40,7 @@ owner or assigned-outlet manager approval. Device secrets are server-generated a
 only SHA-256 hashes are stored server-side. New device IDs cannot bypass approval
 for cashier/manager users. Approval binds the user’s current role: promotion from
 cashier to manager requires fresh owner device approval. This is logical enrollment, not hardware attestation or
-rooted-device resistance. Logout invalidates the local encrypted authority/key.
+rooted-device resistance. Logout removes the active session and offline lease; enrollment retention is described below.
 
 Online membership/profile/brand checks are authoritative on each RPC/RLS read.
 The client revalidates on foreground, validated network reconnection and periodically;
@@ -70,9 +70,9 @@ for setup and the live Auth/manual provisioning/Keystore/device acceptance check
 
 M4 submission requires current JWT user, live membership, original device/outlet,
 secret proof and approval bound to the current role before any dedupe response.
-An offline lease never overrides a live denial. Sign-out removes credentials;
-re-login can recover the public queued device ID, but rotates proof and resets
-non-owner approval. A revoked original device cannot upload; retained sales need
+An offline lease never overrides a live denial. Sign-out removes login tokens and
+offline authority. The enrollment-retention revision below supersedes the earlier
+behavior that rotated device proof and reset non-owner approval on every re-login. A revoked original device cannot upload; retained sales need
 explicit later recovery, never silent reassignment to another device/cashier.
 
 
@@ -170,3 +170,27 @@ Manufacturer/model labels assist staff review but are not attestation. Approval 
 uses the original UUID, live roles/outlet and device proof. Separate optional metadata
 updates cannot rotate credentials, approve devices, change versions or extend leases.
 No IMEI/serial/Android ID or additional Android permissions. See DEVICE_NAMES.md.
+
+## Enrollment retention and approval refresh (16 November 2026)
+
+Keep device UUID/secret per backend project, authenticated user and outlet in the
+existing Keystore-encrypted, no-backup store. Signing out removes session tokens,
+active membership/device and the offline lease, then saves only enrollment records
+under a fresh encryption key. An enrollment record alone cannot unlock the app,
+restore a session or authorize offline checkout. Fresh online sign-in, current
+membership and a server-issued lease are required before reuse. Confirmed online
+denial clears session/lease authority but retains enrollment identity; revoked
+proof is never silently replaced with a new enrollment. Corrupt caches, project
+changes, app-data clearing or reinstall discard local enrollment records. Legacy
+active-device caches upgrade without reenrollment or a Room migration.
+
+Returning to an account/outlet reuses its proof instead of calling enroll_device;
+server role-bound approval, membership and revocation checks are unchanged. Lost
+proof still requires reenrollment and fresh non-Owner approval. Pending screens
+check again every 15 seconds while network validation is available and no auth
+action is busy; other locked failures are not automatically polled.
+
+Do not reset/delete the working project's device table to resolve repeated prompts.
+Approve the UUID shown on the current pending screen for the matching outlet/role.
+Use existing reasoned, versioned device revocation for obsolete duplicate records;
+records referenced by immutable receipts must remain for audit and recovery.

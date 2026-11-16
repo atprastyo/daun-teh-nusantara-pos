@@ -2564,6 +2564,59 @@ an accessible 48dp-minimum Button, with current outlet/role state description. E
 offline/validating restrictions remain; green header and access indicator are unchanged.
 Drawer retains brand/account identity and navigation, with destination/outside/swipe/
 Back dismissal. Added explicit Back handling and outside/Back regression checks.
-Targeted shell tests/debug assembly/lint running; final results below. No backend,
-business-state, permission or device changes. Next: idle-device drawer/selector
+The open drawer registers its Back callback only while open, taking priority over
+feature/detail handlers in the underlying Scaffold composition.
+
+Initial checks exposed test-only touch/Back API mismatches, then an ambiguous Kasir
+selector after the role text became clickable; corrected available APIs and scoped
+navigation assertions to selectable destinations. The new nested-feature Back regression
+also caught a real priority issue; fixed callback registration and reran all 22 shell
+tests successfully. Final `:app:testDebugUnitTest --tests '*AuthenticatedShellTest'
+:app:assembleDebug :app:lintDebug --offline --max-workers=2 --console=plain` passed
+in 1m44s: 22 tests, zero failures/errors/skips; lint zero errors and 45 existing
+warnings. Log: `app/build/menu-cleanup-final-verified.log`. Final `git diff --check`
+passed. No backend, business-state, permission or device changes. Next: idle-device drawer/selector
 TalkBack and touch acceptance with existing outlet selection cancellation.
+
+## Repeated device approval correction (2026-11-16)
+
+Found that sign-in/sign-out erased enrollment proof and outlet changes replaced the
+single cached device. Returning without a queued sale generated a new UUID; returning
+with a queued sale reenrolled its UUID, rotating proof and resetting non-Owner approval.
+The locked screen previously retried only manually/on network reconnect.
+
+AuthCache now retains project/user/outlet enrollment records in existing Keystore
+storage. Logout clears active session, membership/device and lease, retaining only
+enrollment proof under a fresh key. Login/outlet switches reuse exact matching proof;
+leases still validate live roles, membership, revocation and approval. Old active-device
+caches upgrade without Room/schema/API changes. Online idle pending screens poll at
+15-second intervals; busy/offline/unrelated lock states do not poll. No working-project
+reset, backend deployment, APK installation or device checks performed.
+
+Verification: initial sandboxed Gradle invocation could not access its external cache;
+reran using SDK/cache access. Focused auth run passed 36 tests. Final
+`:app:testDebugUnitTest :app:assembleDebug :app:lintDebug --offline --max-workers=2
+--console=plain` passed in 3m8s: all 354 debug tests passed (37 AuthRepositoryTest,
+2 AuthViewModelTest), no failures/errors/skips. Lint: zero errors, 45 existing warnings.
+Final log: `app/build/device-approval-final.log`; `git diff --check` passed.
+Coverage includes staff logout/process restart, account/outlet isolation, legacy-cache
+adoption, role change, server revocation without automatic replacement, logout offline
+lockout and virtual-time polling guards. Release tests and physical/hosted approval
+acceptance were not run. Exact next milestone:
+controlled two-actor acceptance on updated phones, matching current pending UUIDs,
+then reasoned revocation of obsolete duplicates if requested (retain receipt references).
+
+## Double-Back root exit (2026-11-16)
+
+Added a root Activity fallback: first Back shows “Tekan kembali sekali lagi untuk
+keluar”; second within two seconds finishes the Activity. Monotonic timing is kept
+in memory and reset on Stop, so returning/backgrounding does not retain confirmation.
+Registered before Compose so existing navigation/detail/drawer/dialog Back behavior
+keeps priority. Does not sign out or clear checkout data. Added timing/reset/priority
+regressions. `:app:testDebugUnitTest --tests '*DoubleBackExitCallbackTest'
+--tests '*AuthenticatedShellTest' :app:assembleDebug :app:lintDebug --offline
+--max-workers=2 --console=plain` passed in 3m15s: 26 tests passed, zero failures/errors;
+lint zero errors, 45 existing warnings. Log: `app/build/double-back-exit.log`.
+`git diff --check` passed. No device installation or backend changes; release and
+physical Back gesture/keyboard acceptance not run.
+Next: physical Back-button/gesture acceptance with open drawer, detail and root.

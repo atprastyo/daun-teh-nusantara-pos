@@ -29,7 +29,10 @@ class AuthViewModel @Inject constructor(private val repository: AuthUseCases, ne
             var seconds = 0
             while (isActive) {
                 delay(1000); repository.enforceLease(); seconds++
-                if (seconds % 60 == 0 && state.value.stage == AuthStage.READY && (!state.value.offline || networkOnline) && !state.value.busy) repository.refresh()
+                val current = state.value
+                if (seconds % 15 == 0 && networkOnline && current.stage == AuthStage.LOCKED &&
+                    current.message == AuthMessage.DEVICE_PENDING && !current.busy) repository.refresh()
+                else if (seconds % 60 == 0 && state.value.stage == AuthStage.READY && (!state.value.offline || networkOnline) && !state.value.busy) repository.refresh()
             }
         }
     }

@@ -36,13 +36,21 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     private val mutex = Mutex()
     private var cache = AuthCache(config.url)
     private val labelAttempts=mutableSetOf<String>()
-    private suspend fun save() = withContext(Dispatchers.IO) { store.write(cache.encode()) }
+    private suspend fun save() {
+        // Keep enrollment proof separate from the active session/lease, scoped to this project.
+        cache = cache.copy(enrollments = (listOfNotNull(cache.device) + cache.enrollments)
+            .distinctBy { it.userId to it.outletId })
+        withContext(Dispatchers.IO) { store.write(cache.encode()) }
+    }
     private fun offlineValid() = cache.device?.userId == cache.session?.userId && cache.device?.outletId == cache.membership?.outletId &&
         OfflineLeaseRules.valid(cache.lease, cache.session?.userId, cache.membership, cache.device?.id, clock.read())
-    private suspend fun clear() {
+    private suspend fun clear(preserveEnrollments: Boolean = false) {
+        val devices = if (preserveEnrollments) (listOfNotNull(cache.device) + cache.enrollments)
+            .distinctBy { it.userId to it.outletId } else emptyList()
         labelAttempts.clear()
-        cache = AuthCache(config.url)
+        cache = AuthCache(config.url, enrollments = devices)
         withContext(Dispatchers.IO) { store.clear() }
+        if (devices.isNotEmpty()) save()
     }
     private suspend fun failure(error: Exception, wasOffline: Boolean) {
         when {
@@ -51,7 +59,7 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
                 mutable.value = mutable.value.copy(stage = AuthStage.LOCKED, membership = null, deviceRequests = emptyList(), deviceRequestsLoaded = false, offline = false, canOffline = false, pendingDeviceId = cache.device?.id, lockedContext = cache.membership, message = AuthMessage.DEVICE_PENDING)
             }
             error is AuthHttpFailure && error.status in listOf(400, 401, 403) -> {
-                runCatching { clear() }
+                runCatching { clear(preserveEnrollments = true) }
                 mutable.value = AuthState(AuthStage.LOGIN, config.configured, message = AuthMessage.DENIED)
             }
             error is IOException || error is AuthHttpFailure && error.status >= 500 -> {
@@ -118,12 +126,13 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         // Preserve only the same confirmed context; neither an outage nor a retry extends its old lease.
         val previous = cache.lease?.takeIf { it.outletId == membership.outletId && it.brandId == membership.brandId && it.role == membership.role }
         cache = cache.copy(membership = membership, lease = previous); save()
-        var device = cache.device
+        var device = cache.device?.takeIf { it.userId == cache.session?.userId && it.outletId == membership.outletId }
+            ?: cache.enrollments.find { it.userId == cache.session?.userId && it.outletId == membership.outletId }
         if (device == null || device.userId != cache.session?.userId || device.outletId != membership.outletId) {
             val retainedId = enrollmentLookup.retainedDevice(requireNotNull(cache.session).userId, membership.outletId)
             device = authorized { api.enroll(it, retainedId ?: UUID.randomUUID().toString(), membership.outletId) }
-            cache = cache.copy(device = device); save()
         }
+        cache = cache.copy(device = device); save()
         val anchor = clock.read() // Anchor before network round trip: latency cannot extend the lease.
         val selectedDevice = requireNotNull(device)
         if(labelAttempts.add(selectedDevice.id)) {
@@ -145,9 +154,14 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     }
     override suspend fun signIn(email: String, password: String) = action {
         if (!(email.isNotBlank() && email.length <= 254 && '@' in email && password.isNotEmpty())) throw AuthInputFailure()
-        clear()
+        // A login can follow process death while signed out. Recover only matching-project
+        // enrollment proof; never restore an old session or offline lease here.
+        val stored = withContext(Dispatchers.IO) { runCatching { store.read()?.let(AuthCache::decode) }.getOrNull() }
+        if (stored?.projectUrl == config.url) cache = cache.copy(enrollments =
+            (listOfNotNull(stored.device) + stored.enrollments).distinctBy { it.userId to it.outletId })
+        clear(preserveEnrollments = true)
         val session = api.signIn(email.trim(), password)
-        cache = AuthCache(config.url, session = session); save()
+        cache = cache.copy(session = session); save()
         loadChoices(false)
     }
     override suspend fun selectOutlet(outletId: String) = action {
@@ -352,7 +366,7 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     override suspend fun signOut() = mutex.withLock {
         val session = cache.session
         // Revoke local offline authority immediately, even if remote logout cannot be reached.
-        runCatching { clear() }
+        runCatching { clear(preserveEnrollments = true) }
         mutable.value = AuthState(AuthStage.LOGIN, config.configured, busy = true)
         if (session != null) runCatching { api.logout(session) }
         mutable.value = mutable.value.copy(busy = false)

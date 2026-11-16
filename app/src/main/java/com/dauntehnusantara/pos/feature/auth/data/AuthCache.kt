@@ -4,8 +4,12 @@ import com.dauntehnusantara.pos.feature.auth.domain.*
 import org.json.JSONObject
 
 internal data class AuthCache(val projectUrl: String, val session: TokenSession? = null, val membership: Membership? = null,
-    val device: EnrolledDevice? = null, val lease: DeviceLease? = null) {
+    val device: EnrolledDevice? = null, val lease: DeviceLease? = null,
+    val enrollments: List<EnrolledDevice> = emptyList()) {
     fun encode(): String = JSONObject().put("project", projectUrl).apply {
+        put("enrollments", org.json.JSONArray().apply { enrollments.forEach {
+            put(JSONObject().put("id", it.id).put("secret", it.secret).put("user", it.userId).put("outlet", it.outletId))
+        } })
         session?.let { put("session", JSONObject().put("access", it.accessToken).put("refresh", it.refreshToken).put("user", it.userId).put("email", it.email).put("expires", it.expiresAtMs)) }
         membership?.let { put("membership", JSONObject().put("brand", it.brandId).put("brand_name", it.brandName).put("outlet", it.outletId).put("outlet_name", it.outletName).put("role", it.role.name)) }
         device?.let { put("device", JSONObject().put("id", it.id).put("secret", it.secret).put("user", it.userId).put("outlet", it.outletId)) }
@@ -26,7 +30,11 @@ internal data class AuthCache(val projectUrl: String, val session: TokenSession?
             }, json.optJSONObject("lease")?.let {
                 DeviceLease(it.getString("user"), it.getString("brand"), it.getString("outlet"), it.getString("device"), Role.valueOf(it.getString("role")),
                     it.getLong("issued"), it.getLong("expires"), it.getLong("wall"), it.getLong("elapsed"), it.getInt("boot"))
-            })
+            }, json.optJSONArray("enrollments")?.let { rows ->
+                (0 until rows.length()).map { index -> rows.getJSONObject(index).let {
+                    EnrolledDevice(it.getString("id"), it.getString("secret"), it.getString("user"), it.getString("outlet"))
+                } }
+            }.orEmpty())
         }
     }
 }

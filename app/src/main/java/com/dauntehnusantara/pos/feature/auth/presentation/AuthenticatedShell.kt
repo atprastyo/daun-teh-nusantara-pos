@@ -50,7 +50,6 @@ fun AuthenticatedShell(state: AuthState, switchOutlet: () -> Unit,
             val menu = compact && destinations.size > 5 || LocalDensity.current.fontScale >= 1.5f || maxHeight < 480.dp
             val drawer = rememberDrawerState(DrawerValue.Closed)
             val scope = rememberCoroutineScope()
-            BackHandler(enabled=menu&&drawer.isOpen){scope.launch{drawer.close()}}
             val shell: @Composable () -> Unit = {
                 Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
                     if (compact && !menu) NavigationBar(Modifier.testTag("shell.bottom"), containerColor = MaterialTheme.colorScheme.surface) {
@@ -100,6 +99,8 @@ fun AuthenticatedShell(state: AuthState, switchOutlet: () -> Unit,
                     }
                 }
             }, content = shell)
+            // Drawer Back takes priority over an open feature detail beneath it.
+            if(menu&&drawer.isOpen)BackHandler{scope.launch{drawer.close()}}
         }
     }
 }

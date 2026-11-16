@@ -864,3 +864,16 @@ Official Android references checked for M7:
   or Back. Replace the swap icon with the entire outlet title/role section as an
   accessible Button target (at least 48dp), labeled Pilih outlet lain with current
   outlet/role state. Preserve offline/busy guards, existing callback and access indicator.
+
+- D143 (2026-11-16): Retain Keystore-protected enrollment UUID/proof per project,
+  user and outlet across sign-out/re-login and outlet/account switching. Remove
+  active tokens/membership/lease at sign-out; require fresh online authentication
+  and live lease checks before reuse. Supersedes reset-on-every-login enrollment
+  behavior without weakening server role/revocation checks or changing backend/Room.
+  Poll only online, idle DEVICE_PENDING access every 15 seconds. Keep obsolete device
+  records for audit; do not reset the working database to fix approval prompts.
+
+- D144 (2026-11-16): Register double-Back exit as the Activity's root fallback before
+  Compose callbacks. First root Back shows a localized Toast; a second within two
+  seconds finishes the Activity. Use monotonic elapsed time and reset on Stop.
+  Navigation/detail/drawer/dialog handlers retain priority. No sign-out/data reset.

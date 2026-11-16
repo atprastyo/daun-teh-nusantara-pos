@@ -40,10 +40,10 @@ class AuthRepositoryTest {
     private class FakeHttp(private val base:Long) : AuthTransport {
         var leaseGate:CompletableDeferred<Unit>?=null
         var leaseEntered:CompletableDeferred<Unit>?=null
-        var brand="brand"
+        var brand="brand"; var user="user"; var outlet="outlet"; var requireApproval=false
         var unavailable=false; var denied=false; var noAccess=false; var pending=false
         var protocolFailure=false; var role=Role.CASHIER; var issuedDevice=""
-        var managementStatus=200
+        var managementStatus=200;var leaseStatus=200
         var pullStatus=200;var pullWrongScope=false
         var invalidRefresh=false
         var wrongAck=false;var pushStatus="ACCEPTED";var pushCode="CATALOG_CHANGED"; var pushCalls=0
@@ -75,7 +75,7 @@ class AuthRepositoryTest {
                 path.startsWith("/auth/v1/token") -> {
                     if(path.contains("refresh_token")){if(invalidRefresh)throw AuthHttpFailure(400);refreshes++}
                     JSONObject().put("access_token","test-access").put("refresh_token","test-refresh-$refreshes").put("expires_at",base/1000+3600)
-                        .put("user",JSONObject().put("id","user").put("email","user@example.invalid")).toString()
+                        .put("user",JSONObject().put("id",user).put("email","user@example.invalid")).toString()
                 }
                 path.endsWith("save_catalog_record") -> {
                     if(managementStatus!=200)throw AuthHttpFailure(managementStatus)
@@ -108,15 +108,18 @@ class AuthRepositoryTest {
                         .put("request_hash","a".repeat(64)).put("payload_hash",if(wrongAck) "b".repeat(64) else hash)
                         .put("status",pushStatus).put("code",pushCode).toString()
                 }
-                path.endsWith("get_access_context") -> if(noAccess)"[]" else """[{"brand_id":"${brand}","brand_name":"Daun Teh","outlet_id":"outlet","outlet_name":"A","role":"${role.name}"}]"""
+                path.endsWith("get_access_context") -> if(noAccess)"[]" else """[{"brand_id":"${brand}","brand_name":"Daun Teh","outlet_id":"${outlet}","outlet_name":"A","role":"${role.name}"}]"""
                 path.endsWith("enroll_device") -> {
                     issuedDevice=JSONObject(requireNotNull(body)).getString("p_device_id")
+                    if(requireApproval && role!=Role.OWNER)pending=true
                     JSONObject().put("device_id",issuedDevice).put("device_secret","test-device-secret").toString()
                 }
                 path.endsWith("issue_offline_lease") -> {
                     leaseEntered?.complete(Unit);leaseGate?.await()
+                    if(leaseStatus!=200)throw AuthHttpFailure(leaseStatus)
                     if(pending)throw AuthHttpFailure(423)
-                    JSONObject().put("user_id","user").put("brand_id",brand).put("outlet_id","outlet").put("device_id",issuedDevice)
+                    issuedDevice=JSONObject(requireNotNull(body)).getString("p_device_id")
+                    JSONObject().put("user_id",user).put("brand_id",brand).put("outlet_id",outlet).put("device_id",issuedDevice)
                         .put("role",role.name).put("issued_at_ms",base).put("expires_at_ms",base+30L*24*60*60*1000).toString()
                 }
                 path.endsWith("list_device_requests") -> "[]"
@@ -128,6 +131,58 @@ class AuthRepositoryTest {
     private fun repo(http:FakeHttp,store:MemoryStore,clock:FakeClock,configuration:BackendConfig=config,photos:com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport=com.dauntehnusantara.pos.feature.catalog.photos.data.UnconfiguredPhotoTransport)=
         AuthRepositoryImpl(AuthApi(http,Clock.fixed(Instant.ofEpochMilli(base),ZoneOffset.UTC),photos),configuration,store,clock,DeviceEnrollmentLookup { _, _ -> null })
     private suspend fun signedIn(repository:AuthRepositoryImpl){repository.signIn("user@example.invalid","test-password-value");repository.selectOutlet("outlet")}
+    private fun assertSignedOut(store:MemoryStore) {
+        val json=JSONObject(requireNotNull(store.value))
+        for(key in listOf("session","membership","device","lease"))assertFalse(key,json.has(key))
+        assertTrue(json.getJSONArray("enrollments").length()>0)
+    }
+    @Test fun approvedStaffEnrollmentSurvivesLogoutAndProcessDeathWithoutReapproval():Unit=runBlocking {
+        for(role in listOf(Role.MANAGER,Role.CASHIER)) {
+            val http=FakeHttp(base).apply{this.role=role;requireApproval=true}
+            val store=MemoryStore();val clock=FakeClock(base);val first=repo(http,store,clock)
+            signedIn(first);assertEquals(AuthMessage.DEVICE_PENDING,first.state.value.message)
+            val device=http.issuedDevice;http.pending=false;first.refresh()
+            assertEquals(AuthStage.READY,first.state.value.stage)
+            first.signOut();assertSignedOut(store);assertNull(first.checkoutScope())
+            val next=repo(http,store,clock);next.restore()
+            assertEquals(AuthStage.LOGIN,next.state.value.stage)
+            next.unlockOffline();assertFalse(next.state.value.canOffline);assertNull(next.checkoutScope())
+            signedIn(next)
+            assertEquals(AuthStage.READY,next.state.value.stage)
+            assertEquals(device,next.checkoutScope()?.deviceId)
+            assertEquals(1,http.calls.count{it.endsWith("enroll_device")})
+        }
+    }
+    @Test fun accountAndOutletSwitchReuseOnlyTheirOwnEnrollment():Unit=runBlocking {
+        val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repository=repo(http,store,clock)
+        signedIn(repository);val original=repository.checkoutScope()!!.deviceId
+        http.outlet="second";repository.selectOutlet("second");val second=repository.checkoutScope()!!.deviceId
+        assertNotEquals(original,second)
+        http.outlet="outlet";repository.selectOutlet("outlet");assertEquals(original,repository.checkoutScope()?.deviceId)
+        repository.signOut();http.user="another-user";signedIn(repository)
+        val other=repository.checkoutScope()!!.deviceId;assertNotEquals(original,other)
+        repository.signOut();http.user="user";signedIn(repository)
+        assertEquals(original,repository.checkoutScope()?.deviceId)
+        assertEquals(3,http.calls.count{it.endsWith("enroll_device")})
+    }
+    @Test fun serverRevocationNeverTriggersAutomaticEnrollmentReplacement():Unit=runBlocking {
+        val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repository=repo(http,store,clock)
+        signedIn(repository);repository.signOut();http.leaseStatus=403
+        signedIn(repository)
+        assertEquals(AuthStage.LOGIN,repository.state.value.stage)
+        assertNull(repository.checkoutScope());assertFalse(repository.state.value.canOffline)
+        assertEquals(1,http.calls.count{it.endsWith("enroll_device")})
+        assertSignedOut(store)
+    }
+    @Test fun retainedEnrollmentStillRequiresLiveApprovalAfterRoleChange():Unit=runBlocking {
+        val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repository=repo(http,store,clock)
+        signedIn(repository);val original=repository.checkoutScope()!!.deviceId;repository.signOut()
+        http.role=Role.MANAGER;http.pending=true;signedIn(repository)
+        assertEquals(AuthMessage.DEVICE_PENDING,repository.state.value.message)
+        assertEquals(original,repository.state.value.pendingDeviceId)
+        assertNull(repository.checkoutScope());assertFalse(repository.state.value.canOffline)
+        assertEquals(1,http.calls.count{it.endsWith("enroll_device")})
+    }
     @Test fun quotaFailureIsDistinctFromEmailConflictAndDoesNotSignOutOwner():Unit=runBlocking {
         val http=FakeHttp(base).apply{role=Role.OWNER};val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
         val scope=repository.reportingScope(true)!!
@@ -238,7 +293,7 @@ class AuthRepositoryTest {
     @Test fun onlineDenialInvalidatesStoredOfflineAuthority():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
         signedIn(repo);http.denied=true;repo.refresh()
-        assertEquals(AuthStage.LOGIN,repo.state.value.stage);assertFalse(repo.state.value.canOffline);assertNull(store.value);assertNull(repo.state.value.lockedContext)
+        assertEquals(AuthStage.LOGIN,repo.state.value.stage);assertFalse(repo.state.value.canOffline);assertSignedOut(store);assertNull(repo.state.value.lockedContext)
         repo.unlockOffline();assertFalse(repo.state.value.offline)
     }
     @Test fun pendingApprovalCannotBecomeReadyOrOfflineUntilServerApproves():Unit=runBlocking {
@@ -263,7 +318,7 @@ class AuthRepositoryTest {
     @Test fun oldCompletedSessionPreservesEnrollmentWithoutActivationState():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);signedIn(repo(http,store,clock))
         val oldDevice=http.issuedDevice;val enrollCalls=http.calls.count{it.endsWith("enroll_device")}
-        store.value=JSONObject(requireNotNull(store.value)).put("activation_pending",false).toString()
+        store.value=JSONObject(requireNotNull(store.value)).put("activation_pending",false).apply{remove("enrollments")}.toString()
         val restored=repo(http,store,clock);restored.restore()
         assertEquals(AuthStage.READY,restored.state.value.stage);assertEquals(oldDevice,restored.backgroundScope()?.deviceId)
         assertEquals(enrollCalls,http.calls.count{it.endsWith("enroll_device")})
@@ -280,7 +335,7 @@ class AuthRepositoryTest {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
         signedIn(repo);clock.value=clock.value.copy(wallMs=base+3600001);repo.refresh()
         assertTrue(http.refreshes>0);assertTrue(requireNotNull(store.value).contains("test-refresh-${http.refreshes}"))
-        http.unavailable=true;repo.signOut();assertNull(store.value);assertEquals(AuthStage.LOGIN,repo.state.value.stage)
+        http.unavailable=true;repo.signOut();assertSignedOut(store);assertEquals(AuthStage.LOGIN,repo.state.value.stage)
     }
     @Test fun projectChangesAndCorruptCacheCannotRestoreTokens():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);signedIn(repo(http,store,clock))
@@ -298,7 +353,7 @@ class AuthRepositoryTest {
         assertEquals(AuthStage.READY,repo.state.value.stage);assertTrue(repo.state.value.offline)
         assertEquals(deadline,repo.state.value.leaseExpiresAtMs)
         http.unavailable=false;http.denied=true;repo.refresh()
-        assertFalse(repo.state.value.offline);assertFalse(repo.state.value.canOffline);assertNull(store.value)
+        assertFalse(repo.state.value.offline);assertFalse(repo.state.value.canOffline);assertSignedOut(store)
     }
     @Test fun malformedAuthorizationResponseCannotPreserveOfflineAuthority():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
@@ -335,7 +390,7 @@ class AuthRepositoryTest {
         signedIn(repo);val sale=pending(requireNotNull(repo.checkoutScope()))
         http.invalidRefresh=true;clock.value=clock.value.copy(wallMs=base+3600001)
         assertEquals(PushResult.AuthRequired,repo.submit(sale));assertEquals(0,http.pushCalls)
-        assertNull(store.value);assertEquals(AuthStage.LOGIN,repo.state.value.stage)
+        assertSignedOut(store);assertEquals(AuthStage.LOGIN,repo.state.value.stage)
     }
     @Test fun pullValidatesScopeAndUsesPrivateDeviceProof():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base);val repo=repo(http,store,clock)
@@ -351,14 +406,16 @@ class AuthRepositoryTest {
         assertEquals(AuthStage.LOCKED,repo.state.value.stage);assertFalse(repo.state.value.canOffline)
         http.pullStatus=403
         try { repo.fetch(scope,0);fail("Revocation must stop") } catch(e:PullFailure) { assertEquals("AUTH_REQUIRED",e.code) }
-        assertNull(store.value);assertEquals(AuthStage.LOGIN,repo.state.value.stage)
+        assertSignedOut(store);assertEquals(AuthStage.LOGIN,repo.state.value.stage)
     }
-    @Test fun retainedQueueDeviceIsReenrolledAfterLogoutWithoutKeepingCredentials():Unit=runBlocking {
+    @Test fun retainedQueueDeviceSurvivesLogoutWithoutKeepingSessionAuthority():Unit=runBlocking {
         val http=FakeHttp(base);val store=MemoryStore();val clock=FakeClock(base)
         val repo=AuthRepositoryImpl(AuthApi(http,Clock.fixed(Instant.ofEpochMilli(base),ZoneOffset.UTC)),config,store,clock,
             DeviceEnrollmentLookup { user,outlet -> if(user=="user" && outlet=="outlet") "retained-device" else null })
         signedIn(repo);assertEquals("retained-device",requireNotNull(repo.checkoutScope()).deviceId)
-        repo.signOut();assertNull(store.value);signedIn(repo)
+        val enrolls=http.calls.count{it.endsWith("enroll_device")}
+        repo.signOut();assertSignedOut(store);signedIn(repo)
+        assertEquals(enrolls,http.calls.count{it.endsWith("enroll_device")})
         assertEquals("retained-device",requireNotNull(repo.checkoutScope()).deviceId)
     }
     @Test fun backendConfigRejectsSecretKeysAndInsecureUrls() {
@@ -388,7 +445,7 @@ class AuthRepositoryTest {
         assertEquals(before,http.calls.size)
         http.role=Role.OWNER;repo.refresh();val ownerScope=requireNotNull(repo.reportingScope(true));http.managementStatus=403
         try{repo.roster(ownerScope);fail("Denied actor must stop")}catch(_:com.dauntehnusantara.pos.feature.reports.domain.ManagementFailure){}
-        assertNull(store.value);assertEquals(AuthStage.LOGIN,repo.state.value.stage);assertFalse(repo.state.value.canOffline)
+        assertSignedOut(store);assertEquals(AuthStage.LOGIN,repo.state.value.stage);assertFalse(repo.state.value.canOffline)
     }
 
     @Test fun catalogRpcUsesLiveManagementScopeDeviceProofAndMapsVersionAndEpochConflicts():Unit=runBlocking {

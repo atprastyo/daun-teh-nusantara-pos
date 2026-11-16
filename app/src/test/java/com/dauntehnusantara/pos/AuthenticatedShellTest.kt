@@ -42,7 +42,7 @@ class AuthenticatedShellTest {
     private fun state(role: Role = Role.CASHIER) = AuthState(AuthStage.READY, true,
         membership = Membership("brand", "Daun Teh", "outlet-a", "Outlet A", role), email = "staff@example.invalid")
     private fun headerText(value:String)=compose.onNode(hasText(value) and hasAnyAncestor(hasTestTag("shell.appbar")))
-    private fun nav(label: String) = compose.onNode(hasText(label) and hasClickAction())
+    private fun nav(label: String) = compose.onNode(hasText(label) and hasClickAction() and SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.Selected))
     private fun show(state: AuthState, switch: () -> Unit = {}) {
         compose.setContent { DaunTehTheme {
             AuthenticatedShell(state, switch) { destination, expanded -> Text("feature.${destination.name}.$expanded") }
@@ -140,14 +140,19 @@ class AuthenticatedShellTest {
     }
     @Test fun backClosesDrawerWithoutChangingDestination() {
         var pressBack:()->Unit={}
+        var featureBack=0
         compose.setContent {
             val dispatcher=androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             SideEffect{pressBack={dispatcher.onBackPressed()}}
-            DaunTehTheme{AuthenticatedShell(state(Role.OWNER),{}){d,e->Text("feature.${d.name}.$e")}}
+            DaunTehTheme{AuthenticatedShell(state(Role.OWNER),{}){d,e->
+                androidx.activity.compose.BackHandler{featureBack++}
+                Text("feature.${d.name}.$e")
+            }}
         }
         openMenu()
         compose.runOnIdle{pressBack()}
         compose.onNodeWithText("feature.OVERVIEW.false").assertIsDisplayed()
+        compose.runOnIdle{assertEquals(0,featureBack)}
         nav("Kasir").assertIsNotDisplayed()
     }
     @Test fun headerSwitchInvokesExistingActionAndDoesNotLocallyChangeOutlet() {

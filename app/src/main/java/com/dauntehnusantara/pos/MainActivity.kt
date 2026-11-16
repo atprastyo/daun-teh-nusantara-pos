@@ -19,6 +19,23 @@ import com.dauntehnusantara.pos.feature.auth.presentation.AuthViewModel
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var exitHint: android.widget.Toast? = null
+    private val doubleBackExit = com.dauntehnusantara.pos.core.navigation.DoubleBackExitCallback(
+        now = android.os.SystemClock::elapsedRealtime,
+        showHint = {
+            exitHint?.cancel()
+            exitHint = android.widget.Toast.makeText(this, R.string.press_back_again_to_exit,
+                android.widget.Toast.LENGTH_SHORT).also { it.show() }
+        },
+        exit = { exitHint?.cancel(); finish() },
+    )
+
+    override fun onStop() {
+        doubleBackExit.reset()
+        exitHint?.cancel()
+        super.onStop()
+    }
+
     private val appearanceViewModel:com.dauntehnusantara.pos.feature.settings.presentation.AppearanceViewModel by viewModels()
     private val productPhotosViewModel: com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhotosViewModel by viewModels()
     private val catalogEditorViewModel: com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorViewModel by viewModels()
@@ -34,6 +51,8 @@ class MainActivity : ComponentActivity() {
     private val viewModel: FoundationViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Register before Compose so feature/navigation Back handlers keep priority.
+        onBackPressedDispatcher.addCallback(this, doubleBackExit)
         if (android.os.Build.VERSION.SDK_INT >= 29) window.decorView.isForceDarkAllowed = false
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),

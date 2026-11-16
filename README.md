@@ -530,3 +530,13 @@ keep the device ID fallback. Names are display-only, not hardware identity proof
 
 Tap the outlet name/role in the app bar to change outlets when online. The drawer
 closes by destination selection, outside tap, swipe or Back, without extra menu wording.
+
+Device approval troubleshooting: use the updated APK on the waiting and reviewer
+phones, approve the current displayed device UUID in the same outlet, and keep the
+waiting phone online (automatic checks every 15 seconds, or retry manually). Device
+enrollment is retained across login/outlet switches; sign-out still removes tokens
+and offline access. No SQL deployment or device-table reset is required. See
+[authentication policy](docs/AUTH_SECURITY.md#enrollment-retention-and-approval-refresh-16-november-2026).
+
+At the root screen, press Back twice within two seconds to exit. The first press
+shows a reminder; drawers, dialogs and details keep their normal Back behavior.

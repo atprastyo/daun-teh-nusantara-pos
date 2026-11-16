@@ -357,4 +357,5 @@
     <string name="settings_theme_write_error">Tema belum dapat disimpan. Pilihan sebelumnya tetap digunakan; pilih kembali untuk mencoba lagi.</string>
     <string name="device_name_unknown">Nama perangkat belum tersedia</string>
     <string name="device_name_hint">Nama dilaporkan oleh perangkat. Cocokkan ID perangkat dengan staf sebelum melanjutkan.</string>
+    <string name="press_back_again_to_exit">Tekan kembali sekali lagi untuk keluar</string>
 </resources>
