@@ -41,6 +41,7 @@ class AuthenticatedShellTest {
 
     private fun state(role: Role = Role.CASHIER) = AuthState(AuthStage.READY, true,
         membership = Membership("brand", "Daun Teh", "outlet-a", "Outlet A", role), email = "staff@example.invalid")
+    private fun headerText(value:String)=compose.onNode(hasText(value) and hasAnyAncestor(hasTestTag("shell.appbar")))
     private fun nav(label: String) = compose.onNode(hasText(label) and hasClickAction())
     private fun show(state: AuthState, switch: () -> Unit = {}) {
         compose.setContent { DaunTehTheme {
@@ -66,8 +67,8 @@ class AuthenticatedShellTest {
         show(state(Role.OWNER))
         compose.onNodeWithTag("shell.bottom").assertDoesNotExist()
         compose.onNodeWithText("feature.OVERVIEW.false").assertIsDisplayed()
-        compose.onNodeWithText("Pemilik").assertIsDisplayed()
-        compose.onNodeWithText("Outlet A").assertIsDisplayed()
+        headerText("Pemilik").assertIsDisplayed()
+        headerText("Outlet A").assertIsDisplayed()
         openMenu()
         listOf("Ringkasan","Kasir","Riwayat","Katalog","Laporan","Staf","Setelan").forEach { nav(it).performScrollTo().assertIsDisplayed() }
         nav("Kasir").performScrollTo().performClick()
@@ -78,14 +79,62 @@ class AuthenticatedShellTest {
         compose.onNodeWithText("feature.STAFF.false").assertIsDisplayed()
     }
 
+    @Test fun drawerShowsBrandThenScopedUserAndDoesNotInventProfileName() {
+        show(state(Role.OWNER));openMenu()
+        compose.onNodeWithTag("shell.brand.logo").assertIsDisplayed()
+        compose.onNodeWithText("Daun Teh").assertIsDisplayed()
+        compose.onNodeWithTag("shell.user.email").assertTextEquals("staff@example.invalid").assertIsDisplayed()
+        val brand=compose.onNodeWithText("Daun Teh").fetchSemanticsNode().boundsInRoot
+        val user=compose.onNodeWithTag("shell.user.email").fetchSemanticsNode().boundsInRoot
+        assertTrue(brand.bottom<=user.top)
+    }
+    @Test fun darkDrawerWrapsLongIdentityAndKeepsDestinationsReachable() {
+        val current=state(Role.OWNER).let{it.copy(email="long.staff.identity@example.invalid",membership=it.membership!!.copy(brandName="Daun Teh Nusantara"))}
+        compose.setContent{DaunTehTheme(darkTheme=true){AuthenticatedShell(current,{}){d,e->Text("feature.${d.name}.$e")}}}
+        openMenu()
+        compose.onNodeWithTag("shell.brand.logo").assertIsDisplayed()
+        compose.onNodeWithText("Daun Teh Nusantara").assertIsDisplayed()
+        compose.onNodeWithTag("shell.user.email").assertTextEquals(current.email).assertIsDisplayed()
+        nav("Setelan").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithText("feature.SETTINGS.false").assertIsDisplayed()
+    }
+    @Test fun accessIconExplainsAuthorizationSeparatelyFromSync() {
+        show(state())
+        compose.onNodeWithContentDescription("Akses tervalidasi").performClick()
+        compose.onNodeWithText("Status ini menunjukkan validasi akses akun, bukan status sinkronisasi penjualan.").assertIsDisplayed()
+        compose.onNodeWithText("Tutup informasi akses").performClick()
+        compose.onNodeWithText("feature.POS.false").assertIsDisplayed()
+    }
+    @Test fun outletSwitchIsBesideNameAndBeforeStatus() {
+        show(state(Role.OWNER))
+        val name=compose.onNodeWithTag("shell.outlet.name",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        val button=compose.onNodeWithTag("shell.outlet.switch").fetchSemanticsNode().boundsInRoot
+        val status=compose.onNodeWithTag("shell.access").fetchSemanticsNode().boundsInRoot
+        assertTrue(button.left>=name.right);assertTrue(button.left-name.right<40f)
+        assertTrue(button.right<=status.left)
+    }
+    @Test fun themeRecompositionPreservesDestinationAndInProgressField() {
+        var dark by mutableStateOf(false)
+        compose.setContent{DaunTehTheme(darkTheme=dark){AuthenticatedShell(state(),{}){d,_->
+            var draft by androidx.compose.runtime.saveable.rememberSaveable{mutableStateOf("")}
+            androidx.compose.foundation.layout.Column {
+                Text("destination.${d.name}")
+                androidx.compose.material3.OutlinedTextField(draft,{draft=it},label={Text("Draf tema")})
+            }
+        }}}
+        nav("Riwayat").performClick();compose.onNodeWithText("Draf tema").performTextInput("retained")
+        compose.runOnIdle{dark=true}
+        compose.onNodeWithText("destination.HISTORY").assertIsDisplayed()
+        compose.onNodeWithText("Draf tema").assertTextContains("retained")
+    }
     @Test fun headerSwitchInvokesExistingActionAndDoesNotLocallyChangeOutlet() {
         var switches = 0
         show(state(Role.MANAGER), { switches++ })
-        compose.onNodeWithText("Outlet A").assertIsDisplayed()
-        compose.onNodeWithText("Pengelola").assertIsDisplayed()
+        headerText("Outlet A").assertIsDisplayed()
+        headerText("Pengelola").assertIsDisplayed()
         compose.onNodeWithContentDescription("Pilih outlet lain").performClick()
         compose.runOnIdle { assertEquals(1, switches) }
-        compose.onNodeWithText("Outlet A").assertIsDisplayed()
+        headerText("Outlet A").assertIsDisplayed()
         compose.onNodeWithText("feature.OVERVIEW.false").assertExists()
     }
 
@@ -93,13 +142,19 @@ class AuthenticatedShellTest {
         var current by mutableStateOf(state().copy(offline = true))
         var switches = 0
         compose.setContent { DaunTehTheme { AuthenticatedShell(current, { switches++ }) { _,_ -> Text("content") } } }
+        compose.onNodeWithText("Akses offline").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Akses offline").assertIsDisplayed().performClick()
         compose.onNodeWithText("Akses offline").assertIsDisplayed()
         compose.onNodeWithText("Hubungkan kembali untuk memilih outlet lain.").assertExists()
         compose.onNodeWithContentDescription("Pilih outlet lain").assertIsNotEnabled()
         compose.onNodeWithText("Tersinkron", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Tutup informasi akses").performClick()
         compose.runOnIdle { current = current.copy(offline = false, busy = true) }
         compose.onNodeWithContentDescription("Pilih outlet lain").assertIsNotEnabled()
-        compose.onNodeWithText("Akses tervalidasi").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Memvalidasi akses").assertIsDisplayed()
+        compose.runOnIdle { current = current.copy(busy=false) }
+        compose.onNodeWithContentDescription("Akses tervalidasi").assertIsDisplayed()
+        compose.onNodeWithText("Akses tervalidasi").assertDoesNotExist()
         compose.runOnIdle { assertEquals(0, switches) }
     }
 
@@ -108,7 +163,7 @@ class AuthenticatedShellTest {
         compose.setContent { DaunTehTheme { AuthenticatedShell(current, {}) { d,e -> Text("feature.${d.name}.$e") } } }
         openMenu();nav("Staf").performScrollTo().performClick()
         compose.runOnIdle { current = current.copy(membership = current.membership!!.copy(outletId = "outlet-b", outletName = "Outlet B")) }
-        compose.onNodeWithText("Outlet B").assertIsDisplayed()
+        headerText("Outlet B").assertIsDisplayed()
         compose.onNodeWithText("feature.OVERVIEW.false").assertExists()
         openMenu();nav("Laporan").performScrollTo().performClick()
         compose.runOnIdle { current = current.copy(email = "other@example.invalid") }

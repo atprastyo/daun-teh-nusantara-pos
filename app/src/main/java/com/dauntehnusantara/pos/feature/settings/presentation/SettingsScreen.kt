@@ -27,7 +27,7 @@ import com.dauntehnusantara.pos.feature.sync.presentation.SyncStatusViewModel
 import com.dauntehnusantara.pos.feature.reports.presentation.ManagementError
 
 @Composable
-fun SettingsRoute(model:SettingsViewModel,sync:SyncStatusViewModel) {
+fun SettingsRoute(model:SettingsViewModel,sync:SyncStatusViewModel,appearance:AppearanceState=AppearanceState(com.dauntehnusantara.pos.feature.settings.domain.ThemeMode.LIGHT),onTheme:(com.dauntehnusantara.pos.feature.settings.domain.ThemeMode)->Unit={},onThemeRetry:()->Unit={}) {
     val state by model.state.collectAsStateWithLifecycle()
     val push by sync.state.collectAsStateWithLifecycle();val pull by sync.pullState.collectAsStateWithLifecycle()
     val context=LocalContext.current
@@ -49,13 +49,13 @@ fun SettingsRoute(model:SettingsViewModel,sync:SyncStatusViewModel) {
     SettingsScreen(state,push.takeIf{matching},pull.takeIf{matching},sync.failed,sync.retrying,sync.scheduled,
         outstandingPicker=launchedId!=null,onReload=model::reload,
         onRetry={sync.retry(!state.offline&&!state.busy)},onValidate=model::validateAccess,onExport=model::openExport,
-        onSignOut=model::openSignOut,onCancel=model::cancelDialog,onPrepare=model::prepare,onConfirmSignOut=model::signOut)
+        onSignOut=model::openSignOut,onCancel=model::cancelDialog,onPrepare=model::prepare,onConfirmSignOut=model::signOut,appearance=appearance,onTheme=onTheme,onThemeRetry=onThemeRetry)
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(state:SettingsState,push:SyncStatus?=null,pull:PullStatus?=null,readFailed:Boolean=false,retrying:Boolean=false,
     scheduled:Boolean=false,outstandingPicker:Boolean=false,onReload:()->Unit={},onRetry:()->Unit={},onValidate:()->Unit={},
-    onExport:()->Unit={},onSignOut:()->Unit={},onCancel:()->Unit={},onPrepare:()->Unit={},onConfirmSignOut:()->Unit={}) {
+    onExport:()->Unit={},onSignOut:()->Unit={},onCancel:()->Unit={},onPrepare:()->Unit={},onConfirmSignOut:()->Unit={},appearance:AppearanceState=AppearanceState(com.dauntehnusantara.pos.feature.settings.domain.ThemeMode.LIGHT),onTheme:(com.dauntehnusantara.pos.feature.settings.domain.ThemeMode)->Unit={},onThemeRetry:()->Unit={}) {
     val exportFocus=remember(state.scope?.key,state.generation){FocusRequester()}
     val sessionFocus=remember(state.scope?.key,state.generation){FocusRequester()}
     var pendingFocus by remember(state.scope?.key,state.generation){mutableStateOf<Boolean?>(null)}
@@ -67,6 +67,7 @@ fun SettingsScreen(state:SettingsState,push:SyncStatus?=null,pull:PullStatus?=nu
         val wide=maxWidth>=840.dp&&LocalDensity.current.fontScale<1.5f
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp).testTag("settings.page"),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             AppScreenHeader("Setelan")
+            AppearanceSettings(appearance,onTheme,onThemeRetry)
             ManagementError(state.error)
             if(state.loading){Text("Memuat akses perangkat…");LinearProgressIndicator(Modifier.fillMaxWidth())}
             if(state.offline)AppNotice("Akses offline. Tindakan jaringan memerlukan koneksi; ekspor lokal tetap memeriksa izin.")

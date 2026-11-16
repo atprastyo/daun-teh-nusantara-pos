@@ -19,6 +19,7 @@ import com.dauntehnusantara.pos.feature.auth.presentation.AuthViewModel
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val appearanceViewModel:com.dauntehnusantara.pos.feature.settings.presentation.AppearanceViewModel by viewModels()
     private val productPhotosViewModel: com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhotosViewModel by viewModels()
     private val catalogEditorViewModel: com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorViewModel by viewModels()
     private val reportsViewModel: com.dauntehnusantara.pos.feature.reports.presentation.ReportViewModel by viewModels()
@@ -39,13 +40,21 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
         setContent {
+            val appearance by appearanceViewModel.state.collectAsStateWithLifecycle()
+            if(appearance.mode==null)return@setContent
+            val dark=appearance.mode==com.dauntehnusantara.pos.feature.settings.domain.ThemeMode.DARK
+            androidx.compose.runtime.LaunchedEffect(dark) {
+                enableEdgeToEdge(
+                    statusBarStyle=if(dark)SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)else SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT),
+                    navigationBarStyle=if(dark)SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)else SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT))
+            }
             val photoPicker=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) {
                 catalogEditorViewModel.photoPicked(it?.toString())
             }
             val access by productPhotosViewModel.access.collectAsStateWithLifecycle()
             androidx.compose.runtime.CompositionLocalProvider(com.dauntehnusantara.pos.feature.catalog.photos.presentation.LocalProductPhotos provides
                 com.dauntehnusantara.pos.feature.catalog.photos.presentation.PhotoAccess(productPhotosViewModel.repository,access)) {
-            DaunTehTheme {
+            DaunTehTheme(darkTheme=dark) {
             AuthRoot(authViewModel, authenticated = { destination, expanded ->
                 when(destination) {
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.CATALOG -> com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorRoute(catalogEditorViewModel) { product ->
@@ -63,7 +72,7 @@ class MainActivity : ComponentActivity() {
                         com.dauntehnusantara.pos.feature.history.presentation.HistoryRoute(historyViewModel,historyExpanded)
                     }
                 }
-            }, settings = { com.dauntehnusantara.pos.feature.settings.presentation.SettingsRoute(settingsViewModel,syncStatusViewModel) }) {
+            }, settings = { com.dauntehnusantara.pos.feature.settings.presentation.SettingsRoute(settingsViewModel,syncStatusViewModel,appearance,appearanceViewModel::change,appearanceViewModel::retry) }) {
                 PosApp(viewModel,catalogViewModel,posViewModel)
             }
         } } }

@@ -249,3 +249,10 @@ membership guards, role-scoped used/maximum read models, creation-state feedback
 regressions. No in-app limit editor, Super Admin, Room migration or live deployment.
 Next: configure/deploy in a disposable hosted project and verify independent-connection
 last-slot races before separately approved working-project rollout. See STAFF_LIMITS.md.
+
+## Appearance iteration (2026-11-16)
+
+Implement adjacent outlet switch, green app bar and device-local Light/Dark preference
+using existing DataStore/Hilt. Verify actual persistence/reopen, failure/retry, settings,
+scoped navigation/input retention, full build and lint. No backend or Room change.
+Next: physical Light/Dark/system-bar/IME/accessibility preview on an idle phone.

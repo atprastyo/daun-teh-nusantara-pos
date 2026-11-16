@@ -2475,3 +2475,52 @@ separately approved disposable hosted project, deploy the updated Edge Function 
 verify independent-connection last-slot/admin-edit races plus real Auth/physical UI.
 Working-project deployment/configuration and any test staff creation require explicit
 approval. No working Supabase data or device app was changed by this quota iteration.
+
+## Drawer identity and compact app bar (2026-11-16)
+
+Added logo/verified brand name followed by signed-in email, role and selected outlet
+inside the scrollable drawer. Long identity text wraps; dark surfaces use a white
+logo tint. Removed the full access-status row from the app bar, retaining outlet/role
+and existing actions with an accessible 48dp status icon. Validation shows a spinner,
+offline uses a distinct glyph, and a tap explains authorization versus sale sync and
+bounded offline/outlet-switch behavior. No new profile/credential storage, permission,
+backend, schema, dependency or navigation capability. Status details reuse the shared
+adaptive AppConfirmation with scrolling content and fixed close action.
+
+Verification: `:app:testDebugUnitTest --tests '*AuthenticatedShellTest' :app:assembleDebug
+:app:lintDebug --offline --max-workers=2 --console=plain` passed in 2m50s using Android
+Studio JBR via JAVA_HOME. All 18 shell tests passed, covering drawer brand/account
+ordering, dark/long identity, large-text/short-window navigation, status explanation,
+offline/busy controls and existing scope/restoration guards. First run found two
+ambiguous test selectors after role/outlet also appeared in the drawer; scoped those
+to the app bar without suppressing assertions. Final log app/build/drawer-header-checks-final.log;
+initial log app/build/drawer-header-checks.log. Lint: zero errors/45 existing warnings.
+Final `git diff --check` passed. Release build and physical/TalkBack checks were not run
+for this focused presentation change. Device checks/install were not resumed.
+Exact next step: idle-device visual/accessibility acceptance of drawer identity and
+status details in light/dark/large text, without modifying the working-brand cart.
+
+## Green app bar and saved Light/Dark theme (2026-11-16)
+
+Moved the outlet switch beside the title/role block, keeping its 48dp target and
+existing offline/busy guards. Green app bar uses primary/onPrimary in Light and
+primaryContainer/onPrimaryContainer in Dark; status/action icons inherit contrasting
+content. Added Settings → Tampilan → Terang/Gelap with device-local DataStore storage,
+Hilt repository/ViewModel, loading/save/error/retry states and Light default. App root
+waits for the initial preference read, applies theme without recreation/navigation-key
+changes and adjusts system-bar icon contrast. Login/drawer branding tints white in Dark.
+No new dependency, backend/account/Room schema change. Device app was not modified.
+Initial `:app:compileDebugKotlin --offline --max-workers=2 --console=plain` passed
+(47s). Targeted `:app:testDebugUnitTest --tests '*Appearance*Test'
+--tests '*AuthenticatedShellTest' --tests '*Settings*Test' :app:assembleDebug --offline
+--max-workers=2 --console=plain` passed in 1m3s: 54 tests, zero failures/errors/skips.
+Includes real DataStore file reopen/unknown value, save/read errors and retry,
+duplicate-write gating, offline Settings selection, adjacent-switch bounds and
+navigation/draft retention after theme recomposition. Log app/build/appearance-tests.log.
+Full `:app:assembleDebugAndroidTest build --offline --max-workers=2 --console=plain`
+passed in 5m17s: debug343 passed, release334 passed +9 expected demo-only skips,
+zero failures/errors. Lint zero errors/45 existing warnings. Instrumentation APK
+compiled; no instrumentation/device execution claimed. Log app/build/appearance-build.log.
+Android Studio JBR via JAVA_HOME. Final `git diff --check` passed.
+Remaining: physical Light/Dark/system-bar/IME/TalkBack acceptance on an idle phone;
+no install or device interaction was performed. No ADB or working-brand operations in this iteration.

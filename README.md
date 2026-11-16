@@ -515,3 +515,10 @@ and blocks creation when full or unconfigured; disabled memberships and pending
 creations still count. Owners/Managers cannot change quotas in the app. Setup:
 [STAFF_LIMITS.md](docs/STAFF_LIMITS.md). Apply staff-limits.sql once after provisioning
 setup and choose actual limits using configure-staff-limits.sql.example.
+
+The navigation drawer shows brand identity and the signed-in email/role/outlet. The
+app bar uses a compact access-status icon; tap it for validation/offline details.
+
+Change appearance in **Setelan → Tampilan → Terang / Gelap**. The preference is saved
+on the device, works offline and also applies to sign-in after logout. Light remains
+the default. The green app bar keeps the outlet switch beside the outlet title.

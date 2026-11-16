@@ -29,6 +29,14 @@ class SettingsPresentationTest {
     }).around(compose)
     private val source=PullScope(SaleScope("brand","outlet","device","cashier"),"CASHIER","https://example.invalid")
     private fun ready()=SettingsState(scope=source,email="cashier@example.invalid",outletName="Outlet",loading=false)
+    @Test fun themeChoiceAvailableOfflineAndReportsSelectedSavedMode() {
+        var mode by mutableStateOf(com.dauntehnusantara.pos.feature.settings.domain.ThemeMode.LIGHT)
+        compose.setContent{DaunTehTheme(darkTheme=mode==com.dauntehnusantara.pos.feature.settings.domain.ThemeMode.DARK){
+            SettingsScreen(ready().copy(offline=true),appearance=AppearanceState(mode),onTheme={mode=it})
+        }}
+        compose.onNodeWithTag("settings.theme.LIGHT").assertIsSelected()
+        compose.onNodeWithTag("settings.theme.DARK").performScrollTo().performClick().assertIsSelected()
+    }
     @Test fun signoutUnknownQueueWarnsAndCancelNeverSignsOut() {
         var exits=0;var cancelled=0
         compose.setContent{DaunTehTheme{SettingsScreen(ready().copy(signOutConfirm=true),onCancel={cancelled++},onConfirmSignOut={exits++})}}

@@ -57,3 +57,21 @@ rail; large text/short windows retain the drawer fallback. Owner starts at Ringk
 Kasir/Riwayat selection survives same-context refresh and recreation. Scope/role/account
 changes still reset selection. Manager keeps five management destinations, Cashier
 keeps Kasir/Riwayat/Setelan. Header identifies actual role and operational outlet.
+
+## Drawer identity and app bar refinement (16 November 2026)
+
+Drawer header: existing brand logo + verified brand name, then account email, actual
+role and active outlet, followed by a divider and destination list. All header/list
+content scrolls together at large text or short heights. Drawer logo tints white on
+dark surfaces. No unsupported profile name or additional identity request is introduced.
+The compact app bar keeps outlet/role and existing menu/switch actions; a 48dp icon
+replaces the access text row. Validated, validating and offline labels remain accessible,
+with a tap opening details. Access status never claims sale sync success. Offline
+limitations and switching guidance remain available in the status details.
+
+## Green header and appearance (16 November 2026)
+
+Outlet switch is adjacent to the title/role block, before the trailing access indicator.
+Green backgrounds use contrasting Light/Dark tokens; disabled offline/busy behavior
+remains. Appearance updates the existing composition rather than resetting selected
+routes or in-progress inputs. Saved device preference also applies to access screens.

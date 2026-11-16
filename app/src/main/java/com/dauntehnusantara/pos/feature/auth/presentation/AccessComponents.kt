@@ -6,6 +6,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -44,8 +47,9 @@ internal fun AccessScaffold(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 internal fun BrandIdentity() {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Original-color bitmap on the white in-app canvas, independent of launcher night tint.
-        Image(painterResource(R.drawable.brand_logo), null, Modifier.size(72.dp))
+        // App appearance is independent of the launcher icon background.
+        Image(painterResource(R.drawable.brand_logo), null, Modifier.size(72.dp),
+            colorFilter=if(MaterialTheme.colorScheme.surface.luminance()<0.5f)ColorFilter.tint(Color.White)else null)
         Text(stringResource(R.string.app_name), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
     }
 }

@@ -196,3 +196,11 @@ Unavailable or unconfigured capacity blocks new creation, full roles cannot be c
 and role defaults remain Cashier (no automatic selection of a higher-privilege role).
 Unknown already-reserved commands remain retryable even when their slot fills the cap.
 Quota editing belongs only to Supabase admin tools. See STAFF_LIMITS.md.
+
+## Saved appearance and green app bar (16 November 2026)
+
+Settings offers device-local Terang/Gelap choices, independent of role or network.
+Selection persists across restart/logout and updates the app root in place. Read/write
+failures are explicit; failed writes retain the previous appearance. Green app-bar
+surfaces use contrasting theme content, with outlet switching beside the outlet title
+and role, while access status stays at the trailing edge. Dark in-app logos are white.

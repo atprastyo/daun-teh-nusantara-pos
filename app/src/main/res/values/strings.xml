@@ -347,4 +347,14 @@
     <string name="history_ui_id_hint">ID …%1$s · Lihat struk</string>
     <string name="history_ui_detail">Detail struk</string>
     <string name="staff_ui_audit_unknown">Aktivitas akses</string>
+    <string name="shell_active_account">Akun aktif</string>
+    <string name="shell_access_checking">Memvalidasi akses</string>
+    <string name="shell_access_help">Status ini menunjukkan validasi akses akun, bukan status sinkronisasi penjualan.</string>
+    <string name="shell_close_status">Tutup informasi akses</string>
+    <string name="settings_appearance">Tampilan</string>
+    <string name="settings_theme_device">Tema berlaku untuk aplikasi di perangkat ini, termasuk layar masuk.</string>
+    <string name="settings_theme_light">Terang</string>
+    <string name="settings_theme_dark">Gelap</string>
+    <string name="settings_theme_read_error">Tema tersimpan belum dapat dibaca. Tampilan sementara tetap digunakan; coba lagi.</string>
+    <string name="settings_theme_write_error">Tema belum dapat disimpan. Pilihan sebelumnya tetap digunakan; pilih kembali untuk mencoba lagi.</string>
 </resources>

@@ -3,6 +3,11 @@ package com.dauntehnusantara.pos.feature.auth.presentation
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -18,6 +23,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
+import com.dauntehnusantara.pos.core.designsystem.components.AppConfirmation
 import com.dauntehnusantara.pos.R
 import com.dauntehnusantara.pos.feature.auth.domain.*
 import kotlinx.coroutines.launch
@@ -79,6 +85,8 @@ fun AuthenticatedShell(state: AuthState, switchOutlet: () -> Unit,
             ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = menu, drawerContent = {
                 if (menu) ModalDrawerSheet(Modifier.widthIn(max = 360.dp).fillMaxWidth(0.9f).testTag("shell.drawer")) {
                     Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DrawerIdentity(state)
+                        HorizontalDivider()
                         Text(stringResource(R.string.shell_navigation), Modifier.padding(16.dp).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
                         destinations.forEach { destination ->
                             NavigationDrawerItem(label = { Text(stringResource(destination.shellLabel())) },
@@ -95,29 +103,62 @@ fun AuthenticatedShell(state: AuthState, switchOutlet: () -> Unit,
 }
 
 @Composable
+private fun DrawerIdentity(state:AuthState) {
+    val membership=requireNotNull(state.membership)
+    Column(Modifier.fillMaxWidth().padding(16.dp).testTag("shell.identity"),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            Image(painterResource(R.drawable.brand_logo),null,Modifier.size(64.dp).testTag("shell.brand.logo"),
+                colorFilter=if(MaterialTheme.colorScheme.surface.luminance()<0.5f)ColorFilter.tint(Color.White)else null)
+            Text(membership.brandName,Modifier.weight(1f).semantics{heading()},style=MaterialTheme.typography.titleLarge)
+        }
+        Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.shell_active_account),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            if(state.email.isNotBlank())Text(state.email,Modifier.testTag("shell.user.email"),style=MaterialTheme.typography.bodyMedium)
+            Text(stringResource(membership.role.label()),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
+            Text(membership.outletName,style=MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
 private fun ShellContextHeader(state: AuthState, switchOutlet: () -> Unit, openMenu: (() -> Unit)?) {
     val membership = requireNotNull(state.membership)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (openMenu != null) IconButton(onClick = openMenu) { Icon(painterResource(R.drawable.ic_shell_menu), stringResource(R.string.shell_open_menu)) }
-                else Icon(painterResource(R.drawable.ic_shell_store), null, tint = MaterialTheme.colorScheme.primary)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(membership.outletName, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(stringResource(membership.role.label()), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val colors=MaterialTheme.colorScheme
+    val dark=colors.surface.luminance()<0.5f
+    val foreground=if(dark)colors.onPrimaryContainer else colors.onPrimary
+    Surface(color=if(dark)colors.primaryContainer else colors.primary,contentColor=foreground) {
+        Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).testTag("shell.appbar"),
+            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            if(openMenu!=null)IconButton(onClick=openMenu){Icon(painterResource(R.drawable.ic_shell_menu),stringResource(R.string.shell_open_menu))}
+            else Icon(painterResource(R.drawable.ic_shell_store),null)
+            Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f,false),verticalArrangement=Arrangement.spacedBy(2.dp)) {
+                    Text(membership.outletName,Modifier.testTag("shell.outlet.name"),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    Text(stringResource(membership.role.label()),style=MaterialTheme.typography.labelLarge,color=foreground.copy(alpha=0.85f))
                 }
-                IconButton(onClick = switchOutlet, enabled = !state.offline && !state.busy) {
-                    Icon(painterResource(R.drawable.ic_shell_switch_outlet), stringResource(R.string.auth_switch_outlet))
+                IconButton(onClick=switchOutlet,enabled=!state.offline&&!state.busy,modifier=Modifier.testTag("shell.outlet.switch")){
+                    Icon(painterResource(R.drawable.ic_shell_switch_outlet),stringResource(R.string.auth_switch_outlet))
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(painterResource(if (state.offline) R.drawable.ic_shell_offline else R.drawable.ic_shell_verified), null,
-                    modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(stringResource(if (state.offline) R.string.shell_access_offline else R.string.shell_access_validated),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (state.offline) Text(stringResource(R.string.shell_switch_online), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AccessIndicator(state)
         }
+    }
+}
+
+@Composable
+private fun AccessIndicator(state:AuthState) {
+    var details by remember{mutableStateOf(false)}
+    val label=stringResource(when{state.offline->R.string.shell_access_offline;state.busy->R.string.shell_access_checking;else->R.string.shell_access_validated})
+    IconButton(onClick={details=true},modifier=Modifier.testTag("shell.access").semantics{contentDescription=label}) {
+        if(state.busy&&!state.offline)CircularProgressIndicator(Modifier.size(20.dp),color=LocalContentColor.current,strokeWidth=2.dp)
+        else Icon(painterResource(if(state.offline)R.drawable.ic_shell_offline else R.drawable.ic_shell_verified),null,
+            tint=LocalContentColor.current)
+    }
+    if(details)AppConfirmation(label,{details=false},actions={
+        TextButton(onClick={details=false}){Text(stringResource(R.string.shell_close_status))}
+    }) {
+        Text(stringResource(if(state.offline)R.string.auth_offline_limits else R.string.shell_access_help))
+        if(state.offline)Text(stringResource(R.string.shell_switch_online))
     }
 }
 

@@ -835,3 +835,19 @@ Official Android references checked for M7:
   UI gates; return bounded allowlisted quota error codes. No Room migration, production
   deployment or working-brand values applied. Hosted parallel-connection acceptance
   remains separate from local PGlite tests.
+
+- D138 (2026-11-16): Add verified membership brand name and existing logo to the
+  drawer header, followed by signed-in email, actual role and operational outlet.
+  Do not invent a profile name or fetch new identity data for this presentation change.
+  Tint the drawer logo white on dark surfaces. Simplify the app bar to outlet/role,
+  existing navigation/outlet actions and a labeled 48dp status icon (validated,
+  validating or offline). Tap exposes access/offline details separately from sync.
+
+- D139 (2026-11-16): Place outlet switching beside the outlet title/role block and
+  use branded green app-bar surfaces with contrasting content in Light/Dark themes.
+  Preserve offline/busy switch guards and access-status details.
+- D140 (2026-11-16): Add device-local Light/Dark appearance preference in Settings,
+  persisted with the existing DataStore dependency. Default Light; apply at the app
+  root without activity recreation or changing navigation keys. Keep selection through
+  logout/restart, expose read/write failure and retry, update system-bar icon contrast,
+  and use white in-app branding on dark surfaces. No auth, backend or Room changes.
