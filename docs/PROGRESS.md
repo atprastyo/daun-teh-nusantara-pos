@@ -2399,3 +2399,79 @@ and execute controlled two-role/first-login/device-approval acceptance. Applying
 the brand's working project requires explicit deployment approval; do not rerun/reset
 schema.sql or create fabricated staff in the working project. No production readiness,
 hosted Auth/Edge integration, Deno runtime or physical accessibility acceptance claimed.
+
+## Owner cashier and history access (2026-11-15)
+
+Implemented Owner Kasir/Riwayat alongside existing management destinations, retaining
+Overview default and Owner/outlet header context. Compact Owner navigation uses the
+existing scrolling drawer; tablet rail remains. History now accepts matching Owner
+scope and labels its authorized selected-outlet cache explicitly; Manager history
+remains unavailable and Cashier own-history behavior is retained. Checkout already
+uses actual authenticated Owner user/device/outlet identity and server guards; no
+role impersonation, schema/RPC/dependency/deployment change.
+
+Added shell navigation/restoration/large-text coverage, Owner history label/role tests,
+Room receipt/outbox/restart/initial-sync/scope-lock test, and isolated server Owner
+submit/replay/actual-actor/proof/approval/revocation coverage. Verification running;
+results will be recorded below. No live sale or hosted permission changes. Resumed previously authorized ADB checks
+after successful builds; device result recorded below.
+
+- Targeted `:app:testDebugUnitTest --tests '*AuthenticatedShellTest'
+  --tests '*OfflineLeaseTest' --tests '*History*Test' --tests '*PullSyncTest'
+  --tests '*AuthenticatedPosViewModelTest' :app:assembleDebug --offline
+  --max-workers=2 --console=plain` passed in 1m36s: 81 tests, zero failures/skips.
+  Android Studio JBR via JAVA_HOME; log app/build/owner-cashier-tests.log.
+- `npm test --prefix supabase` passed: 65 tests, zero failures/skips (15.1s).
+  Includes Owner submit/replay/actual actor/approval/revocation against isolated PGlite;
+  no live backend. Log app/build/owner-cashier-backend.log.
+- Full `:app:assembleDebugAndroidTest build --offline --max-workers=2 --console=plain`
+  passed in 6m43s: debug323 passed, release314 passed +9 expected demo-only skips,
+  zero failures/errors. Lint: zero errors/45 existing warnings. Instrumentation APK
+  compiled; no instrumentation run claimed. Log app/build/owner-cashier-build.log.
+- `git diff --check` passed.
+Exact next step: normal-app Owner navigation and unsaved input acceptance when the
+phone is available; existing hosted provisioning/signing/accessibility gates remain.
+
+Device follow-up: prior ADB/idle authorization remained active. `adb install -r`
+succeeded on Samsung SM-M146B, retaining app data; MainActivity opened with validated
+Pemilik access and the navigation-menu header. A menu-check tap coincided with the
+notification shade; dismissed it once. Subsequent hierarchy showed the actual Owner
+payment screen with cash presets and calculated change. No product/cart/payment
+input or save command was sent by this check. Stopped further taps with the current
+payment untouched. Physical Riwayat/menu traversal, rotation, IME and TalkBack remain
+unverified; host regressions cover navigation/history. The temporary device hierarchy
+was removed. No real sale, account, membership or backend change was performed.
+The installed build includes the earlier staff-provisioning code; that feature still
+requires its separately documented SQL/Edge deployment.
+
+## Per-outlet staff count limits (2026-11-16)
+
+Implemented admin-only outlet_staff_limits setup and example configuration; independent
+Manager/Cashier caps with disabled/pending counting and deduplicated reserved conversion.
+Reservation/member insertion and role/outlet changes serialize through a real limit-row
+update. Existing users/reserved slots survive lowering; missing configuration blocks new
+creation. Added scoped roster counts, read-only quota notices, role/submit guards and
+allowlisted bounded HTTP quota errors, preserving same-operation uncertain retry.
+No Super Admin app role, quota editor, Room migration, hosted deploy or working values.
+
+Checks running. Initial Kotlin compile passed (55s). Initial isolated quota test run
+had one duplicate synthetic-profile fixture error; corrected fixture to update the
+existing profile. Full backend suite then passed 71 tests (25.6s). Targeted Android
+`:app:testDebugUnitTest --tests '*Staff*Test' --tests '*AuthRepositoryTest'
+:app:assembleDebug --offline --max-workers=2 --console=plain` passed in 1m2s:
+72 tests, zero failures/errors/skips; log app/build/staff-limits-tests.log. Subsequent
+bounded error-stream tests and final role-default/error-state refinements are included
+in the full `:app:assembleDebugAndroidTest build --offline --max-workers=2
+--console=plain`, which passed in 6m7s. Final XML: debug333 passed, release324 passed
++9 expected demo-only skips; zero failures/errors. Lint zero errors/45 existing warnings.
+Debug/release and instrumentation APKs compiled; no instrumentation run claimed.
+Log app/build/staff-limits-build.log. Android Studio JBR via JAVA_HOME.
+Final `git diff --check` passed. No ADB/real account/sale/permission changes in this iteration.
+No native PostgreSQL/psql/Docker/Deno/Supabase CLI available; true independent-connection
+concurrency remains a hosted acceptance gate. See STAFF_LIMITS.md for exact setup.
+
+Exact next milestone: apply optional quota setup and actual per-outlet counts in a
+separately approved disposable hosted project, deploy the updated Edge Function and
+verify independent-connection last-slot/admin-edit races plus real Auth/physical UI.
+Working-project deployment/configuration and any test staff creation require explicit
+approval. No working Supabase data or device app was changed by this quota iteration.

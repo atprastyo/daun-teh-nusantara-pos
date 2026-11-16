@@ -144,3 +144,22 @@ and again before atomic profile/membership/audit assignment. Admin keys are Edge
 Existing emails never grant an implicit attach/reset/reactivation. The private ledger
 provides retry identity, rate limiting and the server-enforced initial-password gate.
 No backend deployment or working-brand user creation was performed.
+
+## Owner cashier access (15 November 2026)
+
+Owner navigation now exposes Kasir and Riwayat for the selected operational outlet.
+This retains Role.OWNER, actual auth user UUID and approved Owner-bound device proof;
+it does not impersonate a Cashier, create a membership or bypass initial catalog sync
+or offline lease checks. Existing submit_sale already accepts a live Owner with
+matching device/user/outlet/brand and unchanged payment/idempotency rules. History
+uses the existing authorized selected-outlet cache (Owner can see all available outlet
+receipts; Cashier remains own-only). Manager navigation is unchanged.
+
+## Staff quota administration (16 November 2026)
+
+Only trusted Supabase administration configures per-outlet Manager/Cashier maxima;
+no app role can edit quotas. Live-role/approved-device creation rules remain. Missing
+limits fail closed; disabled memberships and pending reservations count. Shared row
+serialization and membership/reservation triggers enforce caps across actors and admin
+assignment, separately from the hourly throttle. See STAFF_LIMITS.md for setup and
+remaining hosted concurrency/Edge acceptance.

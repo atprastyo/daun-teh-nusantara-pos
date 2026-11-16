@@ -496,3 +496,22 @@ can create Cashiers only. New staff replace the temporary password before POS ac
 and still need device approval. Existing email accounts require administrator review.
 The SQL setup and staff-admin Edge Function must be deployed separately; never add
 a service-role key to Android.
+
+## Owner cashier access
+
+Owners keep Ringkasan as their start screen and can open Kasir or Riwayat for the
+selected outlet. On compact phones, use the header navigation menu; on tablets use
+the navigation rail. The context remains Pemilik and the sale records the signed-in
+Owner user ID. Normal approved-device, initial-sync, offline and payment guards apply.
+Owner history shows the available selected-outlet cache; Cashier history remains own
+receipts. No role switch, extra Cashier account or backend setup is needed for this
+navigation change. Manager navigation remains management-only.
+
+## Per-outlet staff limits
+
+Supabase administrators configure separate Manager/Cashier maximums per outlet.
+Multiple Cashiers are supported up to that limit. The app shows used/maximum counts
+and blocks creation when full or unconfigured; disabled memberships and pending
+creations still count. Owners/Managers cannot change quotas in the app. Setup:
+[STAFF_LIMITS.md](docs/STAFF_LIMITS.md). Apply staff-limits.sql once after provisioning
+setup and choose actual limits using configure-staff-limits.sql.example.

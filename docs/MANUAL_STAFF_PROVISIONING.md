@@ -92,3 +92,9 @@ create Manager/Cashier accounts and Managers can create assigned-outlet Cashiers
 This guide remains the trusted administrator fallback for existing identities,
 Owner bootstrap and recovery. Do not run assignment scripts to bypass an unfinished
 app-created account's password gate; inspect its reserved operation first.
+
+When staff-limits.sql is installed, manual outlet assignment also enforces the
+configured per-role outlet quota. Configure limits through trusted Supabase tools
+before adding memberships; disabled memberships and unfinished reservations count.
+See [STAFF_LIMITS.md](STAFF_LIMITS.md). Do not disable triggers or remove unresolved
+provisioning records to bypass the quota.

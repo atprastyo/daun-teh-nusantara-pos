@@ -61,19 +61,20 @@ class AuthenticatedShellTest {
         nav("Setelan").assertExists()
     }
 
-    @Test fun compactOwnerKeepsFiveReadableDestinationsAndLocalizedContext() {
+    private fun openMenu()=compose.onNodeWithContentDescription("Buka menu navigasi").performClick()
+    @Test fun compactOwnerUsesReadableMenuAndCanEnterCashierHistoryAndManagement() {
         show(state(Role.OWNER))
-        nav("Ringkasan").assertIsSelected()
+        compose.onNodeWithTag("shell.bottom").assertDoesNotExist()
         compose.onNodeWithText("feature.OVERVIEW.false").assertIsDisplayed()
         compose.onNodeWithText("Pemilik").assertIsDisplayed()
-        compose.onNodeWithText("OWNER").assertDoesNotExist()
-        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        listOf("Ringkasan", "Katalog", "Laporan", "Staf", "Setelan").forEach {
-            nav(it).assertIsDisplayed()
-            val bounds = nav(it).fetchSemanticsNode().boundsInRoot
-            assertTrue(bounds.left >= root.left && bounds.right <= root.right)
-        }
-        nav("Staf").performClick()
+        compose.onNodeWithText("Outlet A").assertIsDisplayed()
+        openMenu()
+        listOf("Ringkasan","Kasir","Riwayat","Katalog","Laporan","Staf","Setelan").forEach { nav(it).performScrollTo().assertIsDisplayed() }
+        nav("Kasir").performScrollTo().performClick()
+        compose.onNodeWithText("feature.POS.false").assertIsDisplayed()
+        openMenu();nav("Riwayat").performScrollTo().performClick()
+        compose.onNodeWithText("feature.HISTORY.false").assertIsDisplayed()
+        openMenu();nav("Staf").performScrollTo().performClick()
         compose.onNodeWithText("feature.STAFF.false").assertIsDisplayed()
     }
 
@@ -105,14 +106,14 @@ class AuthenticatedShellTest {
     @Test fun roleOutletAndAccountChangesResetSelection() {
         var current by mutableStateOf(state(Role.OWNER))
         compose.setContent { DaunTehTheme { AuthenticatedShell(current, {}) { d,e -> Text("feature.${d.name}.$e") } } }
-        nav("Staf").performClick()
+        openMenu();nav("Staf").performScrollTo().performClick()
         compose.runOnIdle { current = current.copy(membership = current.membership!!.copy(outletId = "outlet-b", outletName = "Outlet B")) }
         compose.onNodeWithText("Outlet B").assertIsDisplayed()
         compose.onNodeWithText("feature.OVERVIEW.false").assertExists()
-        nav("Laporan").performClick()
+        openMenu();nav("Laporan").performScrollTo().performClick()
         compose.runOnIdle { current = current.copy(email = "other@example.invalid") }
         compose.onNodeWithText("feature.OVERVIEW.false").assertExists()
-        nav("Staf").performClick()
+        openMenu();nav("Staf").performScrollTo().performClick()
         compose.runOnIdle { current = current.copy(membership = current.membership!!.copy(role = Role.CASHIER)) }
         compose.onNodeWithText("feature.POS.false").assertExists()
         compose.onNodeWithText("feature.STAFF.false").assertDoesNotExist()
@@ -132,7 +133,7 @@ class AuthenticatedShellTest {
         val restoration = StateRestorationTester(compose)
         var role = Role.OWNER
         restoration.setContent { DaunTehTheme { AuthenticatedShell(state(role), {}) { d,e -> Text("feature.${d.name}.$e") } } }
-        nav("Staf").performClick()
+        openMenu();nav("Staf").performScrollTo().performClick()
         compose.runOnIdle { role = Role.CASHIER }
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithText("feature.POS.false").assertIsDisplayed()
@@ -172,7 +173,7 @@ class AuthenticatedShellTest {
         nav("Setelan").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("feature.SETTINGS.false").assertExists()
         compose.onNodeWithContentDescription("Buka menu navigasi").performClick()
-        listOf("Ringkasan", "Katalog", "Laporan", "Staf").forEach { nav(it).performScrollTo().assertIsDisplayed() }
+        listOf("Ringkasan", "Kasir", "Riwayat", "Katalog", "Laporan", "Staf").forEach { nav(it).performScrollTo().assertIsDisplayed() }
     }
 
     @Test
@@ -248,6 +249,17 @@ class AuthenticatedShellTest {
         compose.runOnIdle { assertEquals(1, repository.switches) }
     }
 
+    @Test fun ownerCashierSelectionSurvivesSameContextRefreshAndRestoration() {
+        val restoration=StateRestorationTester(compose)
+        var current by mutableStateOf(state(Role.OWNER))
+        restoration.setContent{DaunTehTheme{AuthenticatedShell(current,{}){d,e->Text("feature.${d.name}.$e")}}}
+        openMenu();nav("Kasir").performScrollTo().performClick()
+        compose.runOnIdle{current=current.copy(busy=true)}
+        compose.onNodeWithText("feature.POS.false").assertIsDisplayed()
+        compose.runOnIdle{current=current.copy(busy=false)}
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("feature.POS.false").assertIsDisplayed()
+    }
     @Test fun lockedContextNeverRendersShellContent() {
         var renders = 0
         compose.setContent { DaunTehTheme {

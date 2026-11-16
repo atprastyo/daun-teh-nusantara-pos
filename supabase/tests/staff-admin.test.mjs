@@ -78,3 +78,16 @@ test('incorrect current password and failed Auth update never clear password gat
   assert.equal(r.status,422);assert.equal(cleared,false);
  }
 });
+
+test('quota and unconfigured codes remain distinct; neither calls Auth admin creation',async()=>{
+ for(const code of ['STAFF_LIMIT_REACHED','STAFF_LIMITS_UNCONFIGURED']) {
+  let adminCalled=false;
+  const handler=createHandler({url:'https://test.invalid',publicKey:'public',serviceKey:'secret',fetcher:async(url)=>{
+   if(url.endsWith('/auth/v1/user'))return json({id:'actor'});
+   if(url.endsWith('prepare_staff_account'))return json({code:'PT409',message:code},409);
+   adminCalled=true;throw Error('Auth admin must not be called');
+  }});
+  const result=await handler(new Request('https://edge.invalid',{method:'POST',headers:{Authorization:'Bearer fixture'},body:JSON.stringify(input)}));
+  assert.equal(result.status,409);assert.equal((await result.json()).code,code);assert.equal(adminCalled,false);
+ }
+});

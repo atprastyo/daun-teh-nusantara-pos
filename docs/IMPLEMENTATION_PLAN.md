@@ -233,3 +233,19 @@ role-scoped selected-outlet form, initial-password screen and isolated regressio
 No Room migration, working-brand account creation or deployment. Next milestone:
 controlled hosted acceptance in a disposable project, then separately authorized
 working-project deployment. See IN_APP_STAFF_PROVISIONING.md.
+
+## Owner cashier iteration (2026-11-15)
+
+Expose Owner Kasir/Riwayat, retain Overview default and actual Owner identity, use
+compact drawer for seven destinations, and enable explicitly labeled selected-outlet
+Owner history. Verify shell/state, Room/outbox identity and existing server device/
+role/idempotency safeguards; no backend/schema change. Next: normal-device Owner
+navigation and unsaved payment-input acceptance, without fabricated working-brand sales.
+
+## Outlet staff quota iteration (2026-11-16)
+
+Add trusted Supabase-configured per-outlet Manager/Cashier caps, serialized reservation/
+membership guards, role-scoped used/maximum read models, creation-state feedback and
+regressions. No in-app limit editor, Super Admin, Room migration or live deployment.
+Next: configure/deploy in a disposable hosted project and verify independent-connection
+last-slot races before separately approved working-project rollout. See STAFF_LIMITS.md.

@@ -260,7 +260,7 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
         catch(e:CancellationException){throw e}
         catch(e:AuthHttpFailure){
             if(e.status in listOf(401,403,423))failure(e,false)
-            throw ManagementFailure(when(e.status){404->"NOT_CONFIGURED";429->"RATE_LIMIT";409->"CONFLICT";401,403,423->"AUTH_REQUIRED";413->"TOO_LARGE";410->"REBOOTSTRAP_REQUIRED";422->"INVALID";else->"UNAVAILABLE"})
+            throw ManagementFailure(e.code?.takeIf{it in setOf("STAFF_LIMIT_REACHED","STAFF_LIMITS_UNCONFIGURED")} ?: when(e.status){404->"NOT_CONFIGURED";429->"RATE_LIMIT";409->"CONFLICT";401,403,423->"AUTH_REQUIRED";413->"TOO_LARGE";410->"REBOOTSTRAP_REQUIRED";422->"INVALID";else->"UNAVAILABLE"})
         } catch(_:IOException){throw ManagementFailure("UNAVAILABLE")}
         catch(e:ManagementFailure){throw e}
         catch(_:Exception){throw ManagementFailure("INVALID_RESPONSE")}

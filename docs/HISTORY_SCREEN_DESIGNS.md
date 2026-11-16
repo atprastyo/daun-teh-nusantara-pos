@@ -255,3 +255,12 @@ Those end-to-end tests require their own normal-application acceptance setup.
 
 Exact next milestone: detailed R-01–R-03 overview/report/filter designs before native
 report redesign. Keep existing accepted-server report metrics and X-03 export contract.
+
+## Owner history extension (15 November 2026)
+
+Owner can open the same read-only history flow for available receipts in the selected
+outlet cache. The subtitle identifies outlet scope rather than Struk saya. Existing
+repository authorization permits these outlet receipts; no brand-wide archive or
+complete latest-100 claim is introduced. Cashiers retain own-only history, Manager
+navigation stays unchanged, and history cannot dismiss a pending checkout receipt.
+Earlier Owner history-route exclusions are superseded by this extension.

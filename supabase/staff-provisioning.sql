@@ -30,6 +30,7 @@ begin
  if found then
   if j.actor_id<>auth.uid() or j.device_id<>d.id or j.outlet_id<>d.outlet_id or j.email<>e or j.full_name<>n or j.role<>p_role then raise sqlstate 'PT409' using message='Operation conflict';end if;
  else
+  if to_regprocedure('private.guard_staff_slot(uuid,text,uuid)') is null then raise sqlstate 'PT409' using message='STAFF_LIMITS_UNCONFIGURED';end if;
   if (select count(*) from private.staff_provision_operations where actor_id=auth.uid() and created_at>now()-interval '1 hour')>=10 then raise sqlstate 'PT429' using message='Staff creation rate limited';end if;
   if exists(select 1 from auth.users where lower(email)=e) or exists(select 1 from private.staff_provision_operations where email=e) then raise sqlstate 'PT409' using message='Email unavailable; administrator review required';end if;
   select brand_id into b from public.outlets where id=d.outlet_id;

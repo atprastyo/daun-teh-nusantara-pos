@@ -47,3 +47,13 @@ Integration remains AuthRoot -> AccessPortal -> existing feature route callbacks
 Physical rotation, real IME, TalkBack, hosted revocation/outlet changes and POS's
 initial-pull/recovery gates still need device acceptance. No schema/API/library
 version change or production deployment belongs to this iteration.
+
+## Owner cashier extension (15 November 2026)
+
+Owner now has seven destinations: Ringkasan, Kasir, Riwayat, Katalog, Laporan, Staf,
+Setelan. To retain readable targets on compact windows, use the existing scrollable
+drawer rather than seven bottom items. Medium/expanded windows use the scrollable
+rail; large text/short windows retain the drawer fallback. Owner starts at Ringkasan;
+Kasir/Riwayat selection survives same-context refresh and recreation. Scope/role/account
+changes still reset selection. Manager keeps five management destinations, Cashier
+keeps Kasir/Riwayat/Setelan. Header identifies actual role and operational outlet.

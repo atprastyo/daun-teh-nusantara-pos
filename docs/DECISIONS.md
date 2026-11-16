@@ -815,3 +815,23 @@ Official Android references checked for M7:
   via verified/re-authenticated Edge action, then require fresh sign-in and normal device
   approval. Credentials are scoped memory-only and redacted; no client admin key, Room
   change, migrations or deployment. Existing manual accounts are unaffected.
+
+- D135: Owners may operate Kasir and Riwayat without impersonating a Cashier or
+  changing membership. Keep Overview as default and preserve Owner user/device/outlet
+  identity in immutable receipts/outbox. Existing checkout/lease/sync guards and server
+  authorization remain; Manager navigation is unchanged. Compact Owner navigation uses
+  the existing drawer for seven readable destinations; larger windows use the rail.
+  Owner history uses the existing authorized selected-outlet cache and is labeled as
+  outlet-wide; Cashier history stays personal. No schema/RPC/dependency/deployment.
+
+- D136 (2026-11-16): Configure per-outlet Manager/Cashier maximums only via trusted
+  Supabase admin tools. No Super Admin app role/editor or automatic numeric defaults.
+  Missing configuration/zero slots block creation; disabled memberships and pending
+  reservations count. Deduplicate reservation-to-membership conversion; retain existing
+  users/reservations when lowering caps. Multiple Cashiers are allowed up to the cap.
+- D137 (2026-11-16): Serialize reservation and membership slot increases on an actual
+  outlet-limit row update, independent of actor throttling, and enforce manual insert/
+  role changes with triggers. Add read-only capacity to scoped roster and fail-closed
+  UI gates; return bounded allowlisted quota error codes. No Room migration, production
+  deployment or working-brand values applied. Hosted parallel-connection acceptance
+  remains separate from local PGlite tests.

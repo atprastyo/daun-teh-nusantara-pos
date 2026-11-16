@@ -24,7 +24,8 @@ export function createHandler({url, publicKey, serviceKey, fetcher=fetch}) {
       let body;try{body=JSON.parse(new TextDecoder().decode(bodyBytes));}catch{return reply(422,'INVALID');}
       if(!body||typeof body!=='object'||Array.isArray(body))return reply(422,'INVALID');
       const rpc=(name,args,admin=false)=>call('/rest/v1/rpc/'+name,args,admin);
-      const failure=result=>reply([401,403,409,413,422,423,429].includes(result.status)?result.status:503,'REQUEST_FAILED');
+      const failure=result=>reply([401,403,409,413,422,423,429].includes(result.status)?result.status:503,
+        ['STAFF_LIMIT_REACHED','STAFF_LIMITS_UNCONFIGURED'].includes(result.json.message)?result.json.message:'REQUEST_FAILED');
       if(body.action==='change_password') {
         const {current_password:old,password}=body;
         if(!passwordOK(password)||typeof old!=='string'||old.length>128||password===old)return reply(422,'INVALID');

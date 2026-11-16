@@ -14,18 +14,21 @@ and password recovery stay with trusted administrators. No invitations/public si
    It adds a private operation ledger and narrow RPCs, and replaces active_user to
    block temporary-password accounts until their password has been replaced.
    It does not modify Room, existing profiles, sales or passwords.
-2. Deploy `supabase/functions/staff-admin` as the `staff-admin` Edge Function using
+2. Apply `supabase/staff-limits.sql` once, then configure per-outlet Manager/Cashier
+   maximums through Supabase admin tools. No configured row blocks new creation.
+   See [STAFF_LIMITS.md](STAFF_LIMITS.md) and configure-staff-limits.sql.example.
+3. Deploy `supabase/functions/staff-admin` as the `staff-admin` Edge Function using
    your installed/approved Supabase CLI or dashboard. Keep gateway JWT verification
    enabled. The function additionally validates the caller against Auth `/user`.
    Supabase must provide server-only SUPABASE_URL, SUPABASE_ANON_KEY and
    SUPABASE_SERVICE_ROLE_KEY. Never place the service key in Android/local.properties.
    No new JavaScript SDK dependency: the handler uses native fetch; index.ts uses
    the Supabase Deno runtime. See official references below.
-3. Build/install the Android app. Staf → Tambah staf asks for name, email, permitted
+4. Build/install the Android app. Staf → Tambah staf asks for name, email, permitted
    role, temporary password and confirmation. Passwords must be 12–72 characters and
    at most 72 UTF-8 bytes; hosted Auth policies may be stricter. Share credentials
    privately. Email is administrator-attested and auto-confirmed, not mailbox-verified.
-4. The new staff member signs in online, replaces the temporary password with a
+5. The new staff member signs in online, replaces the temporary password with a
    different personal password, then signs in again. Existing role-bound device
    enrollment and approval still apply: Owner approves Manager devices; Owner or
    assigned-outlet Manager approves Cashier devices. Creation does not approve devices.

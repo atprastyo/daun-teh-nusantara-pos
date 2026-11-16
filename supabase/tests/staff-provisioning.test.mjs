@@ -20,11 +20,13 @@ before(async()=>{
  grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`);
  await db.exec(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../staff-provisioning.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../staff-limits.sql',import.meta.url),'utf8'));
  for(let n=1;n<=5;n++)await db.query('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())',[id(n),`staff${n}@example.invalid`]);
  await db.exec(`insert into public.user_profiles(id,full_name) select id,'Staff' from auth.users;
  insert into public.brands(id,name) values('${id(10)}','Tea'),('${id(11)}','Foreign');
  insert into public.outlets(id,brand_id,name) values('${id(20)}','${id(10)}','A'),('${id(21)}','${id(10)}','B'),('${id(22)}','${id(11)}','Foreign');
  insert into public.brand_members(user_id,brand_id) values('${id(1)}','${id(10)}'),('${id(5)}','${id(11)}');
+ insert into public.outlet_staff_limits(outlet_id,manager_limit,cashier_limit) select id,100,100 from public.outlets;
  insert into public.outlet_members(user_id,outlet_id,role) values('${id(2)}','${id(20)}','MANAGER'),('${id(3)}','${id(20)}','CASHIER');`);
  for(const [d,u,o,r] of [[40,1,20,'OWNER'],[41,2,20,'MANAGER'],[42,3,20,'CASHIER'],[43,1,21,'OWNER'],[45,5,22,'OWNER']])await db.query(`insert into public.devices(id,outlet_id,enrolled_by,secret_hash,approved_at,approved_role) values($1,$2,$3,encode(sha256(convert_to('proof','UTF8')),'hex'),now(),$4)`,[id(d),id(o),id(u),r]);
 });

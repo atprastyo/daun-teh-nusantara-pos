@@ -186,3 +186,11 @@ by RLS or in sync/export. Existing public tables and Room v1 remain unchanged. T
 private.active_user function additionally denies unfinished temporary-password targets.
 Profile/membership/audit finalization is transactional; Auth creation is a separate
 idempotent Edge saga. See IN_APP_STAFF_PROVISIONING.md for failure/recovery semantics.
+
+## Outlet staff limits (16 November 2026)
+
+Optional staff-limits.sql adds public.outlet_staff_limits(outlet_id PK,manager_limit,
+cashier_limit,revision), with read-only role-scoped RLS and trusted-admin writes.
+Usage is the distinct union of role/outlet memberships (including inactive) and pending
+provision target UUIDs. Trigger guards serialize slot increases using the limits row;
+reservation conversion does not count twice. Existing Room/schema version is unchanged.

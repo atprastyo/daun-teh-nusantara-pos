@@ -8,7 +8,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class AuthHttpFailure(val status: Int) : Exception("Authentication request denied")
+class AuthHttpFailure(val status: Int,val code:String?=null) : Exception("Authentication request denied")
 interface AuthTransport {
     suspend fun request(path: String, body: String? = null, token: String? = null, method: String = "POST"): String
 }
@@ -31,7 +31,11 @@ class JsonHttpClient @Inject constructor(private val config: BackendConfig) : Au
                 connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             }
             val status = connection.responseCode
-            if (status !in 200..299) { connection.errorStream?.close(); throw AuthHttpFailure(status) }
+            if (status !in 200..299) {
+                // Only retain known, non-sensitive domain codes. Never expose/log server bodies.
+                val code=readStaffFailureCode(connection.errorStream)
+                throw AuthHttpFailure(status,code)
+            }
             val output = ByteArrayOutputStream()
             connection.inputStream.use { input ->
                 val buffer = ByteArray(4096)
@@ -45,3 +49,13 @@ class JsonHttpClient @Inject constructor(private val config: BackendConfig) : Au
         } finally { connection.disconnect() }
     }
 }
+
+/** Strict bounded allowlist: response details can contain secrets and must be discarded. */
+internal fun readStaffFailureCode(stream:java.io.InputStream?):String?=runCatching {
+    stream?.use {
+        val buffer=ByteArray(8193);var length=0
+        while(length<buffer.size){val n=it.read(buffer,length,buffer.size-length);if(n<0)break;length+=n}
+        if(length>8192)null else org.json.JSONObject(String(buffer,0,length,Charsets.UTF_8)).optString("code")
+            .takeIf{code->code in setOf("STAFF_LIMIT_REACHED","STAFF_LIMITS_UNCONFIGURED")}
+    }
+}.getOrNull()

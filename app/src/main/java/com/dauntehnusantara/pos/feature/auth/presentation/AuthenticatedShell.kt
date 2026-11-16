@@ -38,7 +38,7 @@ fun AuthenticatedShell(state: AuthState, switchOutlet: () -> Unit,
         BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
             val compact = maxWidth < 600.dp
             val expanded = maxWidth >= 840.dp
-            val menu = LocalDensity.current.fontScale >= 1.5f || maxHeight < 480.dp
+            val menu = compact && destinations.size > 5 || LocalDensity.current.fontScale >= 1.5f || maxHeight < 480.dp
             val drawer = rememberDrawerState(DrawerValue.Closed)
             val scope = rememberCoroutineScope()
             val shell: @Composable () -> Unit = {

@@ -29,13 +29,13 @@ fun StaffRoute(model:StaffViewModel,reviewerBusy:Boolean=false,approval:@Composa
     val state by model.state.collectAsStateWithLifecycle()
     val draft by model.session.state.collectAsStateWithLifecycle()
     StaffScreen(state,model::reload,model::member,model::device,
-        approval={approval(!state.busy&&!state.creating&&!state.blocked&&draft.target==null)},session=model.session,reviewerBusy=reviewerBusy,onConfirm=model::confirm,onCreate=model::openCreation)
-    if(state.creating&&!state.offline)state.scope?.let { StaffCreateForm(it,state.outletName,state.busy,state.createError,model.pendingCreation,model::create,model::closeCreation) }
+        approval={approval(!state.busy&&!state.creating&&!state.blocked&&draft.target==null)},session=model.session,reviewerBusy=reviewerBusy,onConfirm=model::confirm,onCreate=model::openCreation,creationPending=model.pendingCreation!=null)
+    if(state.creating&&!state.offline)state.scope?.let { StaffCreateForm(it,state.outletName,state.busy,state.createError,model.pendingCreation,model::create,model::closeCreation,capacity=state.roster?.capacity) }
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Unit,device:(StaffDevice,String)->Unit,approval:@Composable ()->Unit={},
-    session:StaffSession?=null,reviewerBusy:Boolean=false,onConfirm:(()->Unit)?=null,onCreate:(()->Unit)?=null) {
+    session:StaffSession?=null,reviewerBusy:Boolean=false,onConfirm:(()->Unit)?=null,onCreate:(()->Unit)?=null,creationPending:Boolean=false) {
     val editor=session?:remember(state.scope?.key,state.generation){StaffSession()}
     val draft by editor.state.collectAsState()
     val token=editor.generation
@@ -71,7 +71,9 @@ fun StaffScreen(state:StaffState,reload:()->Unit,member:(StaffMember,String)->Un
             }}
             when(tab) {
                 StaffTab.MEMBERS->{
-                    if(onCreate!=null)item{AppPrimaryButton("Tambah staf",onCreate,enabled=!locked,modifier=Modifier.testTag("staff.create.open"))}
+                    item{StaffCapacityNotice(roster.capacity,roster.scope.role)}
+                    if(onCreate!=null)item{AppPrimaryButton(if(creationPending)"Lanjutkan pembuatan staf" else "Tambah staf",onCreate,
+                        enabled=!locked&&(creationPending||roster.capacity?.anyAvailable(roster.scope.role)==true),modifier=Modifier.testTag("staff.create.open"))}
                     if(roster.members.isEmpty())item{AppEmptyState(stringResource(R.string.staff_empty))}
                     items(roster.members,key={"member.${it.id}"}){m->StaffRow {
                         Text(m.name,style=MaterialTheme.typography.titleMedium);Text(m.email);Text(staffRole(m.role),style=MaterialTheme.typography.labelLarge)

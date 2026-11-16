@@ -157,3 +157,22 @@ test('large valid receipts paginate by bytes without truncating or dropping an o
  assert.equal(second.changes.length,1);assert.equal(second.has_more,false);
  assert.deepEqual([...first.changes,...second.changes].map(c=>c.entity_id),ids);
 });
+
+test('owner cashier keeps actual identity, idempotency and approved owner-device scope',async()=>{
+ const owner=id(50),ownerDevice=id(51);
+ await admin(`insert into auth.users values('${owner}','owner@example.invalid',now());
+ insert into public.user_profiles(id) values('${owner}');
+ insert into public.brand_members(user_id,brand_id) values('${owner}','${brand}');
+ insert into public.devices(id,outlet_id,enrolled_by,secret_hash) values('${ownerDevice}','${outlet}','${owner}',encode(sha256(convert_to('proof','UTF8')),'hex'));`);
+ const p=payload();p.device_id=ownerDevice;p.cashier_user_id=owner;
+ await assert.rejects(submit(p,'proof',owner),/approval/);
+ await admin(`update public.devices set approved_at=now(),approved_role='OWNER' where id='${ownerDevice}'`);
+ const ack=await submit(p,'proof',owner);assert.equal(ack.status,'ACCEPTED');assert.deepEqual(await submit(p,'proof',owner),ack);
+ const row=(await admin(`select cashier_user_id,outlet_id from public.sales where id='${p.sale_id}'`))[0].rows[0];
+ assert.equal(row.cashier_user_id,owner);assert.equal(row.outlet_id,outlet);
+ assert.equal((await admin(`select count(*)::int n from public.sales where id='${p.sale_id}'`))[0].rows[0].n,1);
+ const history=await allChanges(ownerDevice,'OWNER',owner);assert.ok(history.rows.some(c=>c.entity_id===p.sale_id));
+ await assert.rejects(submit({...p,cashier_user_id:user},'proof',owner),/Scope denied/);
+ await admin(`update public.devices set revoked_at=now() where id='${ownerDevice}'`);
+ await assert.rejects(submit(p,'proof',owner),/Device denied/);
+});

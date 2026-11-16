@@ -47,7 +47,7 @@ class AuthRepositoryTest {
         var pullStatus=200;var pullWrongScope=false
         var invalidRefresh=false
         var wrongAck=false;var pushStatus="ACCEPTED";var pushCode="CATALOG_CHANGED"; var pushCalls=0
-        var passwordRequired=false;var passwordStatus=200;var legacyPasswordRpc=false;var wrongCreationAck=false
+        var passwordRequired=false;var passwordStatus=200;var creationCode:String?=null;var legacyPasswordRpc=false;var wrongCreationAck=false
         val calls=mutableListOf<String>(); var refreshes=0
         override suspend fun request(path:String,body:String?,token:String?,method:String):String {
             calls+=path
@@ -57,7 +57,7 @@ class AuthRepositoryTest {
             return when {
                 path.endsWith("staff_password_change_required") -> {if(legacyPasswordRpc)throw AuthHttpFailure(404);passwordRequired.toString()}
                 path.endsWith("/functions/v1/staff-admin") -> {
-                    if(passwordStatus!=200)throw AuthHttpFailure(passwordStatus)
+                    if(passwordStatus!=200)throw AuthHttpFailure(passwordStatus,creationCode)
                     val args=JSONObject(requireNotNull(body))
                     if(args.getString("action")=="create") {
                         require(args.getString("device_id")==issuedDevice&&args.getString("device_secret")=="test-device-secret")
@@ -121,6 +121,16 @@ class AuthRepositoryTest {
     private fun repo(http:FakeHttp,store:MemoryStore,clock:FakeClock,configuration:BackendConfig=config,photos:com.dauntehnusantara.pos.feature.catalog.photos.data.PhotoTransport=com.dauntehnusantara.pos.feature.catalog.photos.data.UnconfiguredPhotoTransport)=
         AuthRepositoryImpl(AuthApi(http,Clock.fixed(Instant.ofEpochMilli(base),ZoneOffset.UTC),photos),configuration,store,clock,DeviceEnrollmentLookup { _, _ -> null })
     private suspend fun signedIn(repository:AuthRepositoryImpl){repository.signIn("user@example.invalid","test-password-value");repository.selectOutlet("outlet")}
+    @Test fun quotaFailureIsDistinctFromEmailConflictAndDoesNotSignOutOwner():Unit=runBlocking {
+        val http=FakeHttp(base).apply{role=Role.OWNER};val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        val scope=repository.reportingScope(true)!!
+        val command=com.dauntehnusantara.pos.feature.staff.domain.StaffCreation(name="New staff",email="new@example.invalid",role="CASHIER",password="temporary-1234")
+        for(code in listOf("STAFF_LIMIT_REACHED","STAFF_LIMITS_UNCONFIGURED")) {
+            http.passwordStatus=409;http.creationCode=code
+            try{repository.create(scope,command);fail("must report quota rejection")}catch(e:com.dauntehnusantara.pos.feature.reports.domain.ManagementFailure){assertEquals(code,e.code)}
+            assertEquals(AuthStage.READY,repository.state.value.stage)
+        }
+    }
     @Test fun staffCreationUsesApprovedProofAndValidatesAcknowledgedOutlet():Unit=runBlocking {
         val http=FakeHttp(base).apply{role=Role.OWNER};val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
         val scope=repository.reportingScope(true)!!

@@ -28,11 +28,12 @@ class StaffCreationPresentationTest {
     @get:Rule val rules:TestRule=RuleChain.outerRule(object:ExternalResource(){
         override fun before(){val app=RuntimeEnvironment.getApplication();Shadows.shadowOf(app.packageManager).addActivityIfNotPresent(ComponentName(app,ComponentActivity::class.java))}
     }).around(compose)
+    private val capacity=StaffCapacity(0,1,2,4)
     private val scope=PullScope(SaleScope("brand","outlet","device","actor"),"OWNER","https://example.invalid")
     private fun enter(tag:String,value:String)=compose.onNodeWithTag(tag).performScrollTo().performTextInput(value)
     @Test fun managerOnlyCashierAndValidFormCapturesOutletWithoutAutoSubmit() {
         var sent:StaffCreation?=null
-        compose.setContent{DaunTehTheme{StaffCreateForm(scope.copy(role="MANAGER"),"Outlet A",false,null,null,{sent=it},{})}}
+        compose.setContent{DaunTehTheme{StaffCreateForm(scope.copy(role="MANAGER"),"Outlet A",false,null,null,{sent=it},{},capacity=capacity)}}
         compose.onNodeWithTag("staff.create.role.MANAGER").assertDoesNotExist()
         compose.onNodeWithTag("staff.create.submit").assertIsNotEnabled()
         enter("staff.create.name","Rani");enter("staff.create.email","rani@example.invalid")
@@ -44,7 +45,7 @@ class StaffCreationPresentationTest {
     @Test @Config(qualifiers="w1200dp-h900dp") fun ownerLargeTextFormActionsReachableAndBusyBlocksCreation() {
         var busy by mutableStateOf(false)
         compose.setContent{val density=LocalDensity.current;CompositionLocalProvider(LocalDensity provides Density(density.density,2f)){
-            DaunTehTheme{StaffCreateForm(scope,"Outlet A",busy,null,null,{},{})}
+            DaunTehTheme{StaffCreateForm(scope,"Outlet A",busy,null,null,{},{},capacity=capacity)}
         }}
         enter("staff.create.name","Bima");enter("staff.create.email","bima@example.invalid")
         compose.onNodeWithTag("staff.create.role.MANAGER").performScrollTo().performClick()
@@ -53,6 +54,17 @@ class StaffCreationPresentationTest {
         compose.runOnIdle{busy=true}
         compose.onNodeWithTag("staff.create.submit").assertIsNotEnabled()
         compose.onNodeWithTag("staff.create.email").performScrollTo().assertIsNotEnabled()
+    }
+    @Test fun fullCashierQuotaDisablesSubmitAndRoleWhileOwnerCanChooseManager() {
+        compose.setContent{DaunTehTheme{StaffCreateForm(scope,"Outlet A",false,null,null,{},{},capacity=StaffCapacity(0,4,2,4))}}
+        compose.onNodeWithText("Kasir: 4 / 4").assertExists()
+        compose.onNodeWithTag("staff.create.role.CASHIER").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("staff.create.role.MANAGER").assertIsEnabled()
+    }
+    @Test fun missingQuotaBlocksSubmitAndExplainsSupabaseAdministration() {
+        compose.setContent{DaunTehTheme{StaffCreateForm(scope,"Outlet A",false,null,null,{},{})}}
+        compose.onNodeWithTag("staff.create.submit").assertIsNotEnabled()
+        compose.onNodeWithText("Kuota belum tersedia.",substring=true).assertExists()
     }
     @Test fun firstPasswordRequiresDifferentMatchingPassword() {
         var submissions=0

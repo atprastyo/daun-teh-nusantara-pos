@@ -16,6 +16,7 @@ data class HistoryState(
     val refresh: HistoryRefresh = HistoryRefresh.NONE, val pull: PullStatus = PullStatus(),
     val offline: Boolean = false, val allowed: Boolean = false,
     val today: LocalDate = LocalDate.now(HISTORY_ZONE), val demo: Boolean = false,
+    val outletWide: Boolean = false,
 )
 data class HistoryFilters(val query: String = "", val day: HistoryDay = HistoryDay.ALL,
     val status: ReceiptDeliveryState? = null, val selectedId: String? = null,

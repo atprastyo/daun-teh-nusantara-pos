@@ -33,6 +33,7 @@ class StaffViewModelTest {
     private var source:PullScope?=PullScope(SaleScope("brand","outlet","device","owner@example.invalid"),"OWNER","https://example.invalid")
     private val cashier=StaffMember("cashier","Rani","rani@example.invalid","CASHIER",true,true,1)
     private var row=cashier
+    private var quota:StaffCapacity?=StaffCapacity(0,1,3,5)
     private var creations=mutableListOf<StaffCreation>()
     private var creationFailure:String?=null
     private var createPause:CompletableDeferred<Unit>?=null
@@ -55,7 +56,7 @@ class StaffViewModelTest {
             loadCalls++;val pause=hold;val failed=loadFailure
             if(pause!=null&&!pauseWrite)withContext(NonCancellable){pause.await()}
             if(failed)throw ManagementFailure("UNAVAILABLE")
-            return StaffRoster(scope,listOf(row),emptyList())
+            return StaffRoster(scope,listOf(row),emptyList(),capacity=quota)
         }
         override suspend fun memberAccess(scope:PullScope,id:String,active:Boolean,version:Long,reason:String) {
             writes++;desired=active
@@ -80,6 +81,21 @@ class StaffViewModelTest {
     @After fun after(){store.clear();Dispatchers.resetMain()}
     private fun scenario(block:suspend TestScope.()->Unit)=runTest(dispatcher){try{block()}finally{hold?.complete(Unit);store.clear();runCurrent()}}
     private fun creation(role:String="CASHIER")=StaffCreation(name="New staff",email="new@example.invalid",role=role,password="temporary-1234")
+    @Test fun unconfiguredAndFullQuotasPreventNewCreation()=scenario {
+        quota=null;val vm=model();runCurrent();vm.openCreation();assertFalse(vm.state.value.creating)
+        quota=StaffCapacity(3,5,3,5);vm.reload();runCurrent();vm.openCreation();assertFalse(vm.state.value.creating)
+        assertTrue(creations.isEmpty())
+    }
+    @Test fun serverQuotaRejectionKeepsFormExplainedAndDoesNotRetainUnreservedCommand()=scenario {
+        val vm=model();runCurrent();vm.openCreation();creationFailure="STAFF_LIMIT_REACHED";vm.create(creation());runCurrent()
+        assertEquals("STAFF_LIMIT_REACHED",vm.state.value.createError);assertNull(vm.pendingCreation);assertTrue(vm.state.value.creating)
+        assertFalse(vm.state.value.saved)
+    }
+    @Test fun reservedUnknownCreationCanResumeWhenQuotaDisplayIsFull()=scenario {
+        val vm=model();runCurrent();vm.openCreation();creationFailure="UNAVAILABLE";val original=creation();vm.create(original);runCurrent()
+        vm.closeCreation();quota=StaffCapacity(3,5,3,5);vm.reload();runCurrent();vm.openCreation();assertTrue(vm.state.value.creating)
+        creationFailure=null;vm.create(creation());runCurrent();assertSame(original,creations.last());assertTrue(vm.state.value.saved)
+    }
     @Test fun creationUsesSingleFrozenCommandForUncertainRetry()=scenario {
         val vm=model();runCurrent();vm.openCreation();creationFailure="UNAVAILABLE"
         val original=creation();vm.create(original);vm.create(creation());runCurrent()

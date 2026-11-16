@@ -6,7 +6,7 @@ import javax.inject.Inject
 data class StaffMember(val id:String,val name:String,val email:String,val role:String,val active:Boolean,val profileActive:Boolean,val version:Long)
 data class StaffDevice(val id:String,val userId:String,val role:String?,val revoked:Boolean,val approved:Boolean,val version:Long)
 data class StaffAudit(val id:String,val actorId:String,val targetId:String?,val action:String,val createdAtMs:Long,val reason:String?)
-data class StaffRoster(val scope:PullScope,val members:List<StaffMember>,val devices:List<StaffDevice>,val audit:List<StaffAudit> = emptyList())
+data class StaffRoster(val scope:PullScope,val members:List<StaffMember>,val devices:List<StaffDevice>,val audit:List<StaffAudit> = emptyList(),val capacity:StaffCapacity?=null)
 object StaffRules {
     fun mayChange(scope:PullScope,m:StaffMember)=m.id!=scope.sale.userId && m.role in listOf("MANAGER","CASHIER") && (scope.role=="OWNER" || scope.role=="MANAGER" && m.role=="CASHIER")
     fun mayRevoke(scope:PullScope,d:StaffDevice)=d.id!=scope.sale.deviceId && (scope.role=="OWNER" || scope.role=="MANAGER" && d.role=="CASHIER")

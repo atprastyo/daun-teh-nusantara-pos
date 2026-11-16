@@ -14,7 +14,7 @@ import com.dauntehnusantara.pos.feature.sync.domain.PullScope
 
 /** Deliberately not saveable: password/draft is lost on process or scope loss. */
 @Composable
-internal fun StaffCreateForm(scope:PullScope,outlet:String,busy:Boolean,error:String?,frozen:StaffCreation?,submit:(StaffCreation)->Unit,cancel:()->Unit) {
+internal fun StaffCreateForm(scope:PullScope,outlet:String,busy:Boolean,error:String?,frozen:StaffCreation?,submit:(StaffCreation)->Unit,cancel:()->Unit,capacity:StaffCapacity?=null) {
     var name by remember(scope.key){mutableStateOf(frozen?.name.orEmpty())}
     var email by remember(scope.key){mutableStateOf(frozen?.email.orEmpty())}
     var password by remember(scope.key){mutableStateOf(frozen?.password.orEmpty())}
@@ -23,18 +23,21 @@ internal fun StaffCreateForm(scope:PullScope,outlet:String,busy:Boolean,error:St
     val candidate=StaffCreation(name=name,email=email,role=role,password=password)
     val correctingPassword=frozen!=null&&error=="INVALID"
     val submission=if(correctingPassword)StaffCreation(frozen!!.operationId,frozen.name,frozen.email,frozen.role,password) else frozen?:candidate
-    val valid=password==confirm&&runCatching{submission.validate(scope)}.isSuccess
+    val valid=password==confirm&&runCatching{submission.validate(scope)}.isSuccess&&(frozen!=null||capacity?.canCreate(role)==true)
     AppConfirmation("Tambah staf",cancel,busy=busy,actions={
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             TextButton(onClick=cancel,enabled=!busy){Text("Tutup")}
-            AppPrimaryButton(if(frozen!=null)"Periksa / coba perintah sama" else "Buat akun",{submit(submission)},Modifier.weight(1f).testTag("staff.create.submit"),enabled=if(correctingPassword)valid else frozen!=null||valid,busy=busy)
+            AppPrimaryButton(if(frozen!=null)"Periksa / coba perintah sama" else "Buat akun",{submit(submission)},Modifier.weight(1f).testTag("staff.create.submit"),enabled=(if(correctingPassword)valid else frozen!=null||valid)&&error !in setOf("STAFF_LIMIT_REACHED","STAFF_LIMITS_UNCONFIGURED"),busy=busy)
         }
     }) {
         Text("Outlet: $outlet",style=MaterialTheme.typography.titleMedium)
+        StaffCapacityNotice(capacity,scope.role)
         Text("Akun baru hanya untuk outlet ini. Pemilik dapat memilih outlet lain dari navigasi sebelum membuat akun.")
         if(error!=null)AppNotice(when(error){
             "NOT_CONFIGURED"->"Fitur server belum dipasang. Hubungi administrator."
             "CONFLICT"->"Email atau perintah sudah digunakan. Akun yang ada tidak diubah; tinjau administrator."
+            "STAFF_LIMIT_REACHED"->"Kuota peran ini penuh. Tutup formulir dan perbarui daftar; hubungi administrator Supabase bila perlu."
+            "STAFF_LIMITS_UNCONFIGURED"->"Batas outlet belum diatur administrator Supabase. Pembuatan akun diblokir."
             "RATE_LIMIT"->"Batas pembuatan akun tercapai. Coba lagi nanti."
             "INVALID"->"Kata sandi ditolak. Perbaiki sesuai kebijakan server lalu coba perintah yang sama."
             else->"Hasil belum pasti. Periksa / coba perintah yang sama; jangan buat akun pengganti."
@@ -46,7 +49,7 @@ internal fun StaffCreateForm(scope:PullScope,outlet:String,busy:Boolean,error:St
         AppTextField(email,{if(it.length<=254)email=it},"Email",Modifier.fillMaxWidth().testTag("staff.create.email"),enabled=editable,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email))
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             StaffCreationRules.roles(scope.role).forEach { option->
-                FilterChip(role==option,{role=option},label={Text(staffRole(option))},enabled=editable,modifier=Modifier.testTag("staff.create.role.$option"))
+                FilterChip(role==option,{role=option},label={Text(staffRole(option))},enabled=editable&&capacity?.canCreate(option)==true,modifier=Modifier.testTag("staff.create.role.$option"))
             }
         }
         AppTextField(password,{if(it.length<=72)password=it},"Kata sandi sementara",Modifier.fillMaxWidth().testTag("staff.create.password"),enabled=passwordEditable,

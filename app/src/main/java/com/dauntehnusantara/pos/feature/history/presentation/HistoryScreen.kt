@@ -83,7 +83,7 @@ private fun HistoryList(state:HistoryState,filters:HistoryFilters,rows:List<Rece
         item(key="title") {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.history),style=MaterialTheme.typography.headlineLarge)
-                Text(stringResource(R.string.history_ui_subtitle),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(if(state.outletWide)R.string.history_ui_outlet_subtitle else R.string.history_ui_subtitle),color=MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick=onRefresh,enabled=!state.refreshing&&!state.loading,modifier=Modifier.testTag("history.refresh")) {
                     Text(stringResource(if(state.refreshing)R.string.history_ui_refreshing else if(state.loadFailed)R.string.history_ui_read_retry else R.string.history_ui_refresh))
                 }

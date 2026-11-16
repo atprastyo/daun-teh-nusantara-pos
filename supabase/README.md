@@ -153,3 +153,12 @@ staff-provisioning.sql once after the initial schema, then deploy functions/staf
 This supersedes administrator-only account creation for Manager/Cashier roles, while
 Owner bootstrap and recovery remain administrator operations. No deployment is performed
 by building the app. Keep service-role secrets exclusively in the Edge environment.
+
+## Per-outlet staff quota setup
+
+Apply staff-limits.sql once after staff-provisioning.sql, then configure actual outlet
+limits via trusted Supabase tools using configure-staff-limits.sql.example. No default
+counts or Super Admin app user. Deploy updated staff-admin and refresh the staff list.
+See [STAFF_LIMITS.md](../docs/STAFF_LIMITS.md) for counting, reservation/retry semantics
+and required independent-connection hosted acceptance. Never reset the main schema
+or use fabricated working-brand accounts to test limits.

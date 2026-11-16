@@ -45,6 +45,11 @@ class HistoryPresentationTest {
         return row(receipt)
     }
     private fun search(value:String){compose.onNodeWithTag("history.search").performScrollTo().performTextClearance();compose.onNodeWithTag("history.search").performTextInput(value)}
+    @Test fun ownerHistoryIsLabeledOutletWideRatherThanPersonal() {
+        compose.setContent{DaunTehTheme{HistoryScreen(ready().copy(outletWide=true),session,{})}}
+        compose.onNodeWithText("Struk outlet yang tersedia di perangkat ini").assertExists()
+        compose.onNodeWithText("Struk saya di outlet ini").assertDoesNotExist()
+    }
     @Test fun originalNameAndFullIdSearchAreCacheLimitedWithDistinctNoMatch() {
         compose.setContent{DaunTehTheme{HistoryScreen(ready(),session,{})}}
         compose.onNodeWithText("Hingga 100 struk",substring=true).assertExists()

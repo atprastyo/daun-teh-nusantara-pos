@@ -178,3 +178,21 @@ submit/cancel actions, permitted role choices and masked temporary-password conf
 App-created accounts use a dedicated mandatory password-replacement screen before
 outlet selection or device enrollment. See IN_APP_STAFF_PROVISIONING.md and the staff
 screen extension for retry, scope-loss and accessibility acceptance requirements.
+
+## Owner cashier navigation (15 November 2026)
+
+Owner destinations are Ringkasan, Kasir, Riwayat, Katalog, Laporan, Staf and Setelan.
+Ringkasan stays the default. Seven destinations use the scrolling menu on compact
+phones; tablet rail and short-window/large-text drawer adapt as before. Header context
+continues to identify Pemilik and the selected outlet. Owner history is explicitly
+outlet-cache scope; Cashier history remains personal. This supersedes the earlier
+Owner history-route exclusion in the detailed-history handoff.
+
+## Staff quotas (16 November 2026)
+
+Online Anggota and Tambah staf show server-returned used/maximum counts for the
+selected outlet. Owners see Manager/Cashier quotas; Managers see Cashier quota.
+Unavailable or unconfigured capacity blocks new creation, full roles cannot be chosen,
+and role defaults remain Cashier (no automatic selection of a higher-privilege role).
+Unknown already-reserved commands remain retryable even when their slot fills the cap.
+Quota editing belongs only to Supabase admin tools. See STAFF_LIMITS.md.

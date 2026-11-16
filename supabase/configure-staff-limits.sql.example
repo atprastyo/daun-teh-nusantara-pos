@@ -1,0 +1,11 @@
+-- Trusted Supabase SQL Editor/admin tools only. Values below are EXAMPLES; choose
+-- the actual operational limits. Run after staff-limits.sql. Never run schema.sql again.
+begin;
+insert into public.outlet_staff_limits(outlet_id,manager_limit,cashier_limit)
+values('<outlet-uuid>'::uuid,2,10)
+on conflict(outlet_id) do update
+set manager_limit=excluded.manager_limit,cashier_limit=excluded.cashier_limit;
+commit;
+-- 0 blocks new accounts for that role. No configured row blocks both roles.
+-- Disabled memberships and unfinished reservations count. Lowering limits preserves
+-- existing memberships/reserved slots; only additional creation is blocked.

@@ -76,6 +76,7 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
     fun openCreation() {
         val st=state.value
         if(st.busy||st.blocked||st.offline||auth.state.value.busy||st.scope?.role !in listOf("OWNER","MANAGER")||st.roster==null)return
+        if(pendingCreation==null&&st.roster.capacity?.anyAvailable(st.scope!!.role)!=true)return
         session.cancel();mutable.update{it.copy(creating=true,createError=null)}
     }
     fun closeCreation() {
@@ -87,6 +88,7 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
         val st=state.value;val source=st.scope?:return
         if(!st.creating||st.busy||auth.state.value.busy||st.offline||st.blocked)return
         val pending=pendingCreation
+        if(pending==null&&st.roster?.capacity?.canCreate(command.role)!=true){mutable.update{it.copy(createError=if(st.roster?.capacity?.configured==true)"STAFF_LIMIT_REACHED" else "STAFF_LIMITS_UNCONFIGURED")};return}
         val frozen=if(pending!=null&&st.createError=="INVALID")StaffCreation(pending.operationId,pending.name,pending.email,pending.role,command.password) else pending?:command
         if(runCatching{frozen.validate(source)}.isFailure){mutable.update{it.copy(createError="INVALID")};return}
         pendingCreation=frozen
@@ -106,7 +108,7 @@ class StaffViewModel @Inject constructor(private val auth:AuthRepository,private
                 val code=(e as? ManagementFailure)?.code?:"UNAVAILABLE"
                 if(code=="AUTH_REQUIRED")clear(code)
                 else if(authorized(source,token)) {
-                    if(!acknowledged&&code in listOf("NOT_CONFIGURED","RATE_LIMIT"))pendingCreation=null
+                    if(!acknowledged&&code in listOf("NOT_CONFIGURED","RATE_LIMIT","STAFF_LIMIT_REACHED","STAFF_LIMITS_UNCONFIGURED"))pendingCreation=null
                     mutable.update{it.copy(createError=if(acknowledged)null else code,
                     error=if(acknowledged)code else it.error,blocked=acknowledged,
                     outcome=if(acknowledged)StaffOutcome.ACK_REFRESH_FAILED else it.outcome)}

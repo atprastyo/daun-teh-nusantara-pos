@@ -4,7 +4,7 @@
 An Android POS for Daun Teh Nusantara, built by Asterfed, for one brand with potentially multiple outlets. Cashiers must sell drinks even with unreliable connectivity; cloud stores synced records for cross-device reporting and recovery.
 
 ## Users and permissions
-- Owner: all outlets, products, prices, reports, employee accounts, store configuration, void approvals.
+- Owner: all outlets, products, prices, reports, employee accounts, store configuration, void approvals; can operate cashier and view cached receipt history for the selected outlet under their actual Owner identity.
 - Manager: assigned outlets, products/prices, outlet reports, cashier account management, void approvals.
 - Cashier: assigned outlet sales, own transaction history, own profile; no price editing, employee management, or global reports.
 - Server permission enforcement is mandatory. Explicit brand membership for owner, outlet membership for manager/cashier.
