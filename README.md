@@ -2,6 +2,15 @@
 
 Native Android POS foundation by Asterfed. M0 provides the adaptive application shell; M1 adds the local catalog; M2 adds debug-only offline checkout and receipts. M3 adds authentication, role/outlet access and a server security foundation. M4 adds idempotent sale submission, a durable authenticated outbox and WorkManager delivery/status. M5 adds scoped catalog/sales pull, durable cursors and authenticated offline checkout/history; demo receipts never upload.
 
+## Environments
+
+Select **devDebug** or **prodDebug/prodRelease** in Android Studio Build Variants.
+Use DEV_SUPABASE_URL/DEV_SUPABASE_PUBLIC_KEY and PROD_SUPABASE_URL/PROD_SUPABASE_PUBLIC_KEY
+in ignored local.properties. Existing unprefixed properties remain a dev-only fallback.
+Production never falls back to dev and requires explicit production configuration.
+See [BUILD_ENVIRONMENTS.md](docs/BUILD_ENVIRONMENTS.md), including existing-install data
+handling and the separate .dev application ID. No real production values are supplied.
+
 ## Build and run
 
 Requires JDK 17 or 21, Android SDK Platform 36, and Build Tools 35.0.0.
@@ -13,11 +22,11 @@ Maven Central and the Gradle distribution service.
 3. From the project root:
 
 ```sh
-./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
-./gradlew :app:assembleDebugAndroidTest
+./gradlew :app:assembleDevDebug :app:testDevDebugUnitTest :app:lintDevDebug
+./gradlew :app:assembleDevDebugAndroidTest
 # With an API 26+ device or emulator connected:
-./gradlew :app:connectedDebugAndroidTest
-./gradlew :app:installDebug
+./gradlew :app:connectedDevDebugAndroidTest
+./gradlew :app:installDevDebug
 ```
 
 On Windows use `gradlew.bat`. Set `JAVA_HOME` if your shell uses an older JDK.
@@ -25,11 +34,11 @@ On this development Mac, Android Studio supplies a working JDK:
 
 ```sh
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew :app:assembleDebug
+./gradlew :app:assembleDevDebug
 ```
 
-The debug APK is `app/build/outputs/apk/debug/app-debug.apk`.
-Launch **Daun Teh Nusantara** from the device launcher. Without backend configuration,
+The debug APK is `app/build/outputs/apk/dev/debug/app-dev-debug.apk`.
+Launch **Daun Teh Nusantara Dev** from the device launcher for development. Without backend configuration,
 use **Buka demo lokal (debug)** for the isolated M2 demo; authenticated entry requires
 a manually provisioned account and configured development backend. The demo opens without internet after installation;
 dependency downloads are still required for a first build.
@@ -145,7 +154,7 @@ bootstrap example, Auth settings and [manual staff provisioning](docs/MANUAL_STA
 project, credentials, accounts, email delivery or deployment has been configured
 or executed here. Migrations remain deferred during development.
 
-Add only `SUPABASE_URL` (HTTPS) and `SUPABASE_PUBLIC_KEY` (public anon/publishable)
+Add `DEV_SUPABASE_URL` (HTTPS) and `DEV_SUPABASE_PUBLIC_KEY` (public anon/publishable)
 to ignored `local.properties`, following the example, then rebuild. Secret/service
 keys are forbidden in the Android app. An unconfigured build stays at a clear
 configuration/login screen with the explicit debug demo entry.
@@ -168,7 +177,7 @@ passwords are not saved. Live hardware/Auth integration checks remain pending.
 ```sh
 npm ci --prefix supabase --ignore-scripts
 npm test --prefix supabase
-./gradlew build :app:assembleDebugAndroidTest
+./gradlew :app:assembleDevDebug :app:testDevDebugUnitTest :app:lintDevDebug :app:assembleDevDebugAndroidTest
 ```
 
 The backend tests run actual PostgreSQL/RLS/provisioning/push/pull in PGlite under
@@ -286,7 +295,7 @@ remains manual; no invitation flow was added.
 
 Release builds enable R8/resource shrinking and prohibit cleartext HTTP. JSON nesting
 and public-key validation are hardened. Run `./gradlew build
-:app:assembleDebugAndroidTest :app:bundleRelease --no-daemon --no-parallel
+:app:assembleDevDebugAndroidTest :app:bundleProdRelease --no-daemon --no-parallel
 --max-workers=2 --console=plain` with the documented Android Studio JBR. Artifacts
 are unsigned until signing is configured externally. See
 [release acceptance](docs/M7_RELEASE_CHECKLIST.md) and
@@ -332,7 +341,7 @@ The first native access redesign now applies the handoff to login, outlet select
 locked/pending/offline entry and device-request review. It uses a bounded form with
 an expanded-window brand pane and a single scrolling column for large text. Approval
 requires confirmation; offline unlock still uses Android's device-credential prompt.
-Host Compose checks run with `:app:testDebugUnitTest`; real OS credential/keyboard,
+Host Compose checks run with `:app:testDevDebugUnitTest`; real OS credential/keyboard,
 TalkBack and hosted approval acceptance still require Android devices and test users.
 The shared authenticated shell is described below; remaining screen groups receive
 later redesign iterations.
@@ -566,3 +575,8 @@ Tracking type/units and insufficient-stock policy still need confirmation.
 Both periodic background sync and signed-in access refresh use a one-hour interval.
 Login/foreground/reconnection/manual actions may validate sooner; waiting-device
 approval checks remain every15 seconds and do not refresh an unlocked screen.
+
+For a fresh production Supabase project, follow
+[PRODUCTION_SUPABASE_SETUP.md](docs/PRODUCTION_SUPABASE_SETUP.md): ordered SQL scripts,
+guarded DEV catalog/limit exports, fresh production Owner and staff-admin deployment.
+It intentionally excludes development users/devices/financial records.

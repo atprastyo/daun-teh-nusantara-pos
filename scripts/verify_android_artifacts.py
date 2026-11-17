@@ -53,7 +53,7 @@ def inspect_apk(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--apk', type=Path, default=Path('app/build/outputs/apk/release/app-release-unsigned.apk'))
+    parser.add_argument('--apk', type=Path, default=Path('app/build/outputs/apk/prod/release/app-prod-release-unsigned.apk'))
     parser.add_argument('--mapping', type=Path)
     parser.add_argument('--zipalign', type=Path, help='Installed Android build-tools zipalign executable')
     args = parser.parse_args()

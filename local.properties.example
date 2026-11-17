@@ -1,6 +1,13 @@
-# Copy to local.properties and set your Android SDK location.
+# Copy to ignored local.properties and set your Android SDK location.
 sdk.dir=/absolute/path/to/Android/sdk
 
-# Public client configuration only. Never use a secret/service-role key here.
-SUPABASE_URL=
-SUPABASE_PUBLIC_KEY=
+# Public client configuration only. Never use secret/service-role keys.
+# Select devDebug/devRelease or prodDebug/prodRelease in Android Studio.
+DEV_SUPABASE_URL=
+DEV_SUPABASE_PUBLIC_KEY=
+PROD_SUPABASE_URL=
+PROD_SUPABASE_PUBLIC_KEY=
+
+# Existing SUPABASE_URL / SUPABASE_PUBLIC_KEY are supported as DEV-only fallback.
+# No production fallback. Production builds require both explicit PROD_* values.
+# Gradle property > environment variable > local.properties (per property name).

@@ -170,3 +170,10 @@ refresh review lists. No Edge redeploy or device/secret/approval reset is needed
 See [DEVICE_NAMES.md](../docs/DEVICE_NAMES.md). Only owner-secret proof can write a
 device label; reviewers read authorized outlet/role-scoped names. Do not trust labels
 as authorization or collect hardware identifiers.
+
+## Fresh production setup
+
+Follow [PRODUCTION_SUPABASE_SETUP.md](../docs/PRODUCTION_SUPABASE_SETUP.md). It gives
+the complete SQL order, DEV-only read-only catalog/limit export queries, fresh PROD
+import/Owner queries and explicit-project staff-admin deployment. Never run the base
+schema over existing app data. A full Auth/transaction migration is separate.

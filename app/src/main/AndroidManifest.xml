@@ -7,7 +7,7 @@
     <application android:name=".PosApplication" android:allowBackup="false" android:usesCleartextTraffic="false"
         android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
-        android:label="@string/app_name" android:supportsRtl="true" android:theme="@style/Theme.DaunTeh">
+        android:label="@string/launcher_name" android:supportsRtl="true" android:theme="@style/Theme.DaunTeh">
         <provider android:name="androidx.startup.InitializationProvider" android:exported="false" android:authorities="${applicationId}.androidx-startup" tools:node="merge">
             <meta-data android:name="androidx.work.WorkManagerInitializer" android:value="androidx.startup" tools:node="remove" />
         </provider>

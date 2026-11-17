@@ -1,0 +1,9 @@
+-- READ-ONLY on DEV. Review limits before running returned statements on PROD.
+-- Apply staff-limits.sql and import outlets in PROD first. No default counts chosen.
+-- Replace <brand-uuid>. Only capacity configuration is copied, not users/reservations.
+select format(
+ 'insert into public.outlet_staff_limits(outlet_id,manager_limit,cashier_limit) values(%L::uuid,%s,%s);',
+ l.outlet_id,l.manager_limit,l.cashier_limit
+) as prod_limit_sql
+from public.outlet_staff_limits l join public.outlets o on o.id=l.outlet_id
+where o.brand_id='<brand-uuid>'::uuid order by l.outlet_id;

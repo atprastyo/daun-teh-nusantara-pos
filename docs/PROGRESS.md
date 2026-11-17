@@ -2777,3 +2777,60 @@ busy guards. Existing approval tests retained. `:app:assembleDebug
 `git diff --check` passed. Full suite/lint/physical observation not repeated. No
 backend, stock implementation, schema or device operation. Next: updated-app idle
 observation. App installation remains pending.
+
+## Supabase build environments (2026-11-17)
+
+Added dev/prod flavors with scoped Gradle/environment/local properties, dev-only
+legacy fallback, HTTPS/public-client-key validation and required explicit production
+configuration. Development uses .dev install ID/launcher label; production keeps
+original ID and all Kotlin namespaces stay unchanged. Updated examples, current
+README tasks, artifact verifier release path and BUILD_ENVIRONMENTS.md, including
+retained old-package data handling. No real credentials were printed, added or
+modified; current local.properties was not rewritten. No production config/deployment/
+APK installation/data transfer. Initial Gradle script compile hit java extension
+name shadowing; imported URI explicitly. No library/toolchain version changes.
+
+Verification executed with installed JBR and offline Gradle, max-workers2:
+- `:app:assembleDevDebug :app:testDevDebugUnitTest :app:lintDevDebug`: successful
+  in4m5s;385 existing tests passed, no failures/errors/skips; lint0 errors/41 warnings.
+  Log `app/build/flavors-dev-final.log`.
+- With synthetic PROD environment values only: `:app:assembleProdDebug
+  :app:assembleProdRelease :app:testProdDebugUnitTest :app:lintProdDebug
+  :app:testDevDebugUnitTest --tests '*BuildEnvironmentTest'`: successful in15m13s;
+  387 ProdDebug tests and2 new DevDebug environment tests passed, no failures/errors/
+  skips; ProdDebug lint0 errors/41 warnings. Release APK is unsigned and fixture-only,
+  not a production-configured artifact. Log `app/build/flavors-prod-fixture.log`.
+- `python3 scripts/test_supabase_flavors.py`:4 test groups passed in26.8s; includes
+  actual Prod BuildConfig dependency rejection without explicit settings despite
+  legacy config, valid publishable/anon acceptance, forbidden service/secret keys,
+  malformed URLs and optional blank dev. Log `app/build/flavor-config-final.log`.
+- Artifact verifier parser tests4/4 passed; inspected actual unsigned ProdRelease
+  APK/mapping with `scripts/verify_android_artifacts.py` (no signing/zipalign/runtime
+  acceptance implied). Result `app/build/flavor-prod-artifacts.json`. Verified all
+  three APK metadata install IDs and both generated environment configuration paths
+  without printing values. `git diff --check` passed.
+
+No live production sign-in, backend setup, release signing, device install, data
+migration or release unit suite was performed. Real PROD configuration remains
+operator-supplied; no claim of production connectivity or deployment.
+Next: user fills PROD_* locally, selects prod variant and performs controlled hosted
+acceptance/signing setup; preserve existing installation's unsynced work.
+
+## Fresh production Supabase runbook (2026-11-17)
+
+Added PRODUCTION_SUPABASE_SETUP.md with fresh-project checks, ordered base/feature SQL,
+DEV configuration exports, guarded PROD import, quota review, new Auth Owner binding,
+explicit-project staff-admin CLI deployment, hosted defaults/JWT guidance, production
+flavor and new device/photo handling. Created read-only export-prod-catalog.sql.example
+and export-prod-staff-limits.sql.example; no real IDs/credentials or data exported.
+Catalog export excludes operational/private state and quotes nested JSON/DO literals
+safely. Two isolated PGlite export/import tests passed (8.3s): dependency/version/name
+preservation, injection-like names, no source device/user/sale copy, fresh epoch/feed,
+nonempty target/unknown brand refusal. Log app/build/production-setup-checks.log.
+Final `node --test supabase/tests/production-catalog-export.test.mjs` passed3/3
+in11.3s after adding selected-brand quota export/import coverage; log
+`app/build/production-setup-final.log`. `git diff --check` passed. CLI executable was
+not found in this shell; official installation/deployment instructions are supplied.
+No hosted SQL/function deployment, data import, CLI install/login or Android change.
+Gradle not run for this runbook/SQL helper iteration. Next: operator follows runbook
+on a verified fresh PROD project and completes controlled hosted acceptance.

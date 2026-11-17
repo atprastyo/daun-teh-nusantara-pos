@@ -932,3 +932,17 @@ Official Android references checked for M7:
   foreground/reconnection/manual validation, local lease expiry enforcement and the
   separate15-second DEVICE_PENDING approval poll. Server operations still validate
   live authorization; no instantaneous offline revocation is implied.
+
+- D154 (2026-11-17): Add environment dev/prod flavors with separate public Supabase
+  properties. Preserve legacy unprefixed config as dev-only fallback; require valid
+  explicit PROD values only when building prod. Keep production ID/namespace, append
+  .dev to the development install ID and distinguish its launcher label. No runtime
+  project switch, data transfer, credentials in source or backend deployment.
+
+- D155 (2026-11-17): Provide fresh-production setup from reviewed SQL/Edge source,
+  plus read-only DEV exports of selected brand/outlet/catalog and reviewed quotas.
+  Generated catalog SQL safely quotes its JSON and full DO body, refuses nonempty
+  targets, preserves catalog UUIDs/versions, and generates a new target feed/epoch.
+  Do not clone users/passwords/device secrets/financial records/private ledgers or
+  photo metadata without objects. Create a new production Owner and enroll devices.
+  Runbook only; no hosted deployment is performed.

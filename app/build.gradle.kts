@@ -1,6 +1,7 @@
 import groovy.json.JsonSlurper
 import java.util.Properties
 import java.util.Base64
+import java.net.URI
 
 plugins {
     id("com.android.application")
@@ -13,15 +14,41 @@ val localConfig = Properties().apply {
     val configFile = rootProject.file("local.properties")
     if (configFile.isFile) configFile.inputStream().use { load(it) }
 }
-fun publicConfig(name: String): String {
-    val value = providers.gradleProperty(name).orNull ?: localConfig.getProperty(name, "")
-    if (name == "SUPABASE_PUBLIC_KEY" && value.isNotBlank()) {
-        val payload = runCatching { String(Base64.getUrlDecoder().decode(value.split('.')[1]), Charsets.UTF_8) }.getOrDefault("")
-        val role = runCatching { (JsonSlurper().parseText(payload) as? Map<*, *>)?.get("role") }.getOrNull()
-        val safe = value.startsWith("sb_publishable_") || (value.split('.').size == 3 && role == "anon")
-        require(safe && !value.startsWith("sb_secret_") && value.none { it.isWhitespace() }) { "SUPABASE_PUBLIC_KEY must be a publishable/anon key; server keys are forbidden" }
+// Environment variables are convenient for CI; local.properties stays ignored.
+fun clientConfig(name: String): String? = providers.gradleProperty(name).orNull
+    ?: providers.environmentVariable(name).orNull ?: localConfig.getProperty(name)
+val devUrl = clientConfig("DEV_SUPABASE_URL") ?: clientConfig("SUPABASE_URL") ?: ""
+val devKey = clientConfig("DEV_SUPABASE_PUBLIC_KEY") ?: clientConfig("SUPABASE_PUBLIC_KEY") ?: ""
+val prodUrl = clientConfig("PROD_SUPABASE_URL") ?: ""
+val prodKey = clientConfig("PROD_SUPABASE_PUBLIC_KEY") ?: ""
+fun validateClientConfig(environment: String, url: String, key: String, required: Boolean) {
+    if (!required && url.isBlank() && key.isBlank()) return
+    require(url.isNotBlank() && key.isNotBlank()) {
+        "Set ${environment}_SUPABASE_URL and ${environment}_SUPABASE_PUBLIC_KEY in ignored local.properties or CI configuration."
     }
-    return value
+    val uri = runCatching { URI(url) }.getOrNull()
+    require(uri?.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null &&
+        (uri.path.isNullOrEmpty() || uri.path == "/") && uri.query == null && uri.fragment == null) {
+        "${environment}_SUPABASE_URL must be an HTTPS project origin without credentials, query or fragment."
+    }
+    val role = runCatching {
+        val payload = String(Base64.getUrlDecoder().decode(key.split('.')[1]), Charsets.UTF_8)
+        (JsonSlurper().parseText(payload) as? Map<*, *>)?.get("role")
+    }.getOrNull()
+    require((key.startsWith("sb_publishable_") || (key.split('.').size == 3 && role == "anon")) &&
+        !key.startsWith("sb_secret_") && key.none { it.isWhitespace() }) {
+        "${environment}_SUPABASE_PUBLIC_KEY must be public anon/publishable; server keys are forbidden."
+    }
+}
+val validateDevConfig = tasks.register("validateDevSupabaseConfiguration") {
+    doLast { validateClientConfig("DEV", devUrl, devKey, false) }
+}
+val validateProdConfig = tasks.register("validateProdSupabaseConfiguration") {
+    doLast { validateClientConfig("PROD", prodUrl, prodKey, true) }
+}
+tasks.configureEach {
+    if (name in setOf("preDevDebugBuild", "preDevReleaseBuild", "generateDevDebugBuildConfig", "generateDevReleaseBuildConfig")) dependsOn(validateDevConfig)
+    if (name in setOf("preProdDebugBuild", "preProdReleaseBuild", "generateProdDebugBuildConfig", "generateProdReleaseBuildConfig")) dependsOn(validateProdConfig)
 }
 fun configLiteral(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "").replace("\r", "") + "\""
 android {
@@ -33,9 +60,23 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "SUPABASE_URL", configLiteral(publicConfig("SUPABASE_URL")))
-        buildConfigField("String", "SUPABASE_PUBLIC_KEY", configLiteral(publicConfig("SUPABASE_PUBLIC_KEY")))
         testInstrumentationRunner = "com.dauntehnusantara.pos.ComponentTestRunner"
+    }
+    flavorDimensions += "environment"
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            isDefault = true
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "SUPABASE_URL", configLiteral(devUrl))
+            buildConfigField("String", "SUPABASE_PUBLIC_KEY", configLiteral(devKey))
+        }
+        create("prod") {
+            dimension = "environment"
+            buildConfigField("String", "SUPABASE_URL", configLiteral(prodUrl))
+            buildConfigField("String", "SUPABASE_PUBLIC_KEY", configLiteral(prodKey))
+        }
     }
     buildTypes {
         getByName("release") {

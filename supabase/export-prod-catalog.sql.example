@@ -1,0 +1,42 @@
+-- Run READ-ONLY on DEV as a trusted SQL operator. Replace <brand-uuid>.
+-- Result: one prod_catalog_import_sql text cell. Review/run that cell ONLY on a
+-- FRESH PROD project after schema.sql (with all catalog triggers still enabled).
+-- Copies brand/outlet/catalog configuration only; no Auth, staff, sale, device,
+-- Storage, sync cursor/epoch or private operation data.
+with target as (select '<brand-uuid>'::uuid as id), payload as (
+ select jsonb_build_object(
+  'format',1,
+  'brands',coalesce((select jsonb_agg(to_jsonb(b) order by b.id) from public.brands b where b.id=t.id),'[]'::jsonb),
+  'outlets',coalesce((select jsonb_agg(to_jsonb(o) order by o.id) from public.outlets o where o.brand_id=t.id),'[]'::jsonb),
+  'categories',coalesce((select jsonb_agg(to_jsonb(c) order by c.id) from public.categories c where c.brand_id=t.id),'[]'::jsonb),
+  'modifier_groups',coalesce((select jsonb_agg(to_jsonb(g) order by g.id) from public.modifier_groups g where g.brand_id=t.id),'[]'::jsonb),
+  'products',coalesce((select jsonb_agg(to_jsonb(p) order by p.id) from public.products p where p.brand_id=t.id),'[]'::jsonb),
+  'modifier_options',coalesce((select jsonb_agg(to_jsonb(o) order by o.id) from public.modifier_options o where o.brand_id=t.id),'[]'::jsonb),
+  'product_modifier_groups',coalesce((select jsonb_agg(to_jsonb(l) order by l.product_id,l.group_id) from public.product_modifier_groups l where l.brand_id=t.id),'[]'::jsonb)
+ ) as data from target t
+)
+-- Quote the JSON literal AND the complete DO body with PostgreSQL format(%L).
+-- Catalog names containing quotes, backslashes or dollar delimiters cannot escape
+-- either literal. No manual JSON/dollar-quoted copy/paste interpolation is required.
+select format(E'begin;\nDO %L;\ncommit;',format($body$
+declare p jsonb := %L::jsonb;
+begin
+ if (p->>'format')::integer<>1 or jsonb_array_length(p->'brands')<>1 then
+  raise exception 'Expected exactly one selected brand in export';
+ end if;
+ if exists(select 1 from public.brands) or exists(select 1 from public.outlets)
+  or exists(select 1 from public.categories) or exists(select 1 from public.modifier_groups)
+  or exists(select 1 from public.products) or exists(select 1 from public.modifier_options)
+  or exists(select 1 from public.product_modifier_groups) or exists(select 1 from public.devices)
+  or exists(select 1 from public.sales) then
+  raise exception 'Catalog bootstrap requires empty production business tables; no data was reset';
+ end if;
+ insert into public.brands select * from jsonb_populate_recordset(null::public.brands,p->'brands');
+ insert into public.outlets select * from jsonb_populate_recordset(null::public.outlets,p->'outlets');
+ insert into public.categories select * from jsonb_populate_recordset(null::public.categories,p->'categories');
+ insert into public.modifier_groups select * from jsonb_populate_recordset(null::public.modifier_groups,p->'modifier_groups');
+ insert into public.products select * from jsonb_populate_recordset(null::public.products,p->'products');
+ insert into public.modifier_options select * from jsonb_populate_recordset(null::public.modifier_options,p->'modifier_options');
+ insert into public.product_modifier_groups select * from jsonb_populate_recordset(null::public.product_modifier_groups,p->'product_modifier_groups');
+end;
+$body$,data::text)) as prod_catalog_import_sql from payload;
