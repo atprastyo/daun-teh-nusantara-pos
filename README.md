@@ -558,3 +558,7 @@ Reports now include daily sales bars, top-product bars, cash/manual-QRIS proport
 and quick period filters. Exact daily/product tables expand below the charts; CSV
 export remains unchanged. Charts use accepted server snapshots, excluding pending
 offline sales. Product Unit mode ranks only returned snapshot groups.
+
+Per-outlet stock movement is planned in [OUTLET_STOCK_PLAN.md](docs/OUTLET_STOCK_PLAN.md),
+starting with a proposed manual ledger before automatic consumption and transfers.
+Tracking type/units and insufficient-stock policy still need confirmation.

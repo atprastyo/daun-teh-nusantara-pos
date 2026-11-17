@@ -919,3 +919,10 @@ Official Android references checked for M7:
 - D151 (2026-11-16): Replace report TextButtons with OutlinedButtons for daily/product
   table toggles, sheet period presets and Cancel. Retain callbacks, labels and layout
   placement while making each action boundary visible.
+
+- D152 (2026-11-17): Plan per-outlet stock as an immutable signed movement ledger
+  with an atomic balance projection, stable operation identities and scoped sharing,
+  separate from the brand catalog. Recommend online-only manual entry first; tracking
+  type/unit and negative-stock policy remain unconfirmed. Auto-consumption and
+  transfers are later milestones, gated on recipes/cutover and rejected-sale physical
+  consumption reconciliation. See OUTLET_STOCK_PLAN.md; no implementation/deployment.

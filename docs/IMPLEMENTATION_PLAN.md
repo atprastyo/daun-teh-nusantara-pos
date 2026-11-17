@@ -272,3 +272,11 @@ See BLUETOOTH_PRINTING_PLAN.md for PRINT-00–04, UI contracts, authorization, i
 receipt rendering, Android permissions and uncertain-output handling. No runtime
 implementation in this iteration. Next: confirm printer model/protocol, then implement
 paired selection/test printing against a verified profile before receipt integration.
+
+## Per-outlet stock planning (2026-11-17)
+
+See OUTLET_STOCK_PLAN.md for proposed STOCK-01 manual ledger/read cache, STOCK-02
+automatic consumption, STOCK-03 in-transit transfers and STOCK-04 operational insight.
+This newly requested scope supersedes the original stock exclusion only as separately
+approved milestones. Confirm finished-product vs ingredient/packaging tracking and
+insufficient-stock policy before implementation. No schema/API/Room change yet.

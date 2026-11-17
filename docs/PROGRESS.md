@@ -2751,3 +2751,14 @@ metric/chart changes retained. `:app:assembleDebug :app:testDebugUnitTest
 Log `app/build/report-outlined-buttons.log`; `git diff --check` passed. No new tests
 for this visual-only change; full suite/lint and physical preview/install not repeated.
 Next: physical report light/dark/layout preview.
+
+## Per-outlet stock movement plan (2026-11-17)
+
+Reviewed documented catalog/stock exclusions, shared catalog model, current
+append-only/idempotent sync and strict rejected-price-sale behavior. Created
+OUTLET_STOCK_PLAN.md with outlet-scoped balances/movements, online-first manual entry,
+roles, quantity precision, count conflicts, durable uncertain-operation reconciliation,
+future recipe/product deductions, rejected-sale consumption and two-stage transfers.
+Tracking type/unit and negative-stock policy remain open. Documentation only; no
+app/schema/deployment/data change. Diff whitespace check only; no Gradle test needed
+for this plan. Next: confirm tracking type/policy and detail STOCK-01 before coding.
