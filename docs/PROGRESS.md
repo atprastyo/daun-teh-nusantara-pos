@@ -2834,3 +2834,19 @@ not found in this shell; official installation/deployment instructions are suppl
 No hosted SQL/function deployment, data import, CLI install/login or Android change.
 Gradle not run for this runbook/SQL helper iteration. Next: operator follows runbook
 on a verified fresh PROD project and completes controlled hosted acceptance.
+
+## Kebijakan Privasi Indonesia (2026-11-17)
+
+Created docs/PRIVACY_POLICY.md and docs/privacy-policy.html with 12 matching sections,
+confirmed Daun Teh Nusantara/Asterfed identity and asterinovasiteknologi@gmail.com.
+Reviewed manifest/dependencies and documented actual accounts, devices, transactions,
+photos, audit, local/offline storage, exports, Bluetooth test path and retention.
+Checked current Google Play/GitHub/Supabase primary references; no assertion of
+automatic deletion, full local DB encryption, precise region/retention duration or
+Play approval. Added PRIVACY_PUBLISHING.md with GitHub Pages instructions, Data Safety
+and unresolved in-app policy-link/account-deletion/SOP acceptance. No publishing,
+email sending, app/backend edits or Play Console operation. Static HTML checks passed:
+lang=id,12 headings, matching anchors/contact, no placeholders/JS/forms; diff check
+passed. No Gradle run for documentation/static content. Next: operator reviews actual
+production practices, hosts HTML, supplies final URL, then integrates policy/request
+access in app and completes applicable deletion flow before Play submission.

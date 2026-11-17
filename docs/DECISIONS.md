@@ -946,3 +946,10 @@ Official Android references checked for M7:
   Do not clone users/passwords/device secrets/financial records/private ledgers or
   photo metadata without objects. Create a new production Owner and enroll devices.
   Runbook only; no hosted deployment is performed.
+
+- D156 (2026-11-17): Prepare Indonesian privacy policy for Daun Teh Nusantara POS
+  in editable Markdown and standalone GitHub Pages HTML. Use confirmed brand/operator,
+  Asterfed developer identity and supplied privacy email. Disclose current auth/device/
+  sales/photo/audit/offline/export/Bluetooth practices without invented retention
+  durations, whole-database encryption or implemented account deletion. Publishing
+  guide records missing in-app link/deletion-path/SOP work and actual Play policy scope.

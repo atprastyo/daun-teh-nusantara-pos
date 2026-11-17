@@ -580,3 +580,7 @@ For a fresh production Supabase project, follow
 [PRODUCTION_SUPABASE_SETUP.md](docs/PRODUCTION_SUPABASE_SETUP.md): ordered SQL scripts,
 guarded DEV catalog/limit exports, fresh production Owner and staff-admin deployment.
 It intentionally excludes development users/devices/financial records.
+
+Kebijakan Privasi bahasa Indonesia: [Markdown](docs/PRIVACY_POLICY.md) dan
+[HTML GitHub Pages](docs/privacy-policy.html). Cara hosting dan pekerjaan Play Console
+yang masih perlu diselesaikan tersedia di [PRIVACY_PUBLISHING.md](docs/PRIVACY_PUBLISHING.md).
