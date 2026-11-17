@@ -926,3 +926,9 @@ Official Android references checked for M7:
   type/unit and negative-stock policy remain unconfirmed. Auto-consumption and
   transfers are later milestones, gated on recipes/cutover and rejected-sale physical
   consumption reconciliation. See OUTLET_STOCK_PLAN.md; no implementation/deployment.
+
+- D153 (2026-11-17): Change READY access revalidation timer from60 seconds to one
+  hour, matching the existing hourly background sweep. Preserve event-driven login/
+  foreground/reconnection/manual validation, local lease expiry enforcement and the
+  separate15-second DEVICE_PENDING approval poll. Server operations still validate
+  live authorization; no instantaneous offline revocation is implied.

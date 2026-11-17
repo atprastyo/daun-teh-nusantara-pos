@@ -50,6 +50,23 @@ class AuthViewModelTest {
         advanceTimeBy(15000); runCurrent(); assertEquals(ready,refreshes)
         store.clear(); runCurrent()
     }
+    @Test fun signedInPeriodicRefreshWaitsOneHourAndRepeatsHourly() = runTest(dispatcher) {
+        current.value=AuthState(AuthStage.READY,true)
+        model();runCurrent();assertEquals(0,refreshes)
+        advanceTimeBy(60_000);runCurrent();assertEquals(0,refreshes)
+        advanceTimeBy(3_539_999);runCurrent();assertEquals(0,refreshes)
+        advanceTimeBy(1);runCurrent();assertEquals(1,refreshes)
+        advanceTimeBy(3_600_000);runCurrent();assertEquals(2,refreshes)
+        store.clear();runCurrent()
+    }
+    @Test fun hourlyRefreshStillSkipsOfflineAndBusyContexts() = runTest(dispatcher) {
+        online.value=false;current.value=AuthState(AuthStage.READY,true,offline=true)
+        model();runCurrent()
+        advanceTimeBy(3_600_000);runCurrent();assertEquals(0,refreshes)
+        current.value=current.value.copy(offline=false,busy=true)
+        advanceTimeBy(3_600_000);runCurrent();assertEquals(0,refreshes)
+        store.clear();runCurrent()
+    }
     @Test fun offlineBusyAndOtherLockedStatesDoNotPollApproval() = runTest(dispatcher) {
         online.value=false; model(); runCurrent()
         advanceTimeBy(15000); runCurrent(); assertEquals(0,refreshes)

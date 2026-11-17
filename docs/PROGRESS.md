@@ -2762,3 +2762,18 @@ future recipe/product deductions, rejected-sale consumption and two-stage transf
 Tracking type/unit and negative-stock policy remain open. Documentation only; no
 app/schema/deployment/data change. Diff whitespace check only; no Gradle test needed
 for this plan. Next: confirm tracking type/policy and detail STOCK-01 before coding.
+
+## Hourly signed-in access refresh (2026-11-17)
+
+Confirmed background WorkManager sweep was already1 hour but AuthViewModel READY
+periodic revalidation remained60 seconds. Changed that timer to3600 seconds. Kept
+15-second locked approval polling, event-driven login/foreground/reconnect/manual
+validation and local one-second lease checks (no network in lease enforcement).
+Added virtual-time tests for no minute/early refresh, hourly repetition and offline/
+busy guards. Existing approval tests retained. `:app:assembleDebug
+:app:testDebugUnitTest --tests '*AuthViewModelTest' --tests '*AuthRepositoryTest'
+--offline --max-workers=2 --console=plain` passed in1m5s:41 tests (4 timer/ViewModel,
+37 repository), zero failures/errors/skips. Log `app/build/hourly-access-refresh.log`;
+`git diff --check` passed. Full suite/lint/physical observation not repeated. No
+backend, stock implementation, schema or device operation. Next: updated-app idle
+observation. App installation remains pending.

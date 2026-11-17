@@ -43,7 +43,7 @@ cashier to manager requires fresh owner device approval. This is logical enrollm
 rooted-device resistance. Logout removes the active session and offline lease; enrollment retention is described below.
 
 Online membership/profile/brand checks are authoritative on each RPC/RLS read.
-The client revalidates on foreground, validated network reconnection and periodically;
+The client revalidates on foreground, validated network reconnection and hourly while signed in;
 an already-unlocked valid lease retains its original deadline on temporary service
 failure, while a confirmed denial clears offline authority. Remote revocation is
 not instantaneous on disconnected devices; it takes effect at the next successful

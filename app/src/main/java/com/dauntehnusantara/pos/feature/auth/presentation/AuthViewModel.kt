@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import com.dauntehnusantara.pos.core.common.NetworkAvailability
 
+private const val ACCESS_REFRESH_INTERVAL_SECONDS = 60 * 60
+
 @HiltViewModel
 class AuthViewModel @Inject constructor(private val repository: AuthUseCases, network: NetworkAvailability, private val syncScheduler: com.dauntehnusantara.pos.feature.sync.domain.SyncScheduler) : ViewModel() {
     val state = repository.state
@@ -32,7 +34,7 @@ class AuthViewModel @Inject constructor(private val repository: AuthUseCases, ne
                 val current = state.value
                 if (seconds % 15 == 0 && networkOnline && current.stage == AuthStage.LOCKED &&
                     current.message == AuthMessage.DEVICE_PENDING && !current.busy) repository.refresh()
-                else if (seconds % 60 == 0 && state.value.stage == AuthStage.READY && (!state.value.offline || networkOnline) && !state.value.busy) repository.refresh()
+                else if (seconds % ACCESS_REFRESH_INTERVAL_SECONDS == 0 && state.value.stage == AuthStage.READY && (!state.value.offline || networkOnline) && !state.value.busy) repository.refresh()
             }
         }
     }

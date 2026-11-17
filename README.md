@@ -562,3 +562,7 @@ offline sales. Product Unit mode ranks only returned snapshot groups.
 Per-outlet stock movement is planned in [OUTLET_STOCK_PLAN.md](docs/OUTLET_STOCK_PLAN.md),
 starting with a proposed manual ledger before automatic consumption and transfers.
 Tracking type/units and insufficient-stock policy still need confirmation.
+
+Both periodic background sync and signed-in access refresh use a one-hour interval.
+Login/foreground/reconnection/manual actions may validate sooner; waiting-device
+approval checks remain every15 seconds and do not refresh an unlocked screen.
