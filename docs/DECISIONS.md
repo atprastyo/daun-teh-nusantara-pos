@@ -953,3 +953,22 @@ Official Android references checked for M7:
   sales/photo/audit/offline/export/Bluetooth practices without invented retention
   durations, whole-database encryption or implemented account deletion. Publishing
   guide records missing in-app link/deletion-path/SOP work and actual Play policy scope.
+
+- D157 (2026-11-17): Add admin-only per-user/outlet/role device auto-approval with
+  reason/optional expiry. Mint normal stored approvals on enrollment or pending lease
+  retry after all live identity/proof/password/revocation checks. Keep all downstream
+  approval checks unchanged. Policy withdrawal affects future grants, not existing
+  device approvals; use explicit revocation/membership controls to end access. Store
+  trusted-SQL changes in private audit with nullable Auth actor/database session,
+  retaining strict actor constraints of existing app audit events.
+
+- D158 (2026-11-17): Supersede whitelist-only automatic approval with default automatic
+  approval for active registered staff, since staff access is provisioned by management.
+  A private singleton policy defaults true; trusted SQL may choose manual mode with
+  retained scoped allowlist exceptions. Reapplication preserves explicit settings.
+  Enrollment/pending lease retry record normal actual-role approvals and audit source;
+  authentication, initial password, proof, revocation and downstream live authorization
+  remain enforced. Owner deactivation remains the user-blocking control: it disables
+  outlet membership and revokes devices. Individual UUID revocation cannot prevent
+  an active member enrolling a new UUID. Offline leases retain their existing bound,
+  with no promise of instant disconnected revocation. No Android or Edge API change.

@@ -33,15 +33,13 @@ before(async()=>{
   await db.query(`insert into public.sale_items values($1,$2,$3,'Original snapshot',$4,1,$4)`,[id(n+1000),id(n),id(o===22?33:31),amount]);
   await db.query(`insert into public.payments values($1,$2,$3,$4,$5,$6,$7)`,[id(n+2000),id(n),method,amount,method==='CASH'?amount+2000:null,method==='CASH'?2000:null,method==='CASH'?'CASH_RECEIVED':'CASHIER_CONFIRMED_MANUALLY']);
  }
-});
-after(async()=>db.close());
-
-before(async()=>{
+ // Keep storage setup in the same ordered fixture as the base schema and seed.
  await admin(`create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb,unique(bucket_id,name));
  alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select,insert,update,delete on storage.objects to authenticated;`);
  await db.exec(await readFile(new URL('../product-photos.sql',import.meta.url),'utf8'));
 });
+after(async()=>db.close());
 const path=(n=500,brand=10,product=31)=>`${id(brand)}/${id(product)}/${id(n)}.jpg`;
 async function upload(p,user=1,metadata={mimetype:'image/jpeg',size:12345}){await auth(user);await db.query('insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',['product-photos',p,metadata]);}
 async function setPhoto(p,version=0,op=700,user=1,device=40,epoch=null){

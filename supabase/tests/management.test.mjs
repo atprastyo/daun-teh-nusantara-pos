@@ -19,6 +19,8 @@ before(async()=>{
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`);
  await db.exec(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));
+ // Exercise the retained manual-approval policy in these regression scenarios.
+ await db.exec("update private.device_approval_policy set auto_approve_registered=false,reason='Manual approval regression tests' where singleton");
  for(let n=1;n<=6;n++)await db.query('insert into auth.users values($1,$2,now());',[id(n),`staff${n}@example.invalid`]);
  await db.exec(`insert into public.user_profiles(id,full_name) select id,'Staff' from auth.users;
  insert into public.brands(id,name) values('${id(10)}','Tea'),('${id(11)}','Foreign');

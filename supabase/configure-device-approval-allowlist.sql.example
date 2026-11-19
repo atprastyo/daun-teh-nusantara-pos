@@ -1,0 +1,17 @@
+-- OPTIONAL: only relevant when device_approval_policy.auto_approve_registered=false.
+-- Default registered-staff automatic mode requires no allowlist entries.
+-- TRUSTED Supabase SQL Editor only, after device-approval-allowlist.sql.
+-- Replace actual verified Auth UUID/outlet/role; reason must describe authorization.
+-- The user must already have a membership in this outlet. No role/access is granted.
+insert into private.device_approval_allowlist(user_id,outlet_id,role,reason,expires_at)
+values('<user-auth-uuid>'::uuid,'<outlet-uuid>'::uuid,'CASHIER','Approved trusted staff device enrollment',null)
+on conflict(user_id,outlet_id,role) do update
+set enabled=true,reason=excluded.reason,expires_at=excluded.expires_at;
+-- Use MANAGER for an actual Manager; Owner already self-enrolls.
+-- Optional enrollment-policy expiry: replace null with a reviewed timestamptz value.
+-- Expiry/removal stops FUTURE auto-approvals, not existing device approvals.
+
+-- Disable this policy later (configure placeholders before use):
+-- update private.device_approval_allowlist set enabled=false,reason='Automatic approval withdrawn'
+-- where user_id='<user-auth-uuid>'::uuid and outlet_id='<outlet-uuid>'::uuid and role='CASHIER';
+-- Revoke already approved devices separately in Staf when access must end.

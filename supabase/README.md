@@ -22,7 +22,7 @@ The private brand uses administrator-created accounts. Follow
 5. Configure only `SUPABASE_URL` (HTTPS) and `SUPABASE_PUBLIC_KEY` (public anon or
    publishable key) in ignored `local.properties`, following the example; rebuild.
 6. Staff sign in normally, select an outlet and obtain device approval. Owners may
-   self-approve; managers need owner approval; cashiers need owner/assigned manager.
+   self-approve; active managers/cashiers automatically approve by default.
 
 Auth users without active application profile/membership receive no POS access.
 Passwords belong only to Supabase Auth. Never insert passwords/auth identities through
@@ -43,7 +43,7 @@ RPC. Catalog browsing is read-only until a vetted mobile mutation flow is added.
 
 Device secrets are server generated and stored only as hashes server-side. Current
 role-bound approval and secret proof are required for leases, submit and pull.
-Re-enrollment rotates proof and requires fresh non-owner approval; revoked devices
+Re-enrollment rotates proof and uses the current automatic/manual policy; revoked devices
 remain denied. Generic Data API RLS checks current user/outlet access; it is not
 hardware attestation or a device-bound JWT. Disable profile/membership and revoke
 devices for server denial; token logout alone does not revoke every issued JWT.
@@ -177,3 +177,11 @@ Follow [PRODUCTION_SUPABASE_SETUP.md](../docs/PRODUCTION_SUPABASE_SETUP.md). It 
 the complete SQL order, DEV-only read-only catalog/limit export queries, fresh PROD
 import/Owner queries and explicit-project staff-admin deployment. Never run the base
 schema over existing app data. A full Auth/transaction migration is separate.
+
+## Registered-staff automatic device approval
+
+Fresh schema automatically approves active registered staff. Existing projects apply
+`device-auto-approval.sql`, preserving devices and business data. Owner deactivation
+revokes outlet devices; offline leases remain bounded rather than instantly revoked.
+See [device policy](../docs/DEVICE_APPROVAL_ALLOWLIST.md) for setup, manual fallback,
+optional scoped exceptions and audit. No Android/Edge redeploy is needed.

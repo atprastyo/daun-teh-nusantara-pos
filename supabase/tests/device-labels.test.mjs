@@ -19,6 +19,8 @@ beforeEach(async()=>{
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`);
  await db.exec(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));
+ // Exercise the retained manual-approval policy in these regression scenarios.
+ await db.exec("update private.device_approval_policy set auto_approve_registered=false,reason='Manual approval regression tests' where singleton");
  await db.exec(await readFile(new URL('../staff-provisioning.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../staff-limits.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../device-labels.sql',import.meta.url),'utf8'));

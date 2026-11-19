@@ -67,6 +67,11 @@ All readiness booleans should be true. This checks installation, not hosted perm
 or end-to-end acceptance. No `supabase db push` is used here because these initial
 SQL files are not a migrations directory.
 
+Fresh schema automatically approves active registered staff. Existing projects apply
+`device-auto-approval.sql` separately, without resetting data. No whitelist is needed;
+Owner deactivation still revokes outlet devices. SQL administration may restore manual
+mode. See [device policy](DEVICE_APPROVAL_ALLOWLIST.md). DEV/PROD policy is independent.
+
 ## 3. DEV SQL Editor — export selected brand/outlets/catalog
 
 Identify the intended brand on DEV:
@@ -241,7 +246,7 @@ values before use. See [BUILD_ENVIRONMENTS.md](BUILD_ENVIRONMENTS.md) before rep
 the old unflavored installation: preserve/export unsynced work first, or use a clean
 production device/profile. Do not copy Room databases or device enrollment between
 projects. Real production users/devices must enroll again; Owner enrollment can
-self-approve, Manager/Cashier approval remains role-scoped.
+self-approve; active Manager/Cashier devices automatically receive role-scoped approval.
 
 Sign in with the production Owner. Complete initial catalog pull and check actual
 outlet/catalog/prices/modifiers before normal operations. Create real staff through

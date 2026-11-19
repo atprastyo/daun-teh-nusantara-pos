@@ -30,8 +30,11 @@ and password recovery stay with trusted administrators. No invitations/public si
    privately. Email is administrator-attested and auto-confirmed, not mailbox-verified.
 5. The new staff member signs in online, replaces the temporary password with a
    different personal password, then signs in again. Existing role-bound device
-   enrollment and approval still apply: Owner approves Manager devices; Owner or
-   assigned-outlet Manager approves Cashier devices. Creation does not approve devices.
+   enrollment and approval still apply. With the current default server policy,
+   active registered staff automatically receive approval after password setup.
+   Owner can disable outlet access to revoke devices. See
+   [device policy](DEVICE_APPROVAL_ALLOWLIST.md) for the standalone server update
+   and optional manual-approval mode. Creating the Auth account alone grants no access.
 
 ## Failure and retry contract
 
@@ -82,7 +85,7 @@ Automated tests use synthetic users in isolated PGlite and mocked HTTP, plus And
 host Compose/ViewModel/auth tests. Validate in a disposable hosted project before the
 working brand project: Owner→Manager/Cashier; Manager→Cashier; deny escalation/foreign
 outlet/revoked devices; duplicate email; lost response/retry; first password replacement;
-required device approval; no offline access before replacement. Never use working
+automatic approval only for active memberships; Owner deactivation; no offline access before replacement. Never use working
 brand accounts for fabricated creation tests. Deno deployment/real Auth behavior,
 rate limits, keyboard/TalkBack and physical tablet acceptance remain separate gates.
 

@@ -161,8 +161,8 @@ configuration/login screen with the explicit debug demo entry.
 
 An administrator creates each Supabase Auth account and assigns its profile/outlets
 using the provisioning guide. Staff sign in with email/password, select an assigned
-outlet and enroll the device. There is no invite or activation step. Owners can self-enroll; manager
-and cashier devices require the appropriate owner/manager approval through Staf.
+outlet and enroll the device. There is no invite or activation step. Active registered staff devices automatically approve under the default server policy.
+Owners can disable outlet access through Staf.
 Role-specific navigation is based on server membership, with RLS/RPC enforcement.
 M4/M5 connect real sale submission and synced catalog; the portal never reuses the
 M2 demo IDs/data as real transactions.
@@ -220,7 +220,7 @@ See [push contract and acceptance checks](docs/M4_TEST_PLAN.md). Room stays at i
 version 1 with an updated export. Existing incompatible development installs require
 an explicit app-data reset/reinstall; no migration or destructive fallback is added.
 Logging out clears credentials. Re-login recovers the original queued device ID;
-non-owner re-enrollment rotates its secret and needs fresh device approval. Revoked
+non-owner re-enrollment rotates its secret and receives approval under the current server policy. Revoked
 devices remain denied; their receipts are retained for later authorized recovery.
 
 M5 implements scoped pull below; M6 adds reports/staff/recovery below; next is M7 hardening.
@@ -262,7 +262,7 @@ Staff accounts and roles remain manually provisioned. Online authorized reviewer
 can enable/disable outlet access, revoke devices and inspect approval requests.
 Changes require reasons and expected versions; stale updates conflict. Disable also
 revokes outlet devices; reenable does not restore them. Only owners can restore a
-revoked device to pending, and fresh approval is required. Owners see the selected
+revoked device to pending; active staff auto-approve on their next valid online lease check. Owners see the selected
 outlet's latest 50 access audit entries. Cashiers cannot access these management APIs.
 
 Settings exports the account/device/outlet's retained original sale/outbox/draft
@@ -502,7 +502,7 @@ and Rp100.000. Tap to replace the received amount, or use Uang pas/manual input.
 After [staff provisioning setup](docs/IN_APP_STAFF_PROVISIONING.md), open Staf →
 Tambah staf for the selected outlet. Owners can create Managers/Cashiers; Managers
 can create Cashiers only. New staff replace the temporary password before POS access
-and still need device approval. Existing email accounts require administrator review.
+and receive automatic device approval when active. Existing email accounts require administrator review.
 The SQL setup and staff-admin Edge Function must be deployed separately; never add
 a service-role key to Android.
 
@@ -584,3 +584,9 @@ It intentionally excludes development users/devices/financial records.
 Kebijakan Privasi bahasa Indonesia: [Markdown](docs/PRIVACY_POLICY.md) dan
 [HTML GitHub Pages](docs/privacy-policy.html). Cara hosting dan pekerjaan Play Console
 yang masih perlu diselesaikan tersedia di [PRIVACY_PUBLISHING.md](docs/PRIVACY_PUBLISHING.md).
+
+Registered staff devices now automatically approve after login/password setup with
+active outlet access. Owners can deactivate staff through Staf. Existing projects
+apply [device-auto-approval.sql](supabase/device-auto-approval.sql); see
+[device policy](docs/DEVICE_APPROVAL_ALLOWLIST.md) for deployment, manual mode and
+offline deactivation limits. No app rebuild or Edge redeploy is required.

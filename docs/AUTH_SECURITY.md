@@ -35,12 +35,15 @@ encrypted in atomic no-backup storage. Passwords are never cached. Corrupt or
 cross-project caches fail closed. Valid completed caches remain compatible; retired
 partial activation sessions are rejected and require fresh ordinary sign-in.
 
-Owners can self-enroll; managers require owner device approval; cashiers require
-owner or assigned-outlet manager approval. Device secrets are server-generated and
-only SHA-256 hashes are stored server-side. New device IDs cannot bypass approval
-for cashier/manager users. Approval binds the user’s current role: promotion from
-cashier to manager requires fresh owner device approval. This is logical enrollment, not hardware attestation or
-rooted-device resistance. Logout removes the active session and offline lease; enrollment retention is described below.
+Active registered staff automatically receive role-bound device approval after
+successful authentication and initial-password setup. No whitelist is required.
+Owners can deactivate outlet memberships and revoke devices; those checks remain
+authoritative online. Device secrets are server-generated; only SHA-256 hashes
+are stored server-side. Revoked UUIDs remain denied. An active user can enroll a
+new UUID, so disable membership to block the user. This is logical enrollment,
+not hardware attestation or rooted-device resistance. SQL administrators may
+restore manual approval with optional scoped allowlist exceptions; see
+[device policy](DEVICE_APPROVAL_ALLOWLIST.md). Logout removes session/offline lease.
 
 Online membership/profile/brand checks are authoritative on each RPC/RLS read.
 The client revalidates on foreground, validated network reconnection and hourly while signed in;
@@ -186,7 +189,7 @@ active-device caches upgrade without reenrollment or a Room migration.
 
 Returning to an account/outlet reuses its proof instead of calling enroll_device;
 server role-bound approval, membership and revocation checks are unchanged. Lost
-proof still requires reenrollment and fresh non-Owner approval. Pending screens
+proof still requires reenrollment and current-policy device approval. Pending screens
 check again every 15 seconds while network validation is available and no auth
 action is busy; other locked failures are not automatically polled.
 
@@ -206,3 +209,11 @@ History shows available authorized receipts for that selected outlet, matching t
 existing Manager repository/server read policy; Cashier history remains own-only.
 This supersedes earlier notes that Manager navigation is unchanged/management-only.
 No server schema/function deployment or membership change is required.
+
+## Registered-staff automatic approval (17 November 2026)
+
+Default automatic approval supersedes the earlier manual/whitelist-only policy.
+Stored approval/proof/live-membership checks remain required for operational APIs.
+Owner deactivation revokes outlet devices, but cannot instantly cancel an already
+issued offline lease on a disconnected device (maximum one month). Full deployment,
+manual-mode fallback and audit details: [device policy](DEVICE_APPROVAL_ALLOWLIST.md).

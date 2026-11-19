@@ -2850,3 +2850,56 @@ lang=id,12 headings, matching anchors/contact, no placeholders/JS/forms; diff ch
 passed. No Gradle run for documentation/static content. Next: operator reviews actual
 production practices, hosts HTML, supplies final URL, then integrates policy/request
 access in app and completes applicable deletion flow before Play submission.
+
+## Device approval allowlist (2026-11-17)
+
+Added private user/outlet/role policy and administrative audit to fresh schema, plus
+standalone device-approval-allowlist.sql for existing projects and a configured-only
+SQL example/guide. Enrollment and pending lease retry mint normal audited approval;
+all downstream authorization remains unchanged. Optional expiry/removal controls
+future grants, not existing approvals. No wildcard/email match, public management
+API, Android/Room/Edge change or hosted deployment. Preserved unrelated untracked
+root package.json/package-lock.json files.
+
+Initial focused run caught absent-row test decoding and admin audit actor requirements;
+corrected the helper and separated DB-session audit instead of weakening audit_logs.
+Seven focused tests then passed. Initial baseline78-suite run had4 photo before-hook
+25P02 failures (the other74 passed); first87-test run repeated those fixture failures.
+A temporary diagnostic copy passed all4 photo cases without production changes and
+was removed. Final original suites then passed sequentially:
+`node --test --test-concurrency=1 supabase/tests/*.test.mjs`:87/87 passed, no failures/
+skips (58.9s), including9 new allowlist security/admin-audit/upgrade cases. Log
+`app/build/device-allowlist-final.log`. `git diff --check` passed. No Gradle run for
+this server-only change; hosted independent-connection/JWT/device acceptance remains. Next: deploy reviewed standalone SQL to intended environment,
+configure only verified real user/outlet/role entries and perform controlled hosted
+approval/revocation acceptance. No app rebuild/Edge redeploy required.
+
+## Registered-staff automatic device approval (2026-11-17)
+
+Default automatic device approval now covers active registered Owner/Manager/Cashier
+roles without per-user whitelist entries. Existing pending devices acquire approval
+on the next valid online lease request without proof rotation. Added private global
+policy/admin audit, REGISTERED_STAFF_POLICY approval attribution, and standalone
+`supabase/device-auto-approval.sql`; compatibility allowlist installer has the same
+current functions. Install/reapply preserves data and explicit manual-mode settings.
+Updated authentication, setup and operational documentation. Manual-mode regression
+fixtures explicitly retain that policy; added seven automatic-mode security/upgrade
+checks, including actual Owner deactivation through set_staff_access.
+
+Focused command:
+`node --test --test-concurrency=1 supabase/tests/device-auto-approval.test.mjs supabase/tests/device-approval-allowlist.test.mjs`
+passed16/16 (29.7s). Full backend results are recorded below. No Gradle run for this
+server-only change; no hosted SQL, Edge deployment, real staff operation or device
+check performed. Root package.json/package-lock.json remain untouched.
+Next: apply reviewed standalone SQL to the intended Supabase environment, then
+verify pending-device recovery and staff deactivation with controlled hosted accounts.
+Offline access can persist until online revalidation or existing lease expiry.
+
+Full verification: first sequential run90/94 passed, with four photo fixture
+before-hook25P02 failures; isolated unmodified photo suite repeated the issue.
+Combined photo base/seed/storage initialization into one ordered before hook;
+all4 photo checks then passed (2.6s), without changing production photo behavior.
+Final `node --test --test-concurrency=1 supabase/tests/*.test.mjs` passed94/94,
+no failures/skips (70.9s), log `/tmp/device-auto-final.log`.
+`git diff --check` passed. Hosted deployment/acceptance remains the only rollout step;
+no Android changes require a Gradle build for this iteration.
