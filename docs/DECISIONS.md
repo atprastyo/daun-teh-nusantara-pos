@@ -972,3 +972,35 @@ Official Android references checked for M7:
   outlet membership and revokes devices. Individual UUID revocation cannot prevent
   an active member enrolling a new UUID. Offline leases retain their existing bound,
   with no promise of instant disconnected revocation. No Android or Edge API change.
+
+- D159 (2026-11-19): Implement manual whole-product counts per outlet, Owner/assigned
+  Manager only, as the user-selected STOCK-01 slice. An absolute count appends immutable
+  previous/new/delta history with a reason and server actor/time. Unrecorded differs
+  from zero; initial zero is valid; no-op subsequent counts reject. No ingredients,
+  sale deduction, transfers, valuation or negative counts. Online commands use durable
+  scoped Room metadata journal, stable operation UUID/restore epoch and expected
+  count revision; server ledger/projection/dedupe/audit are atomic with serialized
+  outlet writes and coherent snapshot reads. Explicit paginated snapshot refresh/cache
+  is sufficient for this manual scope; no stock feed/WorkManager mutation. Retain Room
+  schema and working data; include pending command in recovery export. Ship additive
+  optional SQL for review, without hosted deployment or real inventory entries.
+
+- D160 (2026-11-21, scope; policy pending): User requested per-outlet automatic
+  finished-product stock deduction. Integrate with completed paid checkout and its
+  stable operation identity, preserving strict changed-price financial rejection.
+  Do not consume on cart edits or introduce ingredients/modifier recipes. Insufficient
+  stock behavior and rejected-paid-sale stock treatment require user answers before
+  runtime changes; physical recount generations and legacy-client cutover must also
+  be handled explicitly rather than silently double-deducting late offline uploads.
+
+- D161 (2026-11-21): Implement STOCK-02 under the user-selected warn/allow and
+  paid-price-rejection consumption policies. Freeze separate immutable stock intent
+  with sale/outbox/draft in the same Room transaction, preserving original financial
+  payloads. Server wrapper atomically admits finance and posts per-product stock
+  ledger/projection/dedupe/feed; price rejection retains financial REVIEW. Scope
+  stock-capable feed to the operational outlet, with per-device first-pull seeds
+  for legacy cursors and own-operation acknowledgements to prevent double estimates.
+  Physical counts have their own generation; stale/unknown/legacy intents require
+  reasoned Owner/Manager skip-or-deduct reconciliation. Permit same-quantity recounts
+  to capture their new baseline. Preserve Roomv1/data; do not backfill accepted sales.
+  Existing one-hour scheduling stays unchanged; no hosted deployment or device writes.

@@ -177,6 +177,7 @@ internal fun AccessDestination.shellLabel(): Int = when (this) {
     AccessDestination.HISTORY -> R.string.history
     AccessDestination.CATALOG -> R.string.shell_catalog
     AccessDestination.REPORTS -> R.string.reports
+    AccessDestination.STOCK -> R.string.stock_title
     AccessDestination.STAFF -> R.string.auth_staff
     AccessDestination.SETTINGS -> R.string.shell_settings
 }
@@ -188,6 +189,7 @@ internal fun AccessDestination.shellIcon(): Int = when (this) {
     AccessDestination.HISTORY -> R.drawable.ic_shell_receipt
     AccessDestination.CATALOG -> R.drawable.ic_shell_cafe
     AccessDestination.REPORTS -> R.drawable.ic_shell_chart
+    AccessDestination.STOCK -> R.drawable.ic_shell_stock
     AccessDestination.STAFF -> R.drawable.ic_shell_group
     AccessDestination.SETTINGS -> R.drawable.ic_shell_settings
 }

@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
     private val productPhotosViewModel: com.dauntehnusantara.pos.feature.catalog.photos.presentation.ProductPhotosViewModel by viewModels()
     private val catalogEditorViewModel: com.dauntehnusantara.pos.feature.catalog.presentation.CatalogEditorViewModel by viewModels()
     private val reportsViewModel: com.dauntehnusantara.pos.feature.reports.presentation.ReportViewModel by viewModels()
+    private val stockViewModel:com.dauntehnusantara.pos.feature.stock.presentation.StockViewModel by viewModels()
     private val staffViewModel: com.dauntehnusantara.pos.feature.staff.presentation.StaffViewModel by viewModels()
     private val settingsViewModel: com.dauntehnusantara.pos.feature.settings.presentation.SettingsViewModel by viewModels()
     private val syncStatusViewModel: com.dauntehnusantara.pos.feature.sync.presentation.SyncStatusViewModel by viewModels()
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
                     }
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.OVERVIEW,
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.REPORTS -> com.dauntehnusantara.pos.feature.reports.presentation.ReportRoute(reportsViewModel,expanded,overview=destination==com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.OVERVIEW)
+                    com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.STOCK -> com.dauntehnusantara.pos.feature.stock.presentation.StockRoute(stockViewModel,expanded)
                     com.dauntehnusantara.pos.feature.auth.domain.AccessDestination.STAFF -> run {
                         val state by authViewModel.state.collectAsStateWithLifecycle()
                         com.dauntehnusantara.pos.feature.staff.presentation.StaffRoute(staffViewModel,reviewerBusy=state.busy) { enabled ->

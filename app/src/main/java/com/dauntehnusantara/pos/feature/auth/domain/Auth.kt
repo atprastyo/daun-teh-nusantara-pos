@@ -45,12 +45,12 @@ interface AuthRepository {
     suspend fun changeInitialPassword(current:String,password:String) { throw UnsupportedOperationException() }
     suspend fun signOut()
 }
-enum class AccessDestination { OVERVIEW, POS, HISTORY, CATALOG, REPORTS, STAFF, SETTINGS }
+enum class AccessDestination { OVERVIEW, POS, HISTORY, CATALOG, STOCK, REPORTS, STAFF, SETTINGS }
 object RoleNavigation {
     fun destinations(role: Role): List<AccessDestination> = when (role) {
         Role.CASHIER -> listOf(AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.SETTINGS)
-        Role.OWNER -> listOf(AccessDestination.OVERVIEW, AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.CATALOG, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
-        Role.MANAGER -> listOf(AccessDestination.OVERVIEW, AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.CATALOG, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
+        Role.OWNER -> listOf(AccessDestination.OVERVIEW, AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.CATALOG, AccessDestination.STOCK, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
+        Role.MANAGER -> listOf(AccessDestination.OVERVIEW, AccessDestination.POS, AccessDestination.HISTORY, AccessDestination.CATALOG, AccessDestination.STOCK, AccessDestination.REPORTS, AccessDestination.STAFF, AccessDestination.SETTINGS)
     }
 }
 

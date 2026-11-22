@@ -36,6 +36,9 @@ class PullSyncTest {
     private inner class Gateway(var context: PullScope) : SaleGateway,PullGateway {
         var failAfter: Long? = null
         var loseAck = false
+        var stockEnabled=false
+        var financialReview=false
+        var lastStockIntent:String?=null
         var rewrite: ((PullPage) -> PullPage)? = null
         val requested = mutableListOf<Long>()
         override suspend fun backgroundScope() = context.sale
@@ -43,6 +46,8 @@ class PullSyncTest {
         override suspend fun pullScope() = context
         override suspend fun submit(sale: PendingSale): PushResult {
             require(sale.scope==context.sale)
+            lastStockIntent=sale.stockIntent
+            if(financialReview)return PushResult.Review("CATALOG_CHANGED")
             if(serverSales.putIfAbsent(sale.operationId,sale.payload)==null) events += Change((events.lastOrNull()?.seq?:0)+1,"SALE",sale.saleId,"UPSERT",sale.payload)
             return if(loseAck) PushResult.Retry else PushResult.Accepted
         }
@@ -52,7 +57,7 @@ class PullSyncTest {
             val visible=events.filter { it.seq>after && (it.type!="SALE" || scope.role!="CASHIER" || JSONObject(it.payload).getString("cashier_user_id")==scope.sale.userId) }
             val batch=visible.take(2);val more=visible.size>batch.size
             val next=if(more)batch.last().seq else events.lastOrNull()?.seq?:after
-            val page=PullPage(scope,after,next,more,batch,this@PullSyncTest.epoch)
+            val page=PullPage(scope,after,next,more,batch,this@PullSyncTest.epoch,stockEnabled)
             return rewrite?.invoke(page)?:page
         }
     }
@@ -325,4 +330,70 @@ class PullSyncTest {
         assertTrue(history.zipWithNext().all{(x,y)->x.createdAtUtcMs>=y.createdAtUtcMs})
         assertEquals("PENDING",a.db.checkoutDao().outbox(own.operationId)?.state)
     }
+    private fun stockEvent(quantity:Long,revision:Long,generation:String,operation:String?=null)=Change((events.lastOrNull()?.seq?:0)+1,"STOCK",product,"UPSERT",
+        JSONObject().put("schema_version",1).put("outlet_id",outlet).put("product_id",product).put("quantity",quantity).put("revision",revision)
+            .put("generation",generation).put("operation_id",operation?:JSONObject.NULL).toString())
+    @Test fun stockIntentSurvivesRestartAndBalanceAcknowledgementDoesNotDoubleDeduct():Unit=runBlocking {
+        val a=client();a.gateway.stockEnabled=true;val gen=newId();events+=stockEvent(2,1,gen);a.pull.sync()
+        val receipt=a.sell();val raw=a.db.pullDao().metadata("stock.intent.${receipt.operationId}")!!
+        assertEquals(1L,JSONObject(raw).getJSONArray("products").getJSONObject(0).getLong("quantity"))
+        a.reopen();assertEquals(raw,a.db.pullDao().metadata("stock.intent.${receipt.operationId}"))
+        val draft=Draft(newId(),newId(),0,receipt.lines)
+        val before=com.dauntehnusantara.pos.feature.stock.data.StockConsumption.warnings(a.db,a.gateway.context,draft)
+        assertTrue(before.first().contains("perkiraan 1 unit"));assertTrue(before.first().contains("belum terkonfirmasi 1"))
+        a.gateway.loseAck=true;a.push.drain();assertEquals(raw,a.gateway.lastStockIntent)
+        events+=stockEvent(1,2,gen,receipt.operationId);a.pull.sync()
+        val after=com.dauntehnusantara.pos.feature.stock.data.StockConsumption.warnings(a.db,a.gateway.context,draft)
+        assertTrue(after.first().contains("perkiraan 1 unit"));assertTrue(after.first().contains("belum terkonfirmasi 0"))
+        assertNull(a.db.pullDao().metadata(com.dauntehnusantara.pos.feature.stock.data.StockConsumption.pendingPrefix(a.gateway.context)+receipt.operationId))
+    }
+    @Test fun priceReviewRemainsFinancialReviewAfterStockConfirmedAndNegativeEstimateDoesNotBlockSale():Unit=runBlocking {
+        val a=client();a.gateway.stockEnabled=true;a.gateway.financialReview=true;val gen=newId();events+=stockEvent(0,1,gen);a.pull.sync()
+        val receipt=a.sell();a.push.drain();assertEquals("REVIEW",a.db.checkoutDao().outbox(receipt.operationId)!!.state)
+        val warnings=com.dauntehnusantara.pos.feature.stock.data.StockConsumption.warnings(a.db,a.gateway.context,Draft(newId(),newId(),0,receipt.lines))
+        assertTrue(warnings.first().contains("perkiraan -1 unit"));assertTrue(warnings.first().contains("penjualan tetap diizinkan"))
+        events+=stockEvent(-1,2,gen,receipt.operationId);a.pull.sync()
+        val delivery=a.checkout.observe().first().deliveries[receipt.id]!!
+        assertEquals(ReceiptDeliveryState.REVIEW,delivery.state);assertEquals("APPLIED",delivery.stockStatus)
+        val raw=com.dauntehnusantara.pos.feature.recovery.data.RoomRecoveryRepository(a.db,a.gateway,a.gateway,clock).capture(a.gateway.context)
+        val item=JSONObject(raw).getJSONObject("payload").getJSONArray("operations").getJSONObject(0)
+        assertEquals(a.db.pullDao().metadata("stock.intent.${receipt.operationId}"),item.getString("stock_intent"))
+    }
+    @Test fun changedCountGenerationDoesNotDeductOldPendingQuantityFromNewBaseline():Unit=runBlocking {
+        val a=client();a.gateway.stockEnabled=true;events+=stockEvent(10,1,newId());a.pull.sync();val receipt=a.sell()
+        events+=stockEvent(8,2,newId());a.pull.sync()
+        var warnings=com.dauntehnusantara.pos.feature.stock.data.StockConsumption.warnings(a.db,a.gateway.context,Draft(newId(),newId(),0,receipt.lines))
+        assertTrue(warnings.first().contains("perkiraan 8 unit"));assertTrue(warnings.first().contains("perlu ditinjau"))
+        events+=Change((events.last().seq)+1,"STOCK_DELIVERY",receipt.operationId,"UPSERT",JSONObject().put("schema_version",1).put("outlet_id",outlet)
+            .put("operation_id",receipt.operationId).put("product_id",product).put("status","SKIPPED").toString());a.pull.sync()
+        warnings=com.dauntehnusantara.pos.feature.stock.data.StockConsumption.warnings(a.db,a.gateway.context,Draft(newId(),newId(),0,receipt.lines))
+        assertTrue(warnings.first().contains("perkiraan 8 unit"));assertFalse(warnings.first().contains("perlu ditinjau"))
+    }
+
+    @Test fun stockIntentRollsBackWithOutboxFailureAndRetryPreservesOriginalOperation():Unit=runBlocking {
+        val a=client();a.gateway.stockEnabled=true;events+=stockEvent(2,1,newId());a.pull.sync()
+        val d=a.checkout.observe().first().draft;a.checkout.add(d,CheckoutRules.line(a.menu(),product,listOf(option),1))
+        val draft=a.checkout.observe().first().draft
+        val command=CheckoutCommand(draft.id,draft.operationId,draft.revision,PaymentInput(PaymentMethod.CASH,10000))
+        a.db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_stock_outbox BEFORE INSERT ON sync_outbox BEGIN SELECT RAISE(ABORT,'test failure'); END")
+        try{a.checkout.complete(command);fail("Must roll back")}catch(_:android.database.sqlite.SQLiteException){}
+        assertNull(a.db.checkoutDao().byOperation(draft.operationId));assertNull(a.db.pullDao().metadata("stock.intent.${draft.operationId}"))
+        assertTrue(a.db.metadataDao().entries(com.dauntehnusantara.pos.feature.stock.data.StockConsumption.pendingPrefix(a.gateway.context)).isEmpty())
+        a.db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_stock_outbox")
+        val receipt=a.checkout.complete(command);assertEquals(receipt,a.checkout.complete(command))
+        assertNotNull(a.db.pullDao().metadata("stock.intent.${draft.operationId}"))
+        assertEquals(1,a.db.metadataDao().entries(com.dauntehnusantara.pos.feature.stock.data.StockConsumption.pendingPrefix(a.gateway.context)).size)
+    }
+    @Test fun invalidPageRollsBackStockBalanceDeliveryAndCursorTogether():Unit=runBlocking {
+        val a=client();a.gateway.stockEnabled=true;val gen=newId();events+=stockEvent(2,1,gen);a.pull.sync();val receipt=a.sell()
+        val seq=a.status().seq
+        events+=stockEvent(1,2,gen,receipt.operationId);events+=Change(events.last().seq+1,"UNKNOWN",newId(),"UPSERT","{}")
+        fails{a.pull.sync()};assertEquals(seq,a.status().seq)
+        assertEquals(2L,JSONObject(a.db.pullDao().metadata(com.dauntehnusantara.pos.feature.stock.data.StockConsumption.balanceKey(a.gateway.context,product))!!).getLong("quantity"))
+        assertNotNull(a.db.pullDao().metadata(com.dauntehnusantara.pos.feature.stock.data.StockConsumption.pendingPrefix(a.gateway.context)+receipt.operationId))
+        events.removeAt(events.lastIndex);a.pull.sync()
+        assertEquals(1L,JSONObject(a.db.pullDao().metadata(com.dauntehnusantara.pos.feature.stock.data.StockConsumption.balanceKey(a.gateway.context,product))!!).getLong("quantity"))
+        assertNull(a.db.pullDao().metadata(com.dauntehnusantara.pos.feature.stock.data.StockConsumption.pendingPrefix(a.gateway.context)+receipt.operationId))
+    }
+
 }

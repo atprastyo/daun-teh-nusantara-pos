@@ -12,6 +12,10 @@ interface MetadataDao {
     @Query("SELECT COUNT(*) FROM app_metadata")
     fun observeEntryCount(): Flow<Int>
 
+    @Query("SELECT * FROM app_metadata WHERE `key` LIKE :prefix || '%'")
+    suspend fun entries(prefix:String):List<AppMetadata>
+    @Query("DELETE FROM app_metadata WHERE `key`=:key") suspend fun delete(key:String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun put(metadata: AppMetadata)
 }

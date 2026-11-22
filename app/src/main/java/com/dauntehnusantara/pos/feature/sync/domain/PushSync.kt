@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 /** Public identifiers only. Credentials stay in the encrypted auth data layer. */
 data class SaleScope(val brandId: String, val outletId: String, val deviceId: String, val userId: String)
-data class PendingSale(val operationId: String, val saleId: String, val scope: SaleScope, val payload: String, val attempts: Int)
+data class PendingSale(val operationId: String, val saleId: String, val scope: SaleScope, val payload: String, val attempts: Int, val stockIntent:String?=null)
 sealed interface PushResult {
     data object Accepted : PushResult
     data class Review(val code: String) : PushResult

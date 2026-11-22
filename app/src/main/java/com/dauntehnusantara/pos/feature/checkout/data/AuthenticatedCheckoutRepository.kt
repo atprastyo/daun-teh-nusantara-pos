@@ -30,7 +30,7 @@ internal class AuthenticatedCheckoutRepository(private val db: PosDatabase, priv
             dao.items(sale.id).map { CheckoutJson.readLine(JSONObject(it.snapshotJson)) }, sale.totalIdr,
             PaymentResult(PaymentMethod.valueOf(p.method), p.amountIdr, p.tenderedIdr, p.changeIdr, p.verificationStatus))
     }
-    override fun observe() = db.invalidationTracker.createFlow("checkout_session", "sales", "sync_outbox", "sync_cursor", "remote_sales").map {
+    override fun observe() = db.invalidationTracker.createFlow("checkout_session", "sales", "sync_outbox", "sync_cursor", "remote_sales", "app_metadata").map {
         check(pullGateway.pullScope() == scope && gateway.backgroundScope() == s)
         db.withTransaction {
             check(db.pullDao().metadata("sync.project").let { it == null || it == scope.project })
@@ -38,7 +38,7 @@ internal class AuthenticatedCheckoutRepository(private val db: PosDatabase, priv
             val deliveries = dao.syncRows(s.brandId, s.outletId, s.deviceId, s.userId).associate { row ->
                 row.aggregateId to ReceiptDelivery(
                     runCatching { ReceiptDeliveryState.valueOf(row.state) }.getOrDefault(ReceiptDeliveryState.UNKNOWN),
-                    row.state == "REVIEW" && row.lastErrorCode == "CATALOG_CHANGED")
+                    row.state == "REVIEW" && row.lastErrorCode == "CATALOG_CHANGED",com.dauntehnusantara.pos.feature.stock.data.StockConsumption.delivery(db,scope,row.id))
             }.toMutableMap()
             // Only the validated, current-scope feed proves delivery of downloaded receipts.
             db.pullDao().sales(scope.key).forEach { row ->
@@ -48,11 +48,11 @@ internal class AuthenticatedCheckoutRepository(private val db: PosDatabase, priv
                     remote.brandId == s.brandId && remote.outletId == s.outletId &&
                     (scope.role in listOf("OWNER", "MANAGER") || remote.cashierId == s.userId) &&
                     (localSale == null || local(localSale) == remote)) {
-                    deliveries[remote.id] = ReceiptDelivery(ReceiptDeliveryState.SYNCED)
+                    deliveries[remote.id] = (deliveries[remote.id]?:ReceiptDelivery(ReceiptDeliveryState.SYNCED)).copy(state=ReceiptDeliveryState.SYNCED)
                 }
             }
             CheckoutState(session.draft(), session.lastSaleId?.let { local(requireNotNull(dao.sale(it, s.brandId, s.outletId))) },
-                dao.syncRows(s.brandId, s.outletId, s.deviceId, s.userId).count { it.state != "SYNCED" }, deliveries)
+                dao.syncRows(s.brandId, s.outletId, s.deviceId, s.userId).count { it.state != "SYNCED" }, deliveries,com.dauntehnusantara.pos.feature.stock.data.StockConsumption.warnings(db,scope,session.draft()))
         }
     }
     private fun expected(session: CheckoutSessionEntity, draft: Draft) {
@@ -96,7 +96,7 @@ internal class AuthenticatedCheckoutRepository(private val db: PosDatabase, priv
             CheckoutRules.checkCatalog(draft, db.catalogDao().snapshot(s.brandId).toDomain())
             val receipt = Receipt(draft.id, draft.operationId, s.brandId, s.outletId, s.deviceId, s.userId, clock.millis(), draft.lines,
                 draft.totalIdr, CheckoutRules.payment(draft.totalIdr, p))
-            sync.recordAuthorized(receipt, s) // Nested Room transaction: graph + outbox + consumed draft commit together.
+            sync.recordAuthorized(receipt, s, scope) // Nested Room transaction: graph + outbox + consumed draft commit together.
             db.metadataDao().put(AppMetadata(key, commandKey))
             dao.update(session.copy(draftId = newId(), operationId = newId(), revision = 0, cartJson = "[]", lastSaleId = receipt.id))
             receipt

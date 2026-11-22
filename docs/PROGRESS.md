@@ -2903,3 +2903,134 @@ Final `node --test --test-concurrency=1 supabase/tests/*.test.mjs` passed94/94,
 no failures/skips (70.9s), log `/tmp/device-auto-final.log`.
 `git diff --check` passed. Hosted deployment/acceptance remains the only rollout step;
 no Android changes require a Gradle build for this iteration.
+
+## STOCK-01 manual outlet product counts (2026-11-19)
+
+Implemented the requested narrowed stock slice: whole-product counts per outlet,
+Owner/Manager entry with required reason, immutable previous/new/delta/actor/time
+history, unrecorded vs zero, search/product/history pagination, compact scrolling
+and expanded product/history panes. Counts are online-only; exact scoped snapshots
+are cached for valid offline management access. Checkout does not deduct quantities.
+
+Added optional supabase/outlet-stock.sql with approved-device management RPCs, no
+client table grants, RLS, append-only history, transactionally updated balances,
+canonical operation dedupe/audit, restore epoch and optimistic count revisions.
+Per-outlet transaction locking serializes writes/coherent snapshots; live auth checks
+precede dedupe. No hosted deployment/real counts or data reset performed. Domain/
+repository/ViewModel/UI follow existing feature layers and Hilt. Roomv1/14 tables
+remain compatible; a metadata journal persists a frozen operation before sending and
+retains uncertain outcomes across process death. Recovery export includes optional
+validated stock_pending without credentials. Documentation supersedes broader
+STOCK-01 plan with this simpler user-selected scope. Root package files untouched.
+
+Verification so far: isolated backend stock tests7/7 passed (20.2s); full sequential
+backend command `node --test --test-concurrency=1 supabase/tests/*.test.mjs` passed
+101/101 (115.5s), no skips/failures. Android focused StockPresentationTest (5),
+StockRepositoryTest (4), StockViewModelTest (3) all passed:12/12. Includes phone/tablet,
+count/reason validation, frozen revision, same-operation retry/reopen, account/role/
+project cache isolation, offline disabling and late read after logout.
+
+Initial Gradle invocation could not access the external cache in the sandbox; rerun
+with approved toolchain access. First KSP invocation failed FirDeclaration processing;
+nonincremental KSP rebuild (`-Pksp.incremental=false`) compiled successfully and
+focused tests then passed. Final full Android checks/results follow below.
+Next: controlled hosted independent-connection/two-device acceptance, physical
+accessibility/IME checks and reviewed SQL deployment/install in the intended backend.
+No automatic consumption, ingredients, transfer or valuation is implemented.
+
+Final verification: added recovery-export validation and automatic visibility of
+conflict/pending/success notices after count entry. Final stock-specific checks14/14
+(6 presentation,5 repository/recovery,3 ViewModel). Product pagination was additionally
+verified with102 products and two history pages; stock backend7/7 passed again (25.2s).
+The earlier complete backend suite remains101/101 passed with unchanged production SQL.
+
+First complete Android run passed399/399, dev assembly/instrumented-test compilation
+and lint (0 errors/41 warnings). A subsequent expanded run hit system temporary-volume
+exhaustion (TempDirectory FileSystemException) and was interrupted; no production
+code failure was inferred. Reran with Java temp files on the project volume:
+
+```sh
+JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' \
+JAVA_TOOL_OPTIONS='-Djava.io.tmpdir=/Volumes/Magikuy/asterfed/daun-teh-nusantara-pos/app/build/tmp/stock-verification' \
+./gradlew :app:assembleDevDebug :app:testDevDebugUnitTest :app:lintDevDebug :app:assembleDevDebugAndroidTest \
+  --offline --max-workers=2 --console=plain
+```
+
+Final command **BUILD SUCCESSFUL**:401/401 dev unit tests, no failures/errors/skips;
+final lint0 errors/40 warnings. App APK and Android-test APK assembled; instrumented
+tests were compiled, not run on a physical device. Log: `app/build/stock-final-verification.log`.
+`git diff --check` passed. No SQL deployment, phone install, working-project writes or
+Room reset performed. Physical/hosted concurrency/JWT/IME/accessibility acceptance
+and deliberate rollout remain outstanding as described in OUTLET_STOCK.md.
+
+## STOCK-02 integration review (2026-11-21)
+
+User requested automatic product deduction per outlet. Reviewed completed-checkout
+Room transaction, outbox retry/review handling and submit_sale admission/dedupe paths
+using graph discovery plus source verification (SQL coverage partial, source read).
+Updated OUTLET_STOCK_PLAN.md with precise integration points, pending/confirmed read
+separation, Cashier stock read/feed needs, old-client cutover and recount-generation
+reconciliation. Requested business decisions for insufficient stock and rejected paid
+sale consumption. Existing manual stock/runtime/SQL are unchanged while answers are
+pending. No Gradle/backend test rerun for this documentation-only review;
+`git diff --check` passed. Next: implement the automatic-deduction milestone after the
+policy answers, without changing strict changed-price financial rejection.
+
+## STOCK-02 automatic product deduction (2026-11-21)
+
+User selected warn/allow insufficient stock (visible negative balances) and stock
+consumption for paid changed-price rejected receipts while financial review remains.
+Implemented both, preserving the original financial receipt/outbox payload and strict
+price policy. Consumption intent freezes product totals, restore epoch and observed
+count generations in the same Room transaction as sale/outbox/consumed draft.
+Pending estimates survive restart and remain independent of financial delivery.
+
+Added stock-auto-deduction.sql (reviewable, not deployed): wraps retained private
+financial admission with stock ledger/projection/dedupe/feed, consumes accepted and
+paid price-rejected sales once, denies client bypass, and adds stock-capable approved-
+device outlet feed. Device-first stock pulls seed current balances for legacy cursors.
+No accepted historical receipt backfill. Unknown/legacy/recount-generation/other paid
+financial exceptions enter explicit stock review; Owner/Manager can reasonedly skip
+already-included goods or deduct against a captured revision with stable resolution
+identity. A same-quantity physical recount may now establish a new generation.
+
+New StockConsumption read model/journal applies stock acknowledgement and balance
+with feed cursor atomically, preventing double local estimates. POS cart/payment
+shows server/unconfirmed/estimated quantity and allows checkout despite warnings;
+receipt UI distinguishes stock from financial review. Management shows negative
+balances and reconciliations. Manual count acknowledgement can publish its new
+baseline locally; normal work is requested afterward. Existing hourly interval,
+Roomv1/14 tables, retained data and no-migration preference remain unchanged. Recovery
+export validates/preserves original stock intent and pending manual/resolution command.
+No ingredients, transfers, costing, financial review acceptance or new dependencies.
+
+Source discovery used existing codebase-memory skill and direct source verification
+for partial SQL coverage. Preserved the previous manual-stock edits and unrelated
+untracked package.json/package-lock.json. No production/DEV Supabase SQL, Edge
+redeployment, real sale/count, phone installation or device automation performed.
+
+Verification:
+- Initial backend focused run caught PG sum(bigint) returning numeric when calling
+  the bigint consumption helper; explicit checked aggregate cast fixed it. Five
+  focused tests then passed; expanded10-test stock suite passed, including legacy
+  cursor seed, pre-cutover retry, price rejection, malformed receipt, count-change
+  skip/deduct, stale resolution, scope/intent/epoch denial and idempotency.
+- Final `node --test --test-concurrency=1 supabase/tests/*.test.mjs`:111/111 passed,
+  no failures/skips (225.6s). Log:app/build/stock-auto-backend-verified.log.
+- Final Android command, with installed JBR and JAVA_TOOL_OPTIONS pointing temporary
+  files at app/build/tmp/stock-auto-verification:
+  `./gradlew :app:assembleDevDebug :app:testDevDebugUnitTest :app:lintDevDebug :app:assembleDevDebugAndroidTest --offline --max-workers=2 --console=plain`.
+  BUILD SUCCESSFUL (3m33s),409/409 unit tests,0 failures/errors/skips. Lint0 errors/
+  40 warnings. APK/test APK built; physical instrumented tests were not executed.
+  Log:app/build/stock-auto-verified.log. Initial focused Android integration run and
+  full406-test run also passed before final atomic rollback/transport regressions.
+- New regressions verify sale/intent/outbox rollback together, duplicate local save,
+  restart/frozen transport, lost stock ack retry, same-page balance/ack/cursor rollback,
+  no double estimate, price REVIEW with confirmed stock, changed-generation skip,
+  warning without payment block and captured reasoned reconciliation choice.
+- `git diff --check` passed. No Gradle dependency/configuration versions changed.
+
+Next milestone: controlled hosted independent-connection/two-device retry/recount/
+permission races, physical phone/tablet/IME/TalkBack acceptance, then deliberate
+paused-writer SQL rollout/all-client upgrade and verification of current counts.
+See OUTLET_STOCK.md for exact once-only script order, cutover and recovery limits.

@@ -89,7 +89,7 @@ private fun PosContent(state: PosUiState, actions: PosActions, expanded: Boolean
     }
     if(checkout && draft!=null && draft.lines.isNotEmpty()) {
         BackHandler { if(!state.busy) checkout=false }
-        CheckoutForm(draft,state.busy,state.error,actions.pay,{checkout=false},demo,state.staleLineIds.isNotEmpty())
+        CheckoutForm(draft,state.busy,state.error,actions.pay,{checkout=false},demo,state.staleLineIds.isNotEmpty(),state.checkout?.stockWarnings.orEmpty())
         return
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -100,7 +100,7 @@ private fun PosContent(state: PosUiState, actions: PosActions, expanded: Boolean
             Column(Modifier.fillMaxSize()) {
                 TextButton(onClick={showCart=false},enabled=!state.busy){Text("Kembali ke menu")}
                 PosErrorText(state.error)
-                CartContent(draft,state.busy,actions,{checkout=true;showCart=false},Modifier.weight(1f),state.staleLineIds)
+                CartContent(draft,state.busy,actions,{checkout=true;showCart=false},Modifier.weight(1f),state.staleLineIds,state.checkout?.stockWarnings.orEmpty())
             }
         } else Row(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f)) {
@@ -152,7 +152,7 @@ private fun PosContent(state: PosUiState, actions: PosActions, expanded: Boolean
                 }
             }
             if(twoPanes) Surface(Modifier.width(340.dp).fillMaxHeight().padding(12.dp),shape=MaterialTheme.shapes.large,color=MaterialTheme.colorScheme.surfaceContainerHighest) {
-                CartContent(draft,state.busy,actions,{checkout=true;showCart=false},Modifier.fillMaxSize(),state.staleLineIds)
+                CartContent(draft,state.busy,actions,{checkout=true;showCart=false},Modifier.fillMaxSize(),state.staleLineIds,state.checkout?.stockWarnings.orEmpty())
             }
         }
         state.catalog.visibleProducts().find{it.info.id==productId}?.let { product ->
@@ -170,10 +170,11 @@ internal fun filteredProducts(catalog:Catalog,query:String,categoryId:String?):L
 }
 
 @Composable
-internal fun CartContent(draft:Draft?,busy:Boolean,actions:PosActions,onCheckout:()->Unit,modifier:Modifier,stale:Set<String>) {
+internal fun CartContent(draft:Draft?,busy:Boolean,actions:PosActions,onCheckout:()->Unit,modifier:Modifier,stale:Set<String>,stockWarnings:List<String> = emptyList()) {
     Column(modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("Keranjang",style=MaterialTheme.typography.headlineSmall)
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            if(draft?.lines?.isNotEmpty()==true)items(stockWarnings){PosNotice(it)}
             if(draft==null||draft.lines.isEmpty())item{Text(stringResource(R.string.cart_empty))}
             items(draft?.lines.orEmpty(),key={it.id}){line ->
                 Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {

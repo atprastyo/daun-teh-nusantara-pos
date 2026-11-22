@@ -283,3 +283,16 @@ Owner profile/membership should be active. Zero RLS omissions is not a complete 
 security test; finish the existing hosted role/device/first-password/outlet checks
 and production backup/signing readiness before launch. Never drop/recreate schemas
 or replay bootstrap exports over a project that has begun operations.
+
+## Optional manual stock counts
+
+For the updated Stok outlet destination, review/run `supabase/outlet-stock.sql` once
+after base setup. It starts uncounted, preserves catalog/sales/devices and needs no
+Edge redeploy. Do not copy DEV physical counts to PROD implicitly. See
+[OUTLET_STOCK.md](OUTLET_STOCK.md) for rollout/recovery and controlled acceptance.
+
+Automatic product deductions (STOCK-02): review/run `supabase/stock-auto-deduction.sql`
+once after the manual outlet-stock setup, with checkout/sync writers paused and all
+clients upgraded. No Edge Function redeploy. Preserve retained receipts and cursors;
+verify current physical counts before resuming. See docs/OUTLET_STOCK.md for negative
+stock, paid-price-review handling, explicit count reconciliation and backup/cutover.

@@ -590,3 +590,17 @@ active outlet access. Owners can deactivate staff through Staf. Existing project
 apply [device-auto-approval.sql](supabase/device-auto-approval.sql); see
 [device policy](docs/DEVICE_APPROVAL_ALLOWLIST.md) for deployment, manual mode and
 offline deactivation limits. No app rebuild or Edge redeploy is required.
+
+Owner/Manager **Stok outlet** records whole product counts independently per outlet,
+with previous/new counts, signed differences, actor, reason and time in history.
+With the optional STOCK-02 setup, completed sales automatically deduct stock,
+including paid sales rejected because prices changed; financial review stays separate.
+Offline POS shows estimates and warns without blocking insufficient stock. Physical
+count updates require internet; authorized cached snapshots remain readable offline. Apply the optional
+[outlet-stock.sql](supabase/outlet-stock.sql) and install the updated app; setup,
+retry/conflict/recovery behavior and acceptance limits: [OUTLET_STOCK.md](docs/OUTLET_STOCK.md).
+
+Automatic stock setup: apply [stock-auto-deduction.sql](supabase/stock-auto-deduction.sql)
+once after outlet-stock.sql, with writers paused and all clients upgraded. No old
+accepted sales are backfilled. Late uploads against a newer physical count require
+reasoned Owner/Manager reconciliation; see [stock guide](docs/OUTLET_STOCK.md).

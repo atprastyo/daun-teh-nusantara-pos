@@ -23,10 +23,15 @@ internal object RecoveryArchive {
         val envelope=com.dauntehnusantara.pos.core.network.JsonSafety.obj(raw,16*1024*1024);require(envelope.getInt("schema_version")==1 && envelope.getString("kind")=="LOCAL_RECOVERY")
         val p=envelope.getJSONObject("payload");require(envelope.getString("sha256")==hash(PullJson.canonical(p)))
         require(p.getString("scope")==scope.key && p.getString("project")==scope.project)
+        if(p.has("stock_pending")&&!p.isNull("stock_pending")) {
+            require(scope.role in listOf("OWNER","MANAGER"))
+            com.dauntehnusantara.pos.feature.stock.data.StockJson.command(p.getString("stock_pending"))
+        }
         val records=p.getJSONArray("operations");val operations=mutableSetOf<String>();val sales=mutableSetOf<String>()
         return (0 until records.length()).map { i->
             val row=records.getJSONObject(i);val payload=row.getString("payload");val receipt=PullJson.receipt(payload)
             require(receipt.brandId==scope.sale.brandId && receipt.outletId==scope.sale.outletId && receipt.deviceId==scope.sale.deviceId && receipt.cashierId==scope.sale.userId)
+            if(row.has("stock_intent")&&!row.isNull("stock_intent"))com.dauntehnusantara.pos.feature.stock.data.StockConsumption.validateIntent(row.getString("stock_intent"),receipt)
             require(receipt.operationId==row.getString("operation_id") && receipt.id==row.getString("sale_id") && operations.add(receipt.operationId) && sales.add(receipt.id))
             require(row.getString("state") in listOf("PENDING","RETRY","AUTH_REQUIRED","REVIEW","SYNCED") && row.getInt("attempts")>=0)
             require(hash(payload)==row.getString("request_hash"));payload
@@ -52,6 +57,7 @@ class RoomRecoveryRepository @Inject constructor(private val db:PosDatabase,priv
                 JSONObject().put("operation_id",row.id).put("sale_id",row.aggregateId).put("payload",row.payloadJson)
                     .put("request_hash",sale.requestHash).put("state",row.state).put("attempts",row.attempts)
                     .put("next_attempt_at_ms",row.nextAttemptAtMs).put("last_error",row.lastErrorCode?:JSONObject.NULL)
+                    .put("stock_intent",db.pullDao().metadata("stock.intent.${row.id}")?:JSONObject.NULL)
                     .put("command",db.pullDao().metadata("checkout.command.${row.id}")?:JSONObject.NULL)
             })
             val session=dao.session(scope.key)
@@ -61,7 +67,8 @@ class RoomRecoveryRepository @Inject constructor(private val db:PosDatabase,priv
                     .put("cart",JSONArray(it.cartJson)).put("last_sale_id",it.lastSaleId?:JSONObject.NULL)
             }
             RecoveryArchive.encode(JSONObject().put("scope",scope.key).put("project",scope.project).put("captured_at_ms",clock.millis())
-                .put("operations",operations).put("draft",draft?:JSONObject.NULL))
+                .put("operations",operations).put("draft",draft?:JSONObject.NULL)
+                .put("stock_pending",db.pullDao().metadata("stock.pending.${scope.key}")?.takeUnless{it=="null"}?:JSONObject.NULL))
         }
         if(gateway.checkoutScope()!=scope.sale || pull.pullScope()!=scope)throw ManagementFailure("AUTH_REQUIRED")
         if(raw.toByteArray(Charsets.UTF_8).size>16*1024*1024)throw ManagementFailure("TOO_LARGE")

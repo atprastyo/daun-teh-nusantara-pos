@@ -163,3 +163,20 @@ sale outbox payloads. `set_product_photo` uses live device proof/role/epoch, exp
 photo version and stable operation UUID; photo reference, dedupe, feed and audit commit
 in one transaction. Upload itself precedes this transaction and can leave an orphan
 on interruption. See PRODUCT_PHOTOS.md for private cache and cleanup boundaries.
+
+## Optional STOCK-02 protocol (21 November2026)
+
+New clients try pull_changes_stock;404 falls back to the existing financial/catalog
+feed without enabling inventory. Stock-enabled pages carry an explicit capability;
+STOCK balance and operation acknowledgement apply with cursor in one Room transaction.
+Legacy cursors gain fresh current-balance events on the device’s first stock-capable
+pull. Stock estimates retain local unconfirmed consumption until its own stock
+acknowledgement, even when finance has already become SYNCED or REVIEW.
+
+New checkout commits an immutable stock intent beside the unchanged financial outbox.
+Submission passes that intent to submit_sale_stock under the original sale UUID;
+accepted finance and stock are atomic, while paid changed-price review still records
+stock. An uncertain stock acknowledgement retries without rewriting financial data.
+Count-generation mismatch, legacy/untracked consumption and other paid financial
+exceptions enter outlet-scoped reconciliation. Never sum a confirmed own-operation
+stock event and its pending estimate twice. See OUTLET_STOCK.md for cutover/recovery.

@@ -280,3 +280,21 @@ automatic consumption, STOCK-03 in-transit transfers and STOCK-04 operational in
 This newly requested scope supersedes the original stock exclusion only as separately
 approved milestones. Confirm finished-product vs ingredient/packaging tracking and
 insufficient-stock policy before implementation. No schema/API/Room change yet.
+
+## Manual product counts (19 November 2026)
+
+STOCK-01 is now narrowed to user-requested per-outlet whole-product count recording,
+Owner/Manager count updates and immutable history, online writes and scoped offline
+snapshot viewing. See OUTLET_STOCK.md for deployment, recovery, permissions and limits.
+No automatic sale deductions, ingredients, transfer or costing implementation.
+Next milestone: controlled hosted/two-device/physical acceptance, then deliberately
+apply the reviewed SQL/install updated app in the chosen environment.
+
+## STOCK-02 implementation (21 November2026)
+
+User-selected automatic product deductions, warn/allow debt and stock consumption
+for paid price-rejected receipts are implemented with offline intent/cache/feed and
+Owner/Manager count-generation reconciliation. See OUTLET_STOCK.md. Next milestone:
+controlled hosted two-device retry/recount/race/role acceptance and physical phone/
+tablet/accessibility checks, then deliberate SQL deployment/client upgrade. No
+automatic ingredient recipes, transfers, costing or financial review resolution.

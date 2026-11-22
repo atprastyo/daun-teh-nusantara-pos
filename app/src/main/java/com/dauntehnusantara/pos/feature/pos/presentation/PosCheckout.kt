@@ -37,7 +37,7 @@ internal fun PosErrorText(error:PosError?) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun CheckoutForm(draft:Draft,busy:Boolean,error:PosError?,onPay:(PaymentInput)->Unit,onBack:()->Unit,demo:Boolean=true,stale:Boolean=false) {
+internal fun CheckoutForm(draft:Draft,busy:Boolean,error:PosError?,onPay:(PaymentInput)->Unit,onBack:()->Unit,demo:Boolean=true,stale:Boolean=false,stockWarnings:List<String> = emptyList()) {
     var methodName by rememberSaveable(draft.id,draft.revision){mutableStateOf(PaymentMethod.CASH.name)}
     var cashText by rememberSaveable(draft.id,draft.revision){mutableStateOf("")}
     // Manual confirmation is intentionally memory-only; recreation requires rechecking.
@@ -52,6 +52,7 @@ internal fun CheckoutForm(draft:Draft,busy:Boolean,error:PosError?,onPay:(Paymen
                 TextButton(onClick=onBack,enabled=!busy){Text(stringResource(R.string.pos_back_cart))}
                 Text(stringResource(R.string.pos_checkout),style=MaterialTheme.typography.headlineMedium)
                 Text(stringResource(R.string.pos_total,formatIdr(draft.totalIdr)),style=MaterialTheme.typography.headlineSmall)
+                stockWarnings.forEach{PosNotice(it)}
                 draft.lines.forEach{Text("${it.quantity} × ${it.productName} · ${formatIdr(it.totalIdr)}")}
                 if(stale)PosNotice("Katalog berubah. Kembali ke keranjang, hapus item yang berubah lalu pilih ulang.")
                 Column(Modifier.selectableGroup()) {
@@ -150,6 +151,9 @@ fun ReceiptContent(receipt:Receipt,modifier:Modifier=Modifier,onNext:(()->Unit)?
 
 @Composable
 private fun ReceiptDeliveryContent(delivery:ReceiptDelivery?,busy:Boolean,retry:(()->Unit)?) {
+    delivery?.stockStatus?.let { stock->
+        PosNotice(when(stock){"APPLIED"->"Stok telah diproses oleh server, terpisah dari status transaksi keuangan.";"REVIEW"->"Pergerakan stok perlu ditinjau Owner/Manager. Status pembayaran asli tetap dipertahankan.";else->"Pengurangan stok tersimpan di perangkat dan menunggu konfirmasi server."})
+    }
     val status=delivery?.state?:ReceiptDeliveryState.UNKNOWN
     val label=when(status){
         ReceiptDeliveryState.PENDING->"Menunggu kirim"

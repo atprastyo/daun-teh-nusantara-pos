@@ -31,7 +31,7 @@ class RoomSyncRepository @Inject constructor(private val db: PosDatabase, privat
         val s = requireNotNull(gateway.checkoutScope()) { "Authenticated checkout is locked" }
         recordAuthorized(receipt, s)
     }
-    internal suspend fun recordAuthorized(receipt: Receipt, s: SaleScope) {
+    internal suspend fun recordAuthorized(receipt: Receipt, s: SaleScope, stockScope:PullScope?=null) {
         require(receipt.brandId != DEMO_BRAND_ID && receipt.brandId == s.brandId && receipt.outletId == s.outletId &&
             receipt.cashierId == s.userId && receipt.deviceId == s.deviceId)
         val ids = listOf(receipt.id, receipt.operationId, s.brandId, s.outletId, s.deviceId, s.userId) + receipt.lines.flatMap { line ->
@@ -58,6 +58,7 @@ class RoomSyncRepository @Inject constructor(private val db: PosDatabase, privat
             dao.insert(receipt.lines.map { SaleItemEntity(it.id, receipt.id, it.productId, it.productName, it.unitBasePriceIdr, it.quantity, it.totalIdr, CheckoutJson.line(it).toString()) })
             dao.insertModifiers(receipt.lines.flatMap { line -> line.modifiers.map { SaleModifierEntity(newId(), line.id, it.optionId, it.groupName, it.optionName, it.priceDeltaIdr) } })
             dao.insert(PaymentEntity(newId(), receipt.id, payment.method.name, payment.amountIdr, payment.tenderedIdr, payment.changeIdr, payment.verification))
+            if(stockScope!=null)com.dauntehnusantara.pos.feature.stock.data.StockConsumption.freeze(db,stockScope,receipt)
             dao.insert(OutboxEntity(receipt.operationId, receipt.id, "SUBMIT_SALE", payload, "PENDING", 0, receipt.createdAtUtcMs))
         }
         // Crash between commit and enqueue is recovered by the periodic/startup sweep.
@@ -75,7 +76,7 @@ class RoomSyncRepository @Inject constructor(private val db: PosDatabase, privat
             val attempts = (row.attempts.toLong() + 1).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             // Persist the attempt before IO. No IN_FLIGHT state can strand work after process death.
             dao.syncResult(row.id, "RETRY", attempts, clock.millis() + RetryPolicy.delayMs(row.id, attempts), "DELIVERY_UNCERTAIN", null)
-            val result = gateway.submit(PendingSale(row.id, row.aggregateId, scope, row.payloadJson, attempts))
+            val result = gateway.submit(PendingSale(row.id, row.aggregateId, scope, row.payloadJson, attempts,db.pullDao().metadata("stock.intent.${row.id}")))
             val now = clock.millis()
             when (result) {
                 PushResult.Accepted -> dao.syncResult(row.id, "SYNCED", attempts, 0, null, now)

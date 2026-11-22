@@ -30,7 +30,7 @@ private class AuthInputFailure : IllegalArgumentException()
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private val config: BackendConfig,
-    private val store: SecretStore, private val clock: AccessClock, private val enrollmentLookup: DeviceEnrollmentLookup) : AuthRepository, SaleGateway, PullGateway, ReportingGateway, StaffGateway, CatalogGateway, ProductPhotoGateway {
+    private val store: SecretStore, private val clock: AccessClock, private val enrollmentLookup: DeviceEnrollmentLookup) : AuthRepository, SaleGateway, PullGateway, ReportingGateway, StaffGateway, CatalogGateway, ProductPhotoGateway, com.dauntehnusantara.pos.feature.stock.domain.StockGateway {
     private val mutable = MutableStateFlow(AuthState(configured = config.configured))
     override val state = mutable.asStateFlow()
     private val mutex = Mutex()
@@ -242,11 +242,12 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
                 payload.getString("operation_id") == sale.operationId && payload.getString("sale_id") == sale.saleId &&
                 payload.getString("brand_id") == sale.scope.brandId && payload.getString("outlet_id") == sale.scope.outletId &&
                 payload.getString("device_id") == sale.scope.deviceId && payload.getString("cashier_user_id") == sale.scope.userId)
-            val ack = authorized { api.submit(it, requireNotNull(cache.device), sale.payload) }
+            val ack = authorized { api.submit(it, requireNotNull(cache.device), sale.payload,sale.stockIntent) }
             val payloadHash = java.security.MessageDigest.getInstance("SHA-256").digest(sale.payload.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
             require(ack.getString("payload_hash") == payloadHash)
             require(ack.getString("operation_id") == sale.operationId && ack.getString("sale_id") == sale.saleId &&
                 ack.getString("request_hash").matches(Regex("[0-9a-f]{64}")))
+            if(sale.stockIntent!=null)require(ack.getString("stock_operation_id")==sale.operationId && ack.getString("stock_status") in listOf("APPLIED","REVIEW","NOT_APPLIED","PRE_CUTOVER"))
             when (ack.getString("status")) {
                 "ACCEPTED" -> PushResult.Accepted
                 "REVIEW" -> {
@@ -262,9 +263,9 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
             when {
                 e.status == 429 || e.status >= 500 -> PushResult.Retry
                 e.status in listOf(401, 403, 423) -> { failure(e, mutable.value.offline); PushResult.AuthRequired }
-                else -> PushResult.Review("HTTP_REJECTED")
+                else -> if(sale.stockIntent!=null && e.status in listOf(404,409))PushResult.Retry else PushResult.Review("HTTP_REJECTED")
             }
-        } catch (_: Exception) { PushResult.Review("INVALID_ACK_OR_PAYLOAD") }
+        } catch (_: Exception) { if(sale.stockIntent!=null)PushResult.Retry else PushResult.Review("INVALID_ACK_OR_PAYLOAD") }
     }
     private suspend fun currentManagementScope(online:Boolean):PullScope? {
         if(mutable.value.stage!=AuthStage.READY || cache.membership?.role !in listOf(Role.OWNER,Role.MANAGER)) return null
@@ -322,6 +323,32 @@ class AuthRepositoryImpl @Inject constructor(private val api: AuthApi, private v
     override suspend fun report(query:ReportQuery):SalesReport = management(query.source) { session,device ->
         ReportJson.read(JsonSafety.obj(api.management(session,device,"get_sales_report",JSONObject().put("p_from_date",query.from.toString())
             .put("p_to_date",query.to.toString()).put("p_outlet_id",query.outletId?:JSONObject.NULL))),query)
+    }
+    override suspend fun stock(scope:PullScope,query:com.dauntehnusantara.pos.feature.stock.domain.StockQuery):com.dauntehnusantara.pos.feature.stock.domain.StockSnapshot = management(scope) { session,device ->
+        val raw=api.management(session,device,"get_outlet_stock",JSONObject().put("p_query",query.search).put("p_offset",query.offset)
+            .put("p_product_id",query.productId?:JSONObject.NULL).put("p_before",query.before?:JSONObject.NULL))
+        require(JSONObject(raw).getString("outlet_id")==scope.sale.outletId)
+        com.dauntehnusantara.pos.feature.stock.data.StockJson.read(raw)
+    }
+    override suspend fun setStock(scope:PullScope,command:com.dauntehnusantara.pos.feature.stock.domain.StockCommand) { writeStock(scope,command) }
+    override suspend fun writeStock(scope:PullScope,command:com.dauntehnusantara.pos.feature.stock.domain.StockCommand):com.dauntehnusantara.pos.feature.stock.domain.StockWriteAck? = management(scope) { session,device ->
+        command.validate()
+        if(command.saleOperationId!=null) {
+            val a=JsonSafety.obj(api.management(session,device,"resolve_stock_sale",JSONObject().put("p_operation_id",command.operationId)
+                .put("p_epoch",command.epoch).put("p_sale_operation_id",command.saleOperationId).put("p_product_id",command.productId)
+                .put("p_deduct",command.deduct).put("p_expected_revision",command.expectedRevision).put("p_reason",command.reason)))
+            require(a.getString("operation_id")==command.operationId && a.getString("sale_operation_id")==command.saleOperationId &&
+                a.getString("product_id")==command.productId && a.getString("outlet_id")==scope.sale.outletId && a.getBoolean("deduct")==command.deduct)
+            return@management null
+        }
+        val ack=JsonSafety.obj(api.management(session,device,"set_outlet_stock",JSONObject().put("p_operation_id",command.operationId)
+            .put("p_epoch",command.epoch).put("p_product_id",command.productId).put("p_quantity",command.quantity)
+            .put("p_expected_revision",command.expectedRevision).put("p_reason",command.reason)))
+        require(ack.getString("operation_id")==command.operationId && ack.getString("outlet_id")==scope.sale.outletId &&
+            ack.getString("product_id")==command.productId && ack.getString("epoch")==command.epoch &&
+            ack.getLong("quantity")==command.quantity && ack.getLong("revision")==Math.addExact(command.expectedRevision,1) && ack.getLong("movement_seq")>0)
+        val gen=if(ack.isNull("count_generation"))null else ack.getString("count_generation").also{require(java.util.UUID.fromString(it).toString()==it)}
+        com.dauntehnusantara.pos.feature.stock.domain.StockWriteAck(command.quantity,ack.getLong("revision"),gen)
     }
     override suspend fun roster(scope:PullScope):StaffRoster = management(scope) { session,device ->
         val roster=StaffJson.read(JsonSafety.obj(api.management(session,device,"list_staff",JSONObject())),scope)

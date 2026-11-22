@@ -46,6 +46,7 @@ class AuthRepositoryTest {
         var managementStatus=200;var leaseStatus=200
         var pullStatus=200;var pullWrongScope=false
         var invalidRefresh=false
+        var lastStock:String?=null
         var wrongAck=false;var pushStatus="ACCEPTED";var pushCode="CATALOG_CHANGED"; var pushCalls=0
         var labelWrites=0;var labelFailure=false
         var passwordRequired=false;var passwordStatus=200;var creationCode:String?=null;var legacyPasswordRpc=false;var wrongCreationAck=false
@@ -90,6 +91,7 @@ class AuthRepositoryTest {
                     if(!path.endsWith("list_staff"))"" else JSONObject().put("schema_version",1).put("brand_id",brand).put("outlet_id","outlet").put("user_id","user")
                         .put("device_id",issuedDevice).put("role",role.name).put("members",org.json.JSONArray()).put("devices",org.json.JSONArray()).put("audit",org.json.JSONArray()).toString()
                 }
+                path.endsWith("pull_changes_stock") -> throw AuthHttpFailure(404) // Legacy backend fixture.
                 path.endsWith("pull_changes") -> {
                     if(pullStatus!=200)throw AuthHttpFailure(pullStatus)
                     val input=JSONObject(requireNotNull(body));require(input.getString("p_device_id")==issuedDevice)
@@ -99,14 +101,15 @@ class AuthRepositoryTest {
                         .put("after_seq",input.getLong("p_after_seq")).put("next_seq",input.getLong("p_after_seq"))
                         .put("has_more",false).put("feed_epoch","11111111-1111-4111-8111-111111111111").put("changes",org.json.JSONArray()).toString()
                 }
-                path.endsWith("submit_sale") -> {
+                path.endsWith("submit_sale")||path.endsWith("submit_sale_stock") -> {
                     pushCalls++
                     val envelope=JSONObject(requireNotNull(body));require(envelope.getString("p_device_secret")=="test-device-secret")
+                    lastStock=if(envelope.has("p_stock"))envelope.getString("p_stock") else null
                     val raw=envelope.getString("p_payload");val payload=JSONObject(raw)
                     val hash=java.security.MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
                     JSONObject().put("operation_id",payload.getString("operation_id")).put("sale_id",payload.getString("sale_id"))
                         .put("request_hash","a".repeat(64)).put("payload_hash",if(wrongAck) "b".repeat(64) else hash)
-                        .put("status",pushStatus).put("code",pushCode).toString()
+                        .put("status",pushStatus).put("code",pushCode).put("stock_operation_id",payload.getString("operation_id")).put("stock_status","APPLIED").toString()
                 }
                 path.endsWith("get_access_context") -> if(noAccess)"[]" else """[{"brand_id":"${brand}","brand_name":"Daun Teh","outlet_id":"${outlet}","outlet_name":"A","role":"${role.name}"}]"""
                 path.endsWith("enroll_device") -> {
@@ -476,6 +479,15 @@ class AuthRepositoryTest {
         started.await()
         try { assertNotNull(kotlinx.coroutines.withTimeout(1000){repository.checkoutScope()}) }
         finally{finish.complete(Unit);upload.await()}
+    }
+
+    @Test fun frozenStockIntentUsesStockEndpointAndUncertainAcknowledgementRetriesWithoutFinancialReview():Unit=runBlocking {
+        val http=FakeHttp(base);val repository=repo(http,MemoryStore(),FakeClock(base));signedIn(repository)
+        val frozen="""{"epoch":"11111111-1111-4111-8111-111111111111","products":[]}"""
+        val sale=pending(requireNotNull(repository.checkoutScope())).copy(stockIntent=frozen)
+        assertEquals(PushResult.Accepted,repository.submit(sale));assertEquals(frozen,http.lastStock)
+        assertTrue(http.calls.last().endsWith("submit_sale_stock"))
+        http.wrongAck=true;assertEquals(PushResult.Retry,repository.submit(sale));assertEquals(frozen,http.lastStock)
     }
 
 }

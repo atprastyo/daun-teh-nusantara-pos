@@ -217,3 +217,19 @@ Stored approval/proof/live-membership checks remain required for operational API
 Owner deactivation revokes outlet devices, but cannot instantly cancel an already
 issued offline lease on a disconnected device (maximum one month). Full deployment,
 manual-mode fallback and audit details: [device policy](DEVICE_APPROVAL_ALLOWLIST.md).
+
+## Manual stock counts (19 November 2026)
+
+Optional stock RPCs require private.approved_device and actual Owner/Manager outlet
+access before reads/deduplication/writes. The device selects the outlet; arbitrary
+outlet arguments are absent. Clients cannot directly read/write stock tables. Stock
+counts are online-only, reasoned and revision-checked, with stable operation/epoch
+identity and atomic audit. Offline exact-query snapshots require existing valid scoped
+management access; counts do not extend offline leases. See OUTLET_STOCK.md.
+
+STOCK-02 (21 November2026): Cashiers gain approved-device read access to their outlet’s
+stock feed and their delivery events, not management history/reconciliation. Client
+execution of private financial admission is revoked; public legacy and stock-aware
+submission both pass stock handling. Resolution remains actual Owner/Manager for the
+device-selected outlet, reasoned/versioned/idempotent. Financial price rejection is
+not relaxed. Offline estimates are not a global availability or revocation guarantee.

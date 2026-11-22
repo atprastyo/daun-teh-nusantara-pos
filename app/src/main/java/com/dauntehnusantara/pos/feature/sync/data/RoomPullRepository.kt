@@ -58,9 +58,14 @@ class RoomPullRepository @Inject constructor(private val db: PosDatabase, privat
             when (change.type) {
                 "CATALOG" -> catalog(page.scope, change)
                 "SALE" -> sale(page.scope, change)
+                "STOCK", "STOCK_DELIVERY" -> {
+                    require(page.stockEnabled)
+                    com.dauntehnusantara.pos.feature.stock.data.StockConsumption.apply(db,page.scope,change)
+                }
                 else -> throw PullFailure("UNSUPPORTED_SCHEMA")
             }
         }
+        db.metadataDao().put(AppMetadata("stock.enabled.${page.scope.key}",page.stockEnabled.toString()))
         db.metadataDao().put(AppMetadata("sync.project", page.scope.project))
         dao.put(expected.copy(lastSeq = page.next, serverEpoch = page.epoch, initialized = expected.initialized || !page.more, lastSuccessMs = if (!page.more) clock.millis() else expected.lastSuccessMs, errorCode = null))
     }

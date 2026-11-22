@@ -185,3 +185,17 @@ Fresh schema automatically approves active registered staff. Existing projects a
 revokes outlet devices; offline leases remain bounded rather than instantly revoked.
 See [device policy](../docs/DEVICE_APPROVAL_ALLOWLIST.md) for setup, manual fallback,
 optional scoped exceptions and audit. No Android/Edge redeploy is needed.
+
+## Manual product counts per outlet
+
+Review/run `outlet-stock.sql` once after the base schema, separately per environment.
+Updated Android adds Owner/Manager **Stok outlet** with current counts, immutable
+change history, online reasoned/versioned updates and offline cached snapshots.
+No automatic sale deduction or Edge redeploy. See
+[OUTLET_STOCK.md](../docs/OUTLET_STOCK.md) for setup/recovery/acceptance.
+
+Automatic product deductions (STOCK-02): review/run `supabase/stock-auto-deduction.sql`
+once after the manual outlet-stock setup, with checkout/sync writers paused and all
+clients upgraded. No Edge Function redeploy. Preserve retained receipts and cursors;
+verify current physical counts before resuming. See docs/OUTLET_STOCK.md for negative
+stock, paid-price-review handling, explicit count reconciliation and backup/cutover.

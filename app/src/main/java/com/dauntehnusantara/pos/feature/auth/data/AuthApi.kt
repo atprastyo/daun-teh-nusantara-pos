@@ -65,14 +65,22 @@ class AuthApi @Inject constructor(private val http: AuthTransport, private val c
     suspend fun approveDevice(session: TokenSession, id: String) {
         http.request("/rest/v1/rpc/approve_device", JSONObject().put("p_device_id", id).toString(), session.accessToken)
     }
-    suspend fun pull(session: TokenSession, device: EnrolledDevice, after: Long, role: String, epoch: String?): JSONObject =
-        JsonSafety.obj(http.request("/rest/v1/rpc/pull_changes", JSONObject().put("p_device_id", device.id).put("p_device_secret", device.secret)
-            .put("p_after_seq", after).put("p_epoch", epoch?:JSONObject.NULL).put("p_role", role).put("p_limit", 100).toString(), session.accessToken))
-    suspend fun submit(session: TokenSession, device: EnrolledDevice, payload: String): JSONObject =
-        JsonSafety.obj(http.request("/rest/v1/rpc/submit_sale", JSONObject().put("p_payload", payload)
-            .put("p_device_secret", device.secret).toString(), session.accessToken))
+    suspend fun pull(session: TokenSession, device: EnrolledDevice, after: Long, role: String, epoch: String?): JSONObject {
+        val args=JSONObject().put("p_device_id",device.id).put("p_device_secret",device.secret).put("p_after_seq",after)
+            .put("p_epoch",epoch?:JSONObject.NULL).put("p_role",role).put("p_limit",100).toString()
+        return try { JsonSafety.obj(http.request("/rest/v1/rpc/pull_changes_stock",args,session.accessToken)) }
+        catch(e:com.dauntehnusantara.pos.core.network.AuthHttpFailure) {
+            if(e.status!=404)throw e
+            JsonSafety.obj(http.request("/rest/v1/rpc/pull_changes",args,session.accessToken))
+        }
+    }
+    suspend fun submit(session: TokenSession, device: EnrolledDevice, payload: String,stockIntent:String?=null): JSONObject {
+        val args=JSONObject().put("p_payload",payload).put("p_device_secret",device.secret)
+        if(stockIntent!=null)args.put("p_stock",stockIntent)
+        return JsonSafety.obj(http.request("/rest/v1/rpc/"+if(stockIntent==null)"submit_sale" else "submit_sale_stock",args.toString(),session.accessToken))
+    }
     suspend fun management(session: TokenSession, device: EnrolledDevice, name: String, args: JSONObject): String {
-        require(name in listOf("get_sales_report","list_staff","set_staff_access","set_device_access","save_catalog_record","set_product_photo"))
+        require(name in listOf("get_outlet_stock","set_outlet_stock","resolve_stock_sale","get_sales_report","list_staff","set_staff_access","set_device_access","save_catalog_record","set_product_photo"))
         return http.request("/rest/v1/rpc/$name", args.put("p_device_id",device.id).put("p_device_secret",device.secret).toString(),session.accessToken)
     }
     suspend fun logout(session: TokenSession) { http.request("/auth/v1/logout?scope=local", "{}", session.accessToken) }

@@ -26,9 +26,9 @@ data class Receipt(val id: String, val operationId: String, val brandId: String,
     val deviceId: String, val cashierId: String, val createdAtUtcMs: Long, val lines: List<CartLine>,
     val totalIdr: Long, val payment: PaymentResult)
 enum class ReceiptDeliveryState { PENDING, RETRY, AUTH_REQUIRED, REVIEW, SYNCED, UNKNOWN }
-data class ReceiptDelivery(val state: ReceiptDeliveryState, val catalogChanged: Boolean = false)
+data class ReceiptDelivery(val state: ReceiptDeliveryState, val catalogChanged: Boolean = false,val stockStatus:String?=null)
 data class CheckoutState(val draft: Draft, val receipt: Receipt?, val pendingCount: Int,
-    val deliveries: Map<String, ReceiptDelivery> = emptyMap())
+    val deliveries: Map<String, ReceiptDelivery> = emptyMap(), val stockWarnings:List<String> = emptyList())
 sealed interface CheckoutResolution {
     data class Saved(val receipt: Receipt) : CheckoutResolution
     data object Unsaved : CheckoutResolution

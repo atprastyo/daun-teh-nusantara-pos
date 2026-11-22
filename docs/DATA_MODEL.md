@@ -201,3 +201,27 @@ Optional device-labels.sql adds public.device_labels(device_id PK/FK,manufacture
 model,updated_at). Direct client access is revoked and RLS enabled; narrow RPCs require
 own enrolled user/secret for reporting and live Owner/Manager outlet/target-role scope
 for reads. No existing devices columns, access versions, snapshots or Room schema change.
+
+## Optional manual outlet stock (19 November 2026)
+
+outlet-stock.sql adds public.outlet_stock_balances(outlet_id,product_id,quantity,
+revision,updated_at) and append-only public.outlet_stock_movements with unique operation
+UUID, ordered sequence, product/actor snapshots, previous/new quantity, signed delta,
+reason, device and UTC time. private.stock_operations stores canonical frozen request
+and acknowledgement for idempotency. Narrow approved-device Owner/Manager RPCs own
+all reads/writes; direct API table privileges are revoked and public RLS enabled.
+No automatic sale or catalog feed changes. Existing Roomv1/14 tables remain: exact
+snapshot pages and one unresolved command per full access scope use app_metadata.
+See OUTLET_STOCK.md; no migration/data reset or hosted deployment performed.
+
+## STOCK-02 stock intent and delivery (21 November2026)
+
+stock-auto-deduction.sql extends balances with count_generation/last_sale_operation
+and allows checked negative balances. Private stock_sale_operations binds sale UUID,
+actor/device/outlet, financial request hash, frozen intent and original result;
+stock_sale_lines tracks per-product APPLIED/REVIEW/SKIPPED state. Reconciliation uses
+existing private.stock_operations. Stock-capable feed supports STOCK and own-scoped
+STOCK_DELIVERY, with per-device bootstrap state. Base legacy feed remains compatible.
+Local Roomv1/14 tables remain: app_metadata retains stock.enabled, scoped balance
+projections, immutable stock.intent, pending consumption and own delivery markers.
+Financial outbox payload/receipt hashes and sale snapshots remain unchanged.

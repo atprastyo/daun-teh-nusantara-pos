@@ -1,7 +1,10 @@
 # Per-outlet stock movement plan
 
-17 November 2026 · planning only. Stock tracking is a newly requested scope beyond
-original catalog/MVP exclusions. No Android/schema/server implementation or deployment.
+17 November 2026 · original planning proposal. On19 November the user approved
+whole-product counts editable by Owner/Manager. The narrower implemented STOCK-01
+slice is documented in [OUTLET_STOCK.md](OUTLET_STOCK.md); that document supersedes
+broader first-milestone proposals below. No hosted deployment has been executed.
+Ingredient/recipe/automatic-consumption/transfer proposals remain planning only.
 
 ## Decisions to confirm
 
@@ -187,3 +190,57 @@ preference remains in force; implementation must explicitly address installed re
 sales/cache before any incompatible Room change. Never silently clear a working app
 or production database to introduce stock tables. Each milestone records schema,
 command/feed version compatibility, test outcomes and rollout/recovery limits.
+
+## Automatic product deduction request — 21 November 2026
+
+The user requested automatic deduction against each outlet's product stock. This is
+now the next requested STOCK-02 scope, rather than an optional inventory proposal.
+The existing STOCK-01 manual count implementation remains unchanged until the two
+checkout/rejected-sale policies below are answered. No ingredient recipes, modifier
+stock, transfer or costing scope is implied.
+
+Confirmed integration points from source review:
+
+- AuthenticatedCheckoutRepository.complete commits payment/sale, outbox and consumed
+  draft in one Room transaction. Persist immutable product consumption intent there,
+  grouped by product ID and sold quantity, alongside the existing sale operation UUID.
+  Cart edits and failed/cancelled payment must not consume stock.
+- RoomSyncRepository retains original sale payload/operation on retry and records
+  REVIEW separately from SYNCED. Stock delivery/review state must remain distinct:
+  a financially rejected paid sale is not proof that goods were returned.
+- submit_sale already atomically admits accepted sales, operation dedupe and the
+  SALE change feed. Extend its accepted/review paths only after the stock policy is
+  selected; a separate fire-and-forget deduction after upload is insufficient.
+- Keep outlet stock confirmed balance separate from local unconfirmed consumption.
+  Add narrowly scoped Cashier stock read access and durable outlet-shared delivery;
+  current management-only snapshot RPCs cannot support offline cashier availability.
+- Count corrections made while other devices have offline sales require a separate
+  count generation/reconciliation rule. Expected balance revision alone cannot tell
+  whether a physical count already included those goods; do not silently double-deduct
+  late uploads against a newer count baseline.
+- Define explicit cutover/old-client handling. Do not retroactively apply the new
+  feature to historical receipts or silently infer consumption for existing payloads.
+
+Pending business rules (questions sent to the user):
+
+1. Insufficient recorded stock: warn/allow with visible negative balances, or block
+   checkout against the device's available estimate. Strict cross-device availability
+   cannot be guaranteed offline. The existing nonnegative stock constraints must not
+   be relaxed without the selected policy.
+2. Changed-price rejected paid sales: consume stock while financial records await
+   review, or keep consumption unresolved until Owner/Manager reconciliation. Preserve
+   the user's existing strict financial rejection policy in either case.
+
+Next implementation begins after these answers, including protocol compatibility,
+local journal/cache/feed, manual count baseline handling, immutable sale-linked stock
+movements and offline/idempotency/rejection regressions. No runtime/SQL deployment,
+new deduction, data reset or Gradle check was performed by this review.
+
+## STOCK-02 policies selected and implemented —21 November2026
+
+The user selected warn/allow insufficient stock (negative balances visible) and
+continued stock consumption for paid changed-price rejected receipts, with financial
+review retained separately. These answers supersede the pending-business-rules block
+above. Implementation and rollout details are now in OUTLET_STOCK.md. Count-generation
+changes/untracked/legacy receipts require explicit reconciliation to avoid double
+consumption. Automatic ingredient recipes, transfers and costing remain unimplemented.

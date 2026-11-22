@@ -52,6 +52,9 @@ object StorageModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds @Singleton abstract fun stockGateway(implementation:AuthRepositoryImpl):com.dauntehnusantara.pos.feature.stock.domain.StockGateway
+    @Binds @Singleton abstract fun stockRepository(implementation:com.dauntehnusantara.pos.feature.stock.data.RoomStockRepository):com.dauntehnusantara.pos.feature.stock.domain.StockRepository
+
     @Binds @Singleton abstract fun printers(implementation:com.dauntehnusantara.pos.feature.printing.data.AndroidPrinterRepository):com.dauntehnusantara.pos.feature.printing.domain.PrinterRepository
 
     @Binds @Singleton abstract fun appearance(implementation:com.dauntehnusantara.pos.feature.settings.data.DataStoreAppearanceRepository):com.dauntehnusantara.pos.feature.settings.domain.AppearanceRepository

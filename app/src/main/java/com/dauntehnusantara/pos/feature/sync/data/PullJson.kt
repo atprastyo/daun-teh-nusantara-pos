@@ -16,7 +16,7 @@ internal object PullJson {
         return PullPage(scope, after, raw.getLong("next_seq"), raw.getBoolean("has_more"), (0 until a.length()).map {
             val c = a.getJSONObject(it)
             Change(c.getLong("seq"), c.getString("entity_type"), c.getString("entity_id"), c.getString("action"), c.getJSONObject("payload").toString())
-        }, raw.getString("feed_epoch").also { require(java.util.UUID.fromString(it).toString() == it) })
+        }, raw.getString("feed_epoch").also { require(java.util.UUID.fromString(it).toString() == it) },raw.optBoolean("stock_enabled",false))
     }
     // Canonical comparison ignores JSON object order/whitespace, preserves all receipt fields.
     fun canonical(value: Any?): String = when (value) {
